@@ -4,7 +4,13 @@
     <div class="main-content">
         <section class="section">
             <div class="section-header">
-                <h1>Chat Between {{ $sender->name }} & {{ $receiver->name }}</h1>
+                <h1>Chat Between {{ $sender->name ?? $sender->full_name }} & {{ $receiver->name ?? $receiver->full_name }}
+                </h1>
+                <div class="section-header-breadcrumb">
+                    <button type="button" class="btn btn-success" onclick="exportThisChat()">
+                        <i class="fas fa-download"></i> Export This Chat
+                    </button>
+                </div>
             </div>
 
             <div class="section-body">
@@ -24,23 +30,72 @@
                                     class="message-item d-flex mb-3 {{ $message->sender_id == $sender->id ? '' : 'justify-content-end' }}">
 
                                     @if ($message->sender_id == $sender->id)
-                                        <!-- Sender Message -->
-                                        <img src="{{ $message->sender->image ?? asset('assets/img/user.png') }}"
+                                        <!-- Sender Message (User) -->
+                                        <img src="{{ $sender->image_url ?? ($sender->profile_image_url ?? asset('assets/img/user.png')) }}"
                                             class="rounded-circle mr-2" style="width:40px;height:40px;object-fit:cover;">
                                         <div class="message-text-container bg-primary text-white p-2 rounded"
                                             style="max-width:70%;">
                                             <span class="message-text">{{ $message->message }}</span>
+
+                                            <!-- Display file if exists -->
+                                            @if ($message->file_path)
+                                                <div class="mt-2">
+                                                    @if (strpos($message->file_type, 'image/') !== false)
+                                                        <img src="{{ asset($message->file_path) }}"
+                                                            style="max-width: 200px; max-height: 200px; border-radius: 5px;">
+                                                    @elseif(strpos($message->file_type, 'video/') !== false)
+                                                        <video controls style="max-width: 200px;">
+                                                            <source src="{{ asset($message->file_path) }}">
+                                                        </video>
+                                                    @elseif(strpos($message->file_type, 'audio/') !== false)
+                                                        <audio controls>
+                                                            <source src="{{ asset($message->file_path) }}">
+                                                        </audio>
+                                                    @else
+                                                        <a href="{{ asset($message->file_path) }}" class="text-white"
+                                                            download>
+                                                            📎 {{ $message->file_name }}
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            @endif
+
                                             <br>
-                                            <small class="text-light">{{ $message->created_at->format('H:i, d M') }}</small>
+                                            <small
+                                                class="text-light">{{ $message->created_at->format('H:i, d M') }}</small>
                                         </div>
                                     @else
-                                        <!-- Receiver Message -->
+                                        <!-- Receiver Message (Provider) -->
                                         <div class="message-text-container bg-light p-2 rounded" style="max-width:70%;">
                                             <span class="message-text">{{ $message->message }}</span>
+
+                                            <!-- Display file if exists -->
+                                            @if ($message->file_path)
+                                                <div class="mt-2">
+                                                    @if (strpos($message->file_type, 'image/') !== false)
+                                                        <img src="{{ asset($message->file_path) }}"
+                                                            style="max-width: 200px; max-height: 200px; border-radius: 5px;">
+                                                    @elseif(strpos($message->file_type, 'video/') !== false)
+                                                        <video controls style="max-width: 200px;">
+                                                            <source src="{{ asset($message->file_path) }}">
+                                                        </video>
+                                                    @elseif(strpos($message->file_type, 'audio/') !== false)
+                                                        <audio controls>
+                                                            <source src="{{ asset($message->file_path) }}">
+                                                        </audio>
+                                                    @else
+                                                        <a href="{{ asset($message->file_path) }}" download>
+                                                            📎 {{ $message->file_name }}
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            @endif
+
                                             <br>
-                                            <small class="text-muted">{{ $message->created_at->format('H:i, d M') }}</small>
+                                            <small
+                                                class="text-muted">{{ $message->created_at->format('H:i, d M') }}</small>
                                         </div>
-                                        <img src="{{ $message->receiver->image ?? asset('assets/img/user.png') }}"
+                                        <img src="{{ $receiver->profile_image_url ?? asset('assets/img/user.png') }}"
                                             class="rounded-circle ml-2" style="width:40px;height:40px;object-fit:cover;">
                                     @endif
 
@@ -59,6 +114,16 @@
             </div>
         </section>
     </div>
+
+    <!-- Auto-scroll to bottom -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        });
+    </script>
 
     <!-- Live Search Script -->
     <script>
@@ -125,5 +190,34 @@
                 });
             }
         });
+    </script>
+
+    <script>
+        function exportThisChat() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route('chats.export') }}';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = '{{ csrf_token() }}';
+            form.appendChild(csrfInput);
+
+            const selectedInput = document.createElement('input');
+            selectedInput.type = 'hidden';
+            selectedInput.name = 'selected_chats';
+            selectedInput.value = JSON.stringify(['{{ $sender->id }}_{{ $receiver->id }}']);
+            form.appendChild(selectedInput);
+
+            const typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = 'export_type';
+            typeInput.value = 'selected';
+            form.appendChild(typeInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
     </script>
 @endsection

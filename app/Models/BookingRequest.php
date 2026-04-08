@@ -13,6 +13,7 @@ class BookingRequest extends Model
         'shopkeeper_id',
         'user_id',
         'request_id',
+        'order_no',
         'price',
         'cash_on_delivery',
         'payment_type',

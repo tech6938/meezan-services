@@ -2,17 +2,100 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\{BookingRequest, Role, ServiceRequest, User};
+use App\Models\Tax;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Auth, Hash, Mail};
-use App\Models\{Role, User};
-use App\Models\Tax;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
 
-    function dashboard()
+    public function dashboard(Request $request)
     {
-        return view('dashboard');
+        // Get date range from request
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Base queries for stats
+        $completeBookingsQuery = BookingRequest::where('status', 'complete_booking');
+        $NewBookingsQuery = BookingRequest::where('status', 'pending');
+        $customers = User::count() ?? 0;
+        $totalRequests = ServiceRequest::count() ?? 0;
+
+        // Apply date filter to booking counts
+        if ($startDate && $endDate) {
+            $completeBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+            $NewBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+        }
+
+        $completeBookings = $completeBookingsQuery->count();
+        $NewBookings = $NewBookingsQuery->count();
+
+        // Get most booked categories (where assigned = 1)
+        $mostBookedCategories = $this->getMostBookedCategories($startDate, $endDate);
+
+        // Get most booked subcategories (where assigned = 1)
+        $mostBookedSubcategories = $this->getMostBookedSubcategories($startDate, $endDate);
+
+        return view('dashboard', compact(
+            'completeBookings',
+            'NewBookings',
+            'customers',
+            'totalRequests',
+            'mostBookedCategories',
+            'mostBookedSubcategories',
+            'startDate',
+            'endDate'
+        ));
+    }
+
+    private function getMostBookedCategories($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::join('service_requests', 'booking_requests.request_id', '=', 'service_requests.id')
+            ->join('main_categories', 'service_requests.cat_id', '=', 'main_categories.id')
+            ->where('booking_requests.assigned', 1)
+            ->select(
+                'main_categories.id',
+                'main_categories.name',
+                'main_categories.urdu_name',
+                'main_categories.image',
+                DB::raw('COUNT(booking_requests.id) as total_bookings')
+            )
+            ->groupBy('main_categories.id', 'main_categories.name', 'main_categories.urdu_name', 'main_categories.image')
+            ->orderBy('total_bookings', 'DESC')
+            ->limit(10);
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('booking_requests.created_at', [$startDate, $endDate . ' 23:59:59']);
+        }
+
+        return $query->get();
+    }
+
+    private function getMostBookedSubcategories($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::join('service_requests', 'booking_requests.request_id', '=', 'service_requests.id')
+            ->join('sub_categories', 'service_requests.subcat_id', '=', 'sub_categories.id')
+            ->join('main_categories', 'sub_categories.cat_id', '=', 'main_categories.id')
+            ->where('booking_requests.assigned', 1)
+            ->select(
+                'sub_categories.id',
+                'sub_categories.name',
+                'sub_categories.urdu_name',
+                'sub_categories.image',
+                'main_categories.name as category_name',
+                DB::raw('COUNT(booking_requests.id) as total_bookings')
+            )
+            ->groupBy('sub_categories.id', 'sub_categories.name', 'sub_categories.urdu_name', 'sub_categories.image', 'main_categories.name')
+            ->orderBy('total_bookings', 'DESC')
+            ->limit(10);
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('booking_requests.created_at', [$startDate, $endDate . ' 23:59:59']);
+        }
+
+        return $query->get();
     }
 
     // signup

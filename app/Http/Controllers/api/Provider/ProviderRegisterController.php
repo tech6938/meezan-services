@@ -153,17 +153,8 @@ class ProviderRegisterController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Provider registered successfully',
-                'data' => [
-                    'id' => $provider->id,
-                    'token' => $token,
-                    'full_name' => $provider->full_name,
-                    'phone' => $provider->phone,
-                    'email' => $provider->email,
-                    'profile_image_url' => $profileImageUrl,
-                    'id_front_url' => $idFrontUrl,
-                    'id_back_url' => $idBackUrl,
-                    'services' => $servicesData,
-                ]
+                'token' => $token,
+                'data' => $provider
             ], 201);
         } catch (\Exception $e) {
 
@@ -332,7 +323,7 @@ class ProviderRegisterController extends Controller
 
             $profileImageName = time() . '_profile.' . $request->profile_image->getClientOriginalExtension();
             $request->profile_image->move(public_path('profiles'), $profileImageName);
-            $provider->profile_image = $baseUrl . '/profiles/' . $profileImageName;
+            $provider->profile_image = $profileImageName;
         }
 
         // ---- ID FRONT ----
@@ -414,14 +405,15 @@ class ProviderRegisterController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Profile updated successfully',
+            // 'data' => $provider
             'data' => [
                 'id' => $provider->id,
                 'full_name' => $provider->full_name,
                 'phone' => $provider->phone,
                 'email' => $provider->email,
-                'profile_image_url' => $provider->profile_image,
-                'id_front_url' => $provider->id_front,
-                'id_back_url' => $provider->id_back,
+                'profile_image_url' => $provider->profile_image_url,
+                'id_front_url' => $provider->id_front_url,
+                'id_back_url' => $provider->id_back_url,
                 'services' => $provider->services,
             ]
         ], 200);

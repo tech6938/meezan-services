@@ -11,7 +11,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
+    use HasFactory, Notifiable, HasApiTokens;
+    // use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
 
     protected $fillable = [
         'phone',
@@ -37,17 +38,18 @@ class User extends Authenticatable
         ];
     }
 
-    // ✅ IMAGE ACCESSOR (returns full URL)
-    protected function image(): Attribute
+    protected $appends = ['image_url'];
+
+    protected function imageUrl(): Attribute
     {
         return Attribute::make(
-            get: fn($value) =>
-            $value ? asset('storage/' . $value) : null
+            get: fn() => $this->image
+                ? url('profiles/' . $this->image)
+                : null
         );
     }
 
-    // ✅ RELATIONS
-    // Files the user sent
+
     public function sentFiles()
     {
         return $this->hasMany(Upload::class, 'sender_id');
@@ -73,24 +75,23 @@ class User extends Authenticatable
 
     // User.php
 
-// All service requests made by this user
-public function serviceRequests()
-{
-    return $this->hasMany(ServiceRequest::class, 'user_id');
-}
+    // All service requests made by this user
+    public function serviceRequests()
+    {
+        return $this->hasMany(ServiceRequest::class, 'user_id');
+    }
 
-// All bookings associated with the user's service requests
-public function bookings()
-{
-    // through the ServiceRequest model
-    return $this->hasManyThrough(
-        BookingRequest::class,
-        ServiceRequest::class,
-        'user_id',      // Foreign key on ServiceRequest table...
-        'request_id',   // Foreign key on BookingRequest table...
-        'id',           // Local key on User table
-        'id'            // Local key on ServiceRequest table
-    );
-}
-
+    // All bookings associated with the user's service requests
+    public function bookings()
+    {
+        // through the ServiceRequest model
+        return $this->hasManyThrough(
+            BookingRequest::class,
+            ServiceRequest::class,
+            'user_id',      // Foreign key on ServiceRequest table...
+            'request_id',   // Foreign key on BookingRequest table...
+            'id',           // Local key on User table
+            'id'            // Local key on ServiceRequest table
+        );
+    }
 }

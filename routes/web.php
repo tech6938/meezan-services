@@ -40,6 +40,7 @@ Route::controller(AuthController::class)->group(function () {
     // for chat list
     Route::get('/chat-list',  [ChatsController::class, 'chatsList'])->name('chatsList');
     Route::get('/chats/{sender_id}/{receiver_id}', [ChatsController::class, 'chatBetween'])->name('chats.between');
+    Route::post('/admin/chats/export', [ChatsController::class, 'exportSelectedChats'])->name('chats.export');
 
     /*
 |--------------------------------------------------------------------------
@@ -91,6 +92,8 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/start-bookings', 'startBooking')->name('startBooking');
         Route::get('/end-bookings', 'endBooking')->name('endBooking');
         Route::get('/cancel-bookings', 'cancelBooking')->name('cancelBooking');
+        Route::get('/booking-chat/{status}/{user_id}/{provider_id}', 'chatBetweenBooking')
+        ->name('booking.chat');
 
         // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');

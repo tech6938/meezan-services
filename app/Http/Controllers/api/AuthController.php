@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\api;
 
-use App\Models\User;
-use App\Models\FCMToken;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\FCMToken;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\HttpCache\Store;
 
 class AuthController extends Controller
@@ -29,7 +30,7 @@ class AuthController extends Controller
             $user = User::create([
                 'name'      => $request->name,
                 'phone'     => $request->phone,
-                'password'  => Hash::make($request->password), // 🔐 Hashing password
+                'password'  => Hash::make($request->password),
                 'device_id' => $request->device_id,
             ]);
 
@@ -147,19 +148,23 @@ class AuthController extends Controller
                 'image' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048', // max 2MB
             ]);
 
-            // Handle file upload if provided
             if ($request->hasFile('image')) {
-                // Delete old image if exists
-                if ($user->image && Storage::disk('public')->exists($user->image)) {
-                    Storage::disk('public')->delete($user->image);
+
+                if (!File::exists(public_path('profiles'))) {
+                    File::makeDirectory(public_path('profiles'), 0755, true);
                 }
 
-                // Store new image and save path
-                $path = $request->file('image')->store('new', 'public');
-                $user->image = $path;
+                if ($user->image && File::exists(public_path('profiles/' . $user->image))) {
+                    File::delete(public_path('profiles/' . $user->image));
+                }
+
+                // Store new image
+                $imageName = time() . '_user.' . $request->image->getClientOriginalExtension();
+                $request->image->move(public_path('profiles'), $imageName);
+
+                $user->image = $imageName;
             }
 
-            // Update other fields if provided
             if ($request->filled('name')) {
                 $user->name = $request->name;
             }
@@ -172,7 +177,7 @@ class AuthController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Profile updated successfully',
-                'data' => $user, // accessor will automatically give full image URL
+                'data' => $user,
             ]);
         } catch (\Exception $e) {
             return response()->json([

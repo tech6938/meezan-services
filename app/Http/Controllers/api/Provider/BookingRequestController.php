@@ -74,17 +74,8 @@ class BookingRequestController extends Controller
                 ], 400);
             }
 
-            // // Check if provider already has an active booking (pending or in_progress)
-            // $hasActiveBooking = BookingRequest::where('provider_id', $validated['provider_id'])
-            //     ->whereIn('status', ['pending', 'in_progress'])
-            //     ->exists();
 
-            // if ($hasActiveBooking) {
-            //     return response()->json([
-            //         'status'  => false,
-            //         'message' => 'You already have an active booking request',
-            //     ], 400);
-            // }
+            $orderNo = now()->format('YmdHis') . random_int(10, 99);
 
             $serviceRequest = ServiceRequest::findOrFail($validated['request_id']);
 
@@ -95,6 +86,7 @@ class BookingRequestController extends Controller
                 'user_id'       => $serviceRequest->user_id,
                 'status'        => 'pending',
                 'req_status'    => 'accept',
+                'order_no'    => $orderNo,
                 'cancel_reason' => null,
             ]);
 

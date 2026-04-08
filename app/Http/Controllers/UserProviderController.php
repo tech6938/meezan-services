@@ -18,6 +18,7 @@ class UserProviderController extends Controller
     public function userList()
     {
         $data = User::all();
+        // return $data;
         return view('user.user-list', compact('data'));
     }
 
@@ -43,13 +44,13 @@ class UserProviderController extends Controller
 
     public function userDestroy($id)
     {
-        $shopKeeper = User::findOrFail($id);
+        $user = User::findOrFail($id);
 
-        // if ($shopKeeper->bookingRequests()->exists()) {
+        // if ($user->bookingRequests()->exists()) {
         //     return redirect()->back()->with('error', 'Cannot delete provider with bookings.');
         // }
 
-        $shopKeeper->delete();
+        $user->delete();
 
         return redirect()->back()->with('success', 'User deleted successfully.');
     }

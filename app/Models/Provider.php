@@ -26,6 +26,33 @@ class Provider extends Authenticatable
     protected $casts = [
         'services' => 'array',
     ];
+
+    protected $appends = [
+        'profile_image_url',
+        'id_front_url',
+        'id_back_url',
+    ];
+
+    public function getProfileImageUrlAttribute()
+    {
+        return $this->profile_image
+            ? url('profiles/' . $this->profile_image)
+            : null;
+    }
+
+    public function getIdFrontUrlAttribute()
+    {
+        return $this->id_front
+            ? url('documents/' . $this->id_front)
+            : null;
+    }
+
+    public function getIdBackUrlAttribute()
+    {
+        return $this->id_back
+            ? url('documents/' . $this->id_back)
+            : null;
+    }
     public function mainCategories()
     {
         return $this->belongsToMany(MainCategory::class, 'provider_skills');

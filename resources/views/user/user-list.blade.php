@@ -174,14 +174,14 @@
                                                                 <i data-feather="refresh-cw"></i>
                                                             </button>
 
-                                                            {{-- <form
+                                                            <form
                                                                 action="{{ route('user.destroy', ['id' => $user->id]) }}"
                                                                 method="POST" class="p-1">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="btn btn-danger"><i
                                                                         data-feather="trash-2"></i></button>
-                                                            </form> --}}
+                                                            </form>
                                                         </td>
                                                     </tr>
                                                 @endforeach

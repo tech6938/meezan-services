@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\BookingRequest;
+use App\Models\Chat;
+use App\Models\Provider;
+use App\Models\User;
+use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
-    // pendingBooking 
+    // pendingBooking
     public function pendingBooking()
     {
         $data = BookingRequest::with('provider')->where('status', 'pending')->get();
         return view('booking.pending', compact('data'));
     }
-    // acceptedbooking 
+    // acceptedbooking
     public function startBooking()
     {
         $data = BookingRequest::with('provider')->where('status', 'start')->get();
@@ -26,7 +29,7 @@ class BookingController extends Controller
         $data = BookingRequest::with('provider')->where('status', 'end')->get();
         return view('booking.end', compact('data'));
     }
-    // bookingStatusUpdate 
+    // bookingStatusUpdate
     public function bookingStatusUpdate(Request $request)
     {
         $request->validate([
@@ -40,17 +43,45 @@ class BookingController extends Controller
 
         return redirect()->back()->with('success', 'Booking status updated successfully!');
     }
-    // all 
+    // all
     // BookingController.php
     public function allBookings()
     {
         $data = BookingRequest::with('provider')->get(); // Include provider relationship
         return view('booking.allbookings', compact('data'));
     }
-    //cancel booking 
+    //cancel booking
     public function cancelBooking()
     {
-        $data = BookingRequest::with('provider')->where('status','cancel')->get(); // Include provider relationship
+        $data = BookingRequest::with('provider')->where('status', 'cancel')->get(); // Include provider relationship
         return view('booking.cancel', compact('data'));
+    }
+
+    public function chatBetweenBooking($status, $user_id, $provider_id)
+    {
+        // Get booking based on status (optional but recommended)
+        $booking = BookingRequest::where('user_id', $user_id)
+            ->where('provider_id', $provider_id)
+            ->where('status', $status)
+            ->first();
+
+        // If booking not found, still allow chat (optional logic)
+
+        $messages = Chat::where(function ($q) use ($user_id, $provider_id) {
+            $q->where('sender_id', $user_id)
+                ->where('receiver_id', $provider_id);
+        })
+            ->orWhere(function ($q) use ($user_id, $provider_id) {
+                $q->where('sender_id', $provider_id)
+                    ->where('receiver_id', $user_id);
+            })
+            ->with(['sender', 'receiver'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $sender = User::find($user_id);
+        $receiver = Provider::find($provider_id);
+
+        return view('booking.chat', compact('messages', 'sender', 'receiver', 'status'));
     }
 }
