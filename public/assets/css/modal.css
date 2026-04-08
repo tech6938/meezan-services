@@ -1,0 +1,281 @@
+/* Modal background */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+/* Modal content box */
+.modal-content {
+    background-color: #fff;
+    margin: 12% auto;
+    padding: 25px 30px;
+    border-radius: 15px;
+    width: 350px;
+    max-width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+    animation: fadeInUp 0.4s ease;
+}
+
+/* Animation */
+@keyframes fadeInUp {
+    0% {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Close button */
+.close {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #e74c3c;
+}
+
+/* Modal header */
+.modal-content h3 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Dropdown styling */
+select {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1.5px solid #ccc;
+    background: #f9f9f9;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7L10 12L15 7' stroke='%23333' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+}
+
+select:focus {
+    border-color: #4caf50;
+    outline: none;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.3);
+}
+
+/* Save button */
+button#saveBtn {
+    width: 100%;
+    padding: 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(90deg, #4caf50, #43a047);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+}
+
+button#saveBtn:hover {
+    background: linear-gradient(90deg, #43a047, #388e3c);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* View Modal Background */
+#viewModal {
+    display: none;
+    position: fixed;
+    z-index: 1100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+/* View Modal Content */
+#viewModal .modal-content.view-modal {
+    background-color: #fff;
+    margin: 8% auto;
+    padding: 30px 25px;
+    border-radius: 20px;
+    width: 400px;
+    max-width: 95%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    animation: slideInDown 0.4s ease;
+}
+
+/* Modal animation */
+@keyframes slideInDown {
+    0% {
+        transform: translateY(-40px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Close buttons */
+#viewModal .close,
+#viewModal .viewCloseBtn {
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#viewModal .close {
+    position: absolute;
+    top: 15px;
+    right: 18px;
+    font-size: 22px;
+    color: #888;
+}
+
+#viewModal .close:hover {
+    color: #e74c3c;
+}
+
+.viewCloseBtn {
+    display: inline-block;
+    margin-top: 25px;
+    padding: 10px 25px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    background: #6c757d;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.viewCloseBtn:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+/* Header styles */
+#viewModal .view-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+#viewModal .view-header .avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #f1f1f1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    font-size: 30px;
+    color: #4caf50;
+}
+
+#viewModal .view-header h3 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+#viewModal .view-header .status-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 12px;
+    color: #fff;
+    margin-top: 5px;
+}
+
+/* Status colors */
+.status-badge.approved {
+    background-color: #4caf50;
+}
+
+.status-badge.blocked {
+    background-color: #e74c3c;
+}
+
+.status-badge.suspend {
+    background-color: #f39c12;
+}
+
+.status-badge.pending {
+    background-color: #3498db;
+}
+
+/* Body info rows */
+#viewModal .view-body {
+    text-align: left;
+}
+
+#viewModal .view-body .info-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    font-size: 15px;
+    color: #555;
+}
+
+#viewModal .view-body .info-row i {
+    font-size: 18px;
+    margin-right: 12px;
+    color: #4caf50;
+}
+
+#viewModal .view-body .info-row span {
+    flex: 1;
+}
+
+/* Services badges */
+#viewModal .view-body .badge {
+    display: inline-block;
+    padding: 5px 10px;
+    font-size: 13px;
+    border-radius: 12px;
+    background: #f1f1f1;
+    color: #333;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
