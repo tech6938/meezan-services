@@ -4,7 +4,10 @@
     <div class="main-content">
         <section class="section">
             <div class="section-header">
-                <h1>Chat Between {{ $sender->name ?? $sender->full_name }} & {{ $receiver->name ?? $receiver->full_name }}
+                <h1><a href="{{ url()->previous() }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    Chat Between {{ $sender->name ?? $sender->full_name }} & {{ $receiver->name ?? $receiver->full_name }}
                 </h1>
                 <div class="section-header-breadcrumb">
                     <button type="button" class="btn btn-success" onclick="exportThisChat()">

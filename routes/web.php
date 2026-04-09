@@ -1,13 +1,14 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Middleware\AuthMiddleware;
 use App\Http\Controllers\{AuthController, BookingController, MainCategoryController, SettingController, SubCategoryController, TaxController, VolunteerController};
 use App\Http\Controllers\api\RatingController;
-use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\ChatsController;
-use App\Http\Controllers\UserProviderController;
+use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\UserProviderController;
+use App\Http\Middleware\AuthMiddleware;
+use Illuminate\Support\Facades\Route;
 // dash
 Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
@@ -90,10 +91,10 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/all-bookings', 'allBookings')->name('allBookings');
         Route::get('/pending-bookings', 'pendingBooking')->name('pendingBooking');
         Route::get('/start-bookings', 'startBooking')->name('startBooking');
-        Route::get('/end-bookings', 'endBooking')->name('endBooking');
+        Route::get('/complete-bookings', 'endBooking')->name('endBooking');
         Route::get('/cancel-bookings', 'cancelBooking')->name('cancelBooking');
-        Route::get('/booking-chat/{status}/{user_id}/{provider_id}', 'chatBetweenBooking')
-        ->name('booking.chat');
+        Route::get('/booking-chat/{status}/{user_id}/{provider_id}', 'chatBetweenBooking')->name('booking.chat');
+        Route::get('/booking-detail/{booking_id}', 'bookingDetail')->name('booking.detail');
 
         // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');
@@ -109,6 +110,9 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/tax', 'index')->name('tax.index');
         Route::post('/tax', 'store')->name('tax.store');
     });
+    Route::resource('commission', CommissionController::class);
+
+    Route::get('/get-subcategories/{id}', [CommissionController::class, 'getSubCategories']);
 
     /*
 |--------------------------------------------------------------------------

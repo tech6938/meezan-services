@@ -29,7 +29,7 @@
 
                                     @if ($isSender)
                                         <!-- Sender Message -->
-                                        <img src="{{ $message->sender->image ?? asset('assets/img/user.png') }}"
+                                        <img src="{{ $message->sender->image_url ?? ($message->sender->profile_image_url ?? asset('assets/img/user.png'))}}"
                                             class="rounded-circle mr-2" style="width:40px;height:40px;object-fit:cover;">
 
                                         <div class="message-text-container bg-primary text-white p-2 rounded"
@@ -52,7 +52,7 @@
                                             </small>
                                         </div>
 
-                                        <img src="{{ $message->receiver->image ?? asset('assets/img/user.png') }}"
+                                        <img src="{{ $message->receiver->image_url ?? ($message->receiver->profile_image_url ?? asset('assets/img/user.png')) }}"
                                             class="rounded-circle ml-2" style="width:40px;height:40px;object-fit:cover;">
                                     @endif
 

@@ -10,23 +10,31 @@ use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
-    // pendingBooking
     public function pendingBooking()
     {
-        $data = BookingRequest::with('provider')->where('status', 'pending')->get();
+        $data = BookingRequest::with(['provider', 'shopkeeper'])
+            ->where('status', 'pending')
+            ->get();
+
         return view('booking.pending', compact('data'));
     }
     // acceptedbooking
     public function startBooking()
     {
-        $data = BookingRequest::with('provider')->where('status', 'start')->get();
+        $data = BookingRequest::with(['provider', 'shopkeeper'])
+            ->where('status', 'in_progress')
+            ->get();
+
         return view('booking.start', compact('data'));
     }
 
     // cancelbooking
     public function endBooking()
     {
-        $data = BookingRequest::with('provider')->where('status', 'end')->get();
+        $data = BookingRequest::with(['provider', 'shopkeeper'])
+            ->where('status', 'complete_booking')
+            ->get();
+
         return view('booking.end', compact('data'));
     }
     // bookingStatusUpdate
@@ -34,7 +42,7 @@ class BookingController extends Controller
     {
         $request->validate([
             'booking_id' => 'required|exists:booking_requests,id',
-            'status' => 'required|in:pending,end,start,cancel',
+            'status' => 'required|in:pending,in_progress,complete_booking,cancel',
         ]);
 
         $booking = BookingRequest::find($request->booking_id);
@@ -44,28 +52,31 @@ class BookingController extends Controller
         return redirect()->back()->with('success', 'Booking status updated successfully!');
     }
     // all
-    // BookingController.php
     public function allBookings()
     {
-        $data = BookingRequest::with('provider')->get(); // Include provider relationship
+        $data = BookingRequest::with(['provider', 'shopkeeper'])->get();
         return view('booking.allbookings', compact('data'));
     }
     //cancel booking
     public function cancelBooking()
     {
-        $data = BookingRequest::with('provider')->where('status', 'cancel')->get(); // Include provider relationship
+        $data = BookingRequest::with(['provider', 'shopkeeper'])
+            ->where('status', 'cancel')
+            ->get();
+
         return view('booking.cancel', compact('data'));
     }
 
+
     public function chatBetweenBooking($status, $user_id, $provider_id)
     {
-        // Get booking based on status (optional but recommended)
         $booking = BookingRequest::where('user_id', $user_id)
-            ->where('provider_id', $provider_id)
+            ->where(function ($q) use ($provider_id) {
+                $q->where('provider_id', $provider_id)
+                    ->orWhere('shopkeeper_id', $provider_id);
+            })
             ->where('status', $status)
             ->first();
-
-        // If booking not found, still allow chat (optional logic)
 
         $messages = Chat::where(function ($q) use ($user_id, $provider_id) {
             $q->where('sender_id', $user_id)
@@ -80,8 +91,31 @@ class BookingController extends Controller
             ->get();
 
         $sender = User::find($user_id);
-        $receiver = Provider::find($provider_id);
+
+        // ✅ FIXED RECEIVER LOGIC
+        if ($booking && $booking->provider_id) {
+            $receiver = $booking->provider;
+        } else {
+            $receiver = $booking->shopkeeper ?? null;
+        }
 
         return view('booking.chat', compact('messages', 'sender', 'receiver', 'status'));
+    }
+
+    public function bookingDetail($booking_id)
+    {
+        $booking = BookingRequest::with([
+            'user',
+            'provider',
+            'shopkeeper',
+            'serviceRequest.category',
+            'serviceRequest.subCategory',
+            'serviceRequest.address',
+        ])->findOrFail($booking_id);
+
+        // Receiver is provider if exists, otherwise shopkeeper
+        $receiver = $booking->provider ?? $booking->shopkeeper;
+
+        return view('booking.detail', compact('booking', 'receiver'));
     }
 }

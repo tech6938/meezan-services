@@ -107,11 +107,6 @@
                                                     </td>
                                                     <td>{{ $booking->cash_on_delivery == 0 ? 'Online' : 'Cash on Delivery' }}
                                                     </td>
-                                                    {{-- <td>
-                                                <div class="badge {{ $booking->status == 'pending' ? 'badge-info' : 'badge-warning' }}">
-                                                    {{ ucfirst($booking->status) }}
-                                                </div>
-                                            </td> --}}
                                                     <td>
                                                         @php
                                                             $statusClasses = [
@@ -135,21 +130,26 @@
                                                         </div>
                                                     </td>
 
-                                                   <td>
-    <button class="btn btn-primary openModalBtn"
-        data-provider-id="{{ $booking->id }}"
-        data-current-status="{{ $booking->status }}">
-        <i data-feather="refresh-cw"></i>
-    </button>
+                                                    <td>
+                                                        <button class="btn btn-primary openModalBtn"
+                                                            data-booking-id="{{ $booking->id }}"
+                                                            data-current-status="{{ $booking->status }}">
+                                                            <i data-feather="refresh-cw"></i>
+                                                        </button>
 
-    <a href="{{ route('booking.chat', [
-        'status' => $booking->status,
-        'user_id' => $booking->user_id,
-        'provider_id' => $booking->provider_id
-    ]) }}" class="btn btn-dark">
-        <i data-feather="eye"></i>
-    </a>
-</td>
+                                                        <a href="{{ route('booking.chat', [
+                                                            'status' => $booking->status,
+                                                            'user_id' => $booking->user_id,
+                                                            'provider_id' => $booking->provider_id ?? $booking->shopkeeper_id,
+                                                        ]) }}"
+                                                            class="btn btn-primary">
+                                                            <i class="fas fa-comments"></i>
+                                                        </a>
+                                                        <a href="{{ route('booking.detail', $booking->id) }}"
+                                                            class="btn btn-dark">
+                                                            <i data-feather="eye"></i>
+                                                        </a>
+                                                    </td>
                                                 </tr>
                                             @endforeach
                                         </tbody>

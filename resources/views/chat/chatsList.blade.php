@@ -92,7 +92,7 @@
                                                     <div class="ml-3">
                                                         <a href="{{ route('chats.between', ['sender_id' => $chat->sender->id, 'receiver_id' => $chat->receiver->id]) }}"
                                                             class="btn btn-info btn-sm">
-                                                            View Details
+                                                            <i class="fas fa-comments"></i>
                                                         </a>
                                                     </div>
                                                 </div>
