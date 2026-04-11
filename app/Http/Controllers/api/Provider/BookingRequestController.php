@@ -4,15 +4,27 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingRequest;
+use App\Models\Commission;
 use App\Models\ServiceRequest;
 use App\Models\SubCategory;
+use App\Models\Wallet;
+use App\Services\CommissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 
 class BookingRequestController extends Controller
 {
+
+    protected $commissionService;
+
+    public function __construct(CommissionService $commissionService)
+    {
+        $this->commissionService = $commissionService;
+    }
 
     //provider accept request
     // public function providerAcceptRequest(Request $request)
@@ -899,8 +911,7 @@ class BookingRequestController extends Controller
                     $booking->cancel_by = 'provider';
                     $booking->cancel_reason = $validated['cancel_reason'];
                 }
-            }
-            elseif ($authUser->id === $booking->user_id) {
+            } elseif ($authUser->id === $booking->user_id) {
 
                 if ($validated['status'] !== 'cancel') {
                     return response()->json([
@@ -912,7 +923,7 @@ class BookingRequestController extends Controller
                 $booking->status = 'cancel';
                 $booking->cancel_by = 'user';
                 $booking->cancel_reason = $validated['cancel_reason'];
-            }else {
+            } else {
                 return response()->json([
                     'status' => false,
                     'message' => 'Unauthorized to update this booking'
@@ -960,30 +971,147 @@ class BookingRequestController extends Controller
                 'booking_id'    => 'required|integer|exists:booking_requests,id',
                 'status'        => 'required|string|in:complete_booking',
                 'payment_type'  => 'required|string|in:cash',
+                'price'         => 'nullable',
             ]);
 
+            DB::beginTransaction();
+
             $booking = BookingRequest::find($validated['booking_id']);
+
+            // Check if booking is already completed
+            if ($booking->status === 'complete_booking') {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Booking is already completed.'
+                ], 400);
+            }
+
+            // Update booking status
             $booking->status = $validated['status'];
             $booking->payment_type = $validated['payment_type'];
+            $booking->price = $validated['price'];
             $booking->save();
+
+            // Process commission deduction
+            $commissionResult = $this->commissionService->processCommissionDeduction($booking);
+
+            if (!$commissionResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Commission deduction failed: ' . $commissionResult['message'],
+                    'data' => [
+                        'booking_id' => $booking->id,
+                        'status' => $booking->status
+                    ]
+                ], 500);
+            }
+
+            DB::commit();
 
             // Prepare response data
             $responseData = [
                 'booking_id' => $booking->id,
-                'payment_type' => $booking->payment_type,
-                'status'     => $booking->status,
+                'price' => $booking->price,
+                'status' => $booking->status,
+                // 'payment_type' => $booking->payment_type,
+                // 'commission_deducted' => $commissionResult['commission_deducted'],
+                // 'wallet_balance' => $commissionResult['new_balance'],
+                // 'message' => $commissionResult['message']
             ];
+
             return response()->json([
-                'status'  => true,
-                'message' => 'Booking status updated successfully',
-                'data'    => $responseData
+                'status' => true,
+                'message' => 'Booking completed and commission deducted successfully',
+                'data' => $responseData
             ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Booking completion failed: ' . $e->getMessage(), [
+                'booking_id' => $request->booking_id ?? null,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while completing the booking: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Optional: Get commission details for a booking (for preview before completion)
+     */
+    public function getCommissionDetails(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'booking_id' => 'required|integer|exists:booking_requests,id'
+            ]);
+
+            $booking = BookingRequest::find($validated['booking_id']);
+            $serviceRequest = $booking->serviceRequest;
+
+            if (!$serviceRequest) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Service request not found'
+                ], 404);
+            }
+
+            $commission = Commission::where('sub_category_id', $serviceRequest->subcat_id)->first();
+
+            if (!$commission) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'No commission defined for this service',
+                    'data' => [
+                        'has_commission' => false,
+                        'commission_amount' => 0
+                    ]
+                ]);
+            }
+
+            $commissionAmount = $commission->type === 'percentage'
+                ? ($commission->amount / 100) * $booking->price
+                : $commission->amount;
+
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'has_commission' => true,
+                    'commission_type' => $commission->type,
+                    'commission_rate' => $commission->amount,
+                    'booking_price' => $booking->price,
+                    'commission_amount' => $commissionAmount,
+                    'wallet_balance_after' => $this->getWalletBalance($booking) - $commissionAmount
+                ]
+            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'status' => 'false',
-                'message' => $e->getMessage(),
-            ]);
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
+    }
+
+    private function getWalletBalance($booking)
+    {
+        if ($booking->provider_id) {
+            $wallet = Wallet::where('provider_id', $booking->provider_id)->first();
+        } elseif ($booking->shopkeeper_id) {
+            $wallet = Wallet::where('shopkeeper_id', $booking->shopkeeper_id)->first();
+        } else {
+            return 0;
+        }
+
+        return $wallet ? $wallet->amount : 0;
     }
 
 

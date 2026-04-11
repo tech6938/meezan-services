@@ -33,7 +33,7 @@
                                 <i data-feather="maximize"></i>
                             </a></li>
                         <li>
-                            <form class="form-inline mr-auto">
+                            {{-- <form class="form-inline mr-auto">
                                 <div class="search-element">
                                     <input class="form-control" type="search" placeholder="Search" aria-label="Search"
                                         data-width="200">
@@ -41,7 +41,7 @@
                                         <i class="fas fa-search"></i>
                                     </button>
                                 </div>
-                            </form>
+                            </form> --}}
                         </li>
                     </ul>
                 </div>
@@ -67,11 +67,13 @@
                     </li>
                 </ul>
             </nav>
+
             <div class="main-sidebar sidebar-style-2">
                 <aside id="sidebar-wrapper">
                     <div class="sidebar-brand">
-                        <a href="{{ route('dashboard') }}"> <img alt="image" src="{{ asset('assets/img/logo.png') }}"
-                                class="header-logo" /> <span class="logo-name">Otika</span>
+                        <a href="{{ route('dashboard') }}"> <img alt="image"
+                                src="{{ asset('assets/img/logo.png') }}" class="header-logo" /> <span
+                                class="logo-name">Otika</span>
                         </a>
                     </div>
                     <ul class="sidebar-menu">
@@ -254,7 +256,6 @@
             });
         });
     </script>
-
 </body>
 <!-- index.html  21 Nov 2019 03:47:04 GMT -->
 

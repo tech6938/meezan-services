@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{BookingRequest, Role, ServiceRequest, User};
+use App\Models\Setting;
 use App\Models\Tax;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Auth, Hash, Mail};
@@ -22,6 +23,9 @@ class AuthController extends Controller
         $NewBookingsQuery = BookingRequest::where('status', 'pending');
         $customers = User::count() ?? 0;
         $totalRequests = ServiceRequest::count() ?? 0;
+        $totalCommission = DB::table('commission_logs')->sum('commission_deducted') ?? 0;
+        $setting = Setting::first();
+        $appIsOn = $setting ? $setting->appIsOn : 1;
 
         // Apply date filter to booking counts
         if ($startDate && $endDate) {
@@ -43,10 +47,12 @@ class AuthController extends Controller
             'NewBookings',
             'customers',
             'totalRequests',
+            'totalCommission',
             'mostBookedCategories',
             'mostBookedSubcategories',
             'startDate',
-            'endDate'
+            'endDate',
+            'appIsOn',
         ));
     }
 

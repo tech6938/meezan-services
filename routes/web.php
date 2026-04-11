@@ -136,6 +136,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::controller(SettingController::class)->group(function () {
         Route::get('/appUrl', 'appUrl')->name('appUrl.index');
         Route::post('/appUrl/store', 'appUrlStore')->name('appUrl.store');
+        Route::post('app/is', 'appIsOn')->name('settings.appIsOn');
         Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
     });
 });
