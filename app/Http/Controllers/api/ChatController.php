@@ -13,6 +13,12 @@ use Illuminate\Validation\ValidationException;
 
 class ChatController extends Controller
 {
+    private const TYPE_MAP = [
+        'user' => User::class,
+        'provider' => Provider::class,
+        'shopkeeper' => ShopKeeper::class,
+    ];
+
     /**
      * Detect authenticated model (User or Provider)
      */
@@ -20,9 +26,9 @@ class ChatController extends Controller
     private function authInfo()
     {
         $guards = [
-            'api' => \App\Models\User::class,
-            'provider-api' => \App\Models\Provider::class,
-            'shopkeeper-api' => \App\Models\ShopKeeper::class,
+            'api' => User::class,
+            'provider-api' => Provider::class,
+            'shopkeeper-api' => ShopKeeper::class,
         ];
 
         foreach ($guards as $guard => $model) {
@@ -31,7 +37,8 @@ class ChatController extends Controller
 
                 return [
                     'id'    => $auth->id,
-                    'type'  => $model,           // for morph
+                    'type'  => $model,
+                    'type_alias' => $this->typeAlias($model),
                     'guard' => $guard,
                     'data'  => $auth,
                 ];
@@ -39,6 +46,114 @@ class ChatController extends Controller
         }
 
         abort(401, 'Unauthenticated');
+    }
+
+    private function typeAlias(string $type): string
+    {
+        return array_search($type, self::TYPE_MAP, true) ?: 'unknown';
+    }
+
+    private function resolveType(string $type): ?string
+    {
+        return self::TYPE_MAP[$type] ?? (in_array($type, self::TYPE_MAP, true) ? $type : null);
+    }
+
+    private function findParticipant(int $id, string $type): ?object
+    {
+        if (!class_exists($type)) {
+            return null;
+        }
+
+        return $type::find($id);
+    }
+
+    private function participantPayload(?object $participant): ?array
+    {
+        if (!$participant) {
+            return null;
+        }
+
+        if ($participant instanceof User) {
+            return [
+                'id' => $participant->id,
+                'type' => 'user',
+                'type_class' => User::class,
+                'name' => $participant->name,
+                'image' => $participant->image_url,
+            ];
+        }
+
+        if ($participant instanceof Provider) {
+            return [
+                'id' => $participant->id,
+                'type' => 'provider',
+                'type_class' => Provider::class,
+                'name' => $participant->full_name ?? $participant->name,
+                'image' => $participant->profile_image_url,
+            ];
+        }
+
+        if ($participant instanceof ShopKeeper) {
+            return [
+                'id' => $participant->id,
+                'type' => 'shopkeeper',
+                'type_class' => ShopKeeper::class,
+                'name' => $participant->name,
+                'image' => $participant->profile_image,
+            ];
+        }
+
+        return null;
+    }
+
+    private function fileUrl(?string $path): ?string
+    {
+        return $path ? url($path) : null;
+    }
+
+    private function unreadConversationQuery(array $receiver, array $sender)
+    {
+        return Chat::query()
+            ->forParticipant($sender, 'sender')
+            ->forParticipant($receiver, 'receiver')
+            ->where(function ($query) {
+                $query->where('is_seen', false)
+                    ->orWhereNull('is_seen');
+            });
+    }
+
+    private function normalizeParticipantTypeInput(Request $request): ?string
+    {
+        $rawType = $request->filled('user_type')
+            ? $request->input('user_type')
+            : ($request->filled('sender_type')
+                ? $request->input('sender_type')
+                : ($request->filled('participant_type')
+                    ? $request->input('participant_type')
+                    : $request->input('type')));
+
+        if (!is_string($rawType) || $rawType === '') {
+            return null;
+        }
+
+        return $this->resolveType($rawType);
+    }
+
+    private function normalizeParticipantIdInput(Request $request): ?int
+    {
+        $rawId = $request->filled('user_id')
+            ? $request->input('user_id')
+            : ($request->filled('sender_id')
+                ? $request->input('sender_id')
+                : ($request->filled('participant_id')
+                    ? $request->input('participant_id')
+                    : $request->input('id')));
+
+        if ($rawId === null || $rawId === '') {
+            return null;
+        }
+
+        return filter_var($rawId, FILTER_VALIDATE_INT) !== false ? (int) $rawId : null;
     }
 
 
@@ -50,47 +165,69 @@ class ChatController extends Controller
         try {
             $auth = $this->authInfo();
 
-            $chats = Chat::where(function ($q) use ($auth) {
-                $q->where('sender_id', $auth['id'])
-                    ->where('sender_type', $auth['type']);
-            })->orWhere(function ($q) use ($auth) {
-                $q->where('receiver_id', $auth['id'])
-                    ->where('receiver_type', $auth['type']);
-            })
+            $authParticipant = [
+                'id' => $auth['id'],
+                'type' => $auth['type'],
+            ];
+
+            $chats = Chat::with(['sender', 'receiver'])
+                ->forParticipant($authParticipant)
                 ->latest()
                 ->get()
                 ->groupBy(function ($chat) use ($auth) {
-                    return $chat->sender_id == $auth['id']
-                        ? $chat->receiver_type . '_' . $chat->receiver_id
-                        : $chat->sender_type . '_' . $chat->sender_id;
+                    $isOutgoing = $chat->sender_id === $auth['id']
+                        && $chat->sender_type === $auth['type'];
+
+                    return Chat::participantKey([
+                        'id' => $isOutgoing ? $chat->receiver_id : $chat->sender_id,
+                        'type' => $isOutgoing ? $chat->receiver_type : $chat->sender_type,
+                    ]);
                 });
 
             $list = $chats->map(function ($messages) use ($auth) {
                 $chat = $messages->first();
 
-                $otherUser = $chat->sender_id == $auth['id']
-                    ? $chat->receiver
-                    : $chat->sender;
+                $isOutgoing = $chat->sender_id === $auth['id']
+                    && $chat->sender_type === $auth['type'];
+
+                $otherParticipant = [
+                    'id' => $isOutgoing ? $chat->receiver_id : $chat->sender_id,
+                    'type' => $isOutgoing ? $chat->receiver_type : $chat->sender_type,
+                ];
+
+                $otherUser = $this->findParticipant($otherParticipant['id'], $otherParticipant['type']);
+
+                $otherUserPayload = $this->participantPayload($otherUser);
+
+                if (!$otherUserPayload) {
+                    return null;
+                }
 
                 // Count unread messages from this specific user
-                $unreadCount = Chat::where('sender_id', $otherUser->id)
-                    ->where('sender_type', get_class($otherUser))
-                    ->where('receiver_id', $auth['id'])
-                    ->where('receiver_type', $auth['type'])
-                    ->where('is_seen', false)
-                    ->count();
+                $unreadCount = $this->unreadConversationQuery(
+                    [
+                        'id' => $auth['id'],
+                        'type' => $auth['type'],
+                    ],
+                    [
+                        'id' => $otherUserPayload['id'],
+                        'type' => $otherUserPayload['type_class'],
+                    ]
+                )->count();
 
                 return [
-                    'id' => $otherUser->id,
-                    'type' => get_class($otherUser),
-                    'name' => $otherUser->name ?? null,
-                    'image' => $otherUser->image ?? null,
+                    'id' => $otherUserPayload['id'],
+                    'type' => $otherUserPayload['type_class'],
+                    'type_alias' => $otherUserPayload['type'],
+                    'type_class' => $otherUserPayload['type_class'],
+                    'name' => $otherUserPayload['name'],
+                    'image' => $otherUserPayload['image'],
                     'latest_message' => $chat->message,
                     'time' => $chat->created_at,
-                    // 'latest_file' => $chat->file_path ? url($chat->file_path) : null,
+                    'latest_file' => $this->fileUrl($chat->file_path),
                     'unread_count' => $unreadCount,
                 ];
-            })->values();
+            })->filter()->values();
 
             return response()->json([
                 'status' => true,
@@ -111,28 +248,49 @@ class ChatController extends Controller
     public function markAsSeen(Request $request)
     {
         try {
-            $request->validate([
-                'user_id' => 'required|integer',
-                'user_type' => 'required|in:user,provider,shopkeeper'
-            ]);
-
             $auth = $this->authInfo();
+            $senderId = $this->normalizeParticipantIdInput($request);
+            $senderType = $this->normalizeParticipantTypeInput($request);
 
-            // Convert type string to model class
-            $types = [
-                'user' => User::class,
-                'provider' => Provider::class,
-                'shopkeeper' => ShopKeeper::class,
-            ];
+            if (!$senderId || !$senderType) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Validation error',
+                    'errors' => [
+                        'user_id' => ['A valid sender/user id is required.'],
+                        'user_type' => ['A valid sender/user type is required. Use user, provider, shopkeeper or a full model class.'],
+                    ],
+                ], 422);
+            }
 
-            $senderType = $types[$request->user_type];
+            if ($senderId === (int) $auth['id'] && $senderType === $auth['type']) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'mark-as-read requires the other participant, not the logged-in user.',
+                    'errors' => [
+                        'user_id' => ['Pass the other participant id whose messages should be marked as read.'],
+                        'user_type' => ['Pass the other participant type such as user, provider, shopkeeper or the matching model class.'],
+                    ],
+                    'debug' => [
+                        'auth_id' => $auth['id'],
+                        'auth_type' => $auth['type'],
+                        'received_id' => $senderId,
+                        'received_type' => $senderType,
+                    ],
+                ], 422);
+            }
 
             // Update all unread messages from this specific sender to seen
-            $updated = Chat::where('sender_id', $request->user_id)
-                ->where('sender_type', $senderType)
-                ->where('receiver_id', $auth['id'])
-                ->where('receiver_type', $auth['type'])
-                ->where('is_seen', false)
+            $updated = $this->unreadConversationQuery(
+                [
+                    'id' => $auth['id'],
+                    'type' => $auth['type'],
+                ],
+                [
+                    'id' => $senderId,
+                    'type' => $senderType,
+                ]
+            )
                 ->update([
                     'is_seen' => true,
                     'seen_at' => now()
@@ -142,7 +300,10 @@ class ChatController extends Controller
                 'status' => true,
                 'message' => 'Messages marked as seen successfully',
                 'data' => [
-                    'marked_count' => $updated
+                    'marked_count' => $updated,
+                    'user_id' => $senderId,
+                    'user_type' => $senderType,
+                    'unread_count' => 0,
                 ]
             ]);
         } catch (ValidationException $e) {
@@ -226,78 +387,68 @@ class ChatController extends Controller
     // }
     public function chatWithUser($receiverTypeParam, $receiverId)
     {
-        $types = [
-            'user' => User::class,
-            'provider' => Provider::class,
-            'shopkeeper' => ShopKeeper::class,
-        ];
+        $receiverType = $this->resolveType($receiverTypeParam);
 
-        if (!isset($types[$receiverTypeParam])) {
+        if (!$receiverType) {
             return response()->json([
                 'status' => false,
                 'message' => 'Invalid receiver type'
             ], 422);
         }
 
-        $receiverType = $types[$receiverTypeParam];
         $auth = $this->authInfo();
+        $receiver = $this->findParticipant((int) $receiverId, $receiverType);
+
+        if (!$receiver) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Receiver not found'
+            ], 404);
+        }
 
         $messages = Chat::with('sender')
-            ->where(function ($q) use ($auth, $receiverId, $receiverType) {
-                $q->where([
-                    'sender_id' => $auth['id'],
-                    'sender_type' => $auth['type'],
-                    'receiver_id' => $receiverId,
-                    'receiver_type' => $receiverType,
-                ]);
-            })
-            ->orWhere(function ($q) use ($auth, $receiverId, $receiverType) {
-                $q->where([
-                    'sender_id' => $receiverId,
-                    'sender_type' => $receiverType,
-                    'receiver_id' => $auth['id'],
-                    'receiver_type' => $auth['type'],
-                ]);
-            })
+            ->betweenParticipants(
+                ['id' => $auth['id'], 'type' => $auth['type']],
+                ['id' => (int) $receiverId, 'type' => $receiverType]
+            )
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $formatted = $messages->map(function ($chat) {
-            $sender = $chat->sender;
+        $markedAsSeen = $this->unreadConversationQuery(
+            [
+                'id' => $auth['id'],
+                'type' => $auth['type'],
+            ],
+            [
+                'id' => (int) $receiverId,
+                'type' => $receiverType,
+            ]
+        )->update([
+            'is_seen' => true,
+            'seen_at' => now()
+        ]);
 
-            // Detect sender type
-            if ($sender instanceof User) {
-                $type = 'user';
-                $name = $sender->name;
-                $image = $sender->image ?? null;
-            } elseif ($sender instanceof Provider) {
-                $type = 'provider';
-                $name = $sender->full_name ?? $sender->name;
-                $image = $sender->profile_image_url ?? null;
-            } elseif ($sender instanceof ShopKeeper) {
-                $type = 'shopkeeper';
-                $name = $sender->name;
-                $image = $sender->profile_image; // accessor already returns URL
-            } else {
-                $type = 'unknown';
-                $name = null;
-                $image = null;
-            }
+        $formatted = $messages->map(function ($chat) {
+            $sender = $this->participantPayload($chat->sender);
 
             return [
                 'id' => $chat->id,
                 'created_at' => $chat->created_at,
-                'sender_type' => $type,
+                'sender_type' => $sender['type'] ?? 'unknown',
                 'message' => $chat->message,
-                'file_url' => $chat->file_path ? url($chat->file_path) : null,
-                'sender_name' => $name,
-                'sender_image' => $image,
+                'file_url' => $this->fileUrl($chat->file_path),
+                'sender_name' => $sender['name'] ?? null,
+                'sender_image' => $sender['image'] ?? null,
             ];
         });
 
         return response()->json([
             'status' => true,
-            'data' => $formatted
+            'data' => $formatted,
+            'meta' => [
+                'marked_as_seen' => $markedAsSeen,
+                'unread_count' => 0,
+            ]
         ]);
     }
 
@@ -325,22 +476,9 @@ class ChatController extends Controller
             }
 
             /* -------- Receiver Validation -------- */
-            $receiverExists = false;
+            $receiver = $this->findParticipant((int) $request->receiver_id, $request->receiver_type);
 
-            if ($request->receiver_type === 'App\Models\User') {
-                $receiverExists = User::where('id', $request->receiver_id)->exists();
-            }
-
-            if ($request->receiver_type === 'App\Models\Provider') {
-                $receiverExists = Provider::where('id', $request->receiver_id)->exists();
-            }
-
-            if ($request->receiver_type === 'App\Models\ShopKeeper') {
-                $receiverExists = ShopKeeper::where('id', $request->receiver_id)->exists();
-            }
-
-
-            if (!$receiverExists) {
+            if (!$receiver) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Invalid receiver'
@@ -358,7 +496,7 @@ class ChatController extends Controller
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
 
-                $fileType = $file->getClientOriginalExtension();
+                $fileType = $file->getMimeType();
                 $fileName = time() . '_' . $file->getClientOriginalName();
 
                 $uploadDir = public_path('uploads');
@@ -381,13 +519,15 @@ class ChatController extends Controller
                 'file_name'     => $fileName,
                 'file_type'     => $fileType,
                 'file_path'     => $filePath,
+                'is_seen'       => false,
+                'seen_at'       => null,
             ]);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Message sent successfully',
                 'data' => $chat,
-                'file_url' => $filePath ? url($filePath) : null
+                'file_url' => $this->fileUrl($filePath)
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

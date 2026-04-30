@@ -1,3 +1,12 @@
+<IfModule mod_mime.c>
+    AddType audio/aac .aac
+    AddType audio/mp4 .m4a
+    AddType audio/mpeg .mp3
+    AddType audio/ogg .ogg
+    AddType audio/wav .wav
+    AddType video/mp4 .mp4
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

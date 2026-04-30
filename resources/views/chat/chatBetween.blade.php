@@ -1,6 +1,14 @@
 @extends('layout.dashboard-layout')
 
 @section('content')
+    @php
+        $senderType = $sender instanceof \App\Models\User
+            ? 'user'
+            : ($sender instanceof \App\Models\Provider ? 'provider' : 'shopkeeper');
+        $receiverType = $receiver instanceof \App\Models\User
+            ? 'user'
+            : ($receiver instanceof \App\Models\Provider ? 'provider' : 'shopkeeper');
+    @endphp
     <div class="main-content">
         <section class="section">
             <div class="section-header">
@@ -30,9 +38,9 @@
 
                             @foreach ($messages as $message)
                                 <div
-                                    class="message-item d-flex mb-3 {{ $message->sender_id == $sender->id ? '' : 'justify-content-end' }}">
+                                    class="message-item d-flex mb-3 {{ $message->sender_id === $sender->id && $message->sender_type === get_class($sender) ? '' : 'justify-content-end' }}">
 
-                                    @if ($message->sender_id == $sender->id)
+                                    @if ($message->sender_id === $sender->id && $message->sender_type === get_class($sender))
                                         <!-- Sender Message (User) -->
                                         <img src="{{ $sender->image_url ?? ($sender->profile_image_url ?? asset('assets/img/user.png')) }}"
                                             class="rounded-circle mr-2" style="width:40px;height:40px;object-fit:cover;">
@@ -43,14 +51,14 @@
                                             <!-- Display file if exists -->
                                             @if ($message->file_path)
                                                 <div class="mt-2">
-                                                    @if (strpos($message->file_type, 'image/') !== false)
+                                                    @if (str_starts_with((string) $message->file_type, 'image/') || in_array(strtolower(pathinfo((string) $message->file_name, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true))
                                                         <img src="{{ asset($message->file_path) }}"
                                                             style="max-width: 200px; max-height: 200px; border-radius: 5px;">
-                                                    @elseif(strpos($message->file_type, 'video/') !== false)
+                                                    @elseif(str_starts_with((string) $message->file_type, 'video/'))
                                                         <video controls style="max-width: 200px;">
                                                             <source src="{{ asset($message->file_path) }}">
                                                         </video>
-                                                    @elseif(strpos($message->file_type, 'audio/') !== false)
+                                                    @elseif(str_starts_with((string) $message->file_type, 'audio/'))
                                                         <audio controls>
                                                             <source src="{{ asset($message->file_path) }}">
                                                         </audio>
@@ -75,14 +83,14 @@
                                             <!-- Display file if exists -->
                                             @if ($message->file_path)
                                                 <div class="mt-2">
-                                                    @if (strpos($message->file_type, 'image/') !== false)
+                                                    @if (str_starts_with((string) $message->file_type, 'image/') || in_array(strtolower(pathinfo((string) $message->file_name, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true))
                                                         <img src="{{ asset($message->file_path) }}"
                                                             style="max-width: 200px; max-height: 200px; border-radius: 5px;">
-                                                    @elseif(strpos($message->file_type, 'video/') !== false)
+                                                    @elseif(str_starts_with((string) $message->file_type, 'video/'))
                                                         <video controls style="max-width: 200px;">
                                                             <source src="{{ asset($message->file_path) }}">
                                                         </video>
-                                                    @elseif(strpos($message->file_type, 'audio/') !== false)
+                                                    @elseif(str_starts_with((string) $message->file_type, 'audio/'))
                                                         <audio controls>
                                                             <source src="{{ asset($message->file_path) }}">
                                                         </audio>
@@ -210,7 +218,7 @@
             const selectedInput = document.createElement('input');
             selectedInput.type = 'hidden';
             selectedInput.name = 'selected_chats';
-            selectedInput.value = JSON.stringify(['{{ $sender->id }}_{{ $receiver->id }}']);
+            selectedInput.value = JSON.stringify(['{{ $senderType }}_{{ $sender->id }}|{{ $receiverType }}_{{ $receiver->id }}']);
             form.appendChild(selectedInput);
 
             const typeInput = document.createElement('input');

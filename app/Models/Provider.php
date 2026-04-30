@@ -70,6 +70,12 @@ class Provider extends Authenticatable
     {
         return $this->hasMany(Rating::class, 'provider_id', 'id');
     }
+
+    public function requestSeens()
+    {
+        return $this->hasMany(ProviderRequestSeen::class, 'provider_id');
+    }
+
     public function wallet()
     {
         return $this->hasOne(Wallet::class);

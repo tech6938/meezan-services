@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\BookingRequest;
 use App\Models\Commission;
+use App\Models\ProviderRequestSeen;
 use App\Models\ServiceRequest;
 use App\Models\SubCategory;
 use App\Models\Wallet;
@@ -563,13 +564,6 @@ class BookingRequestController extends Controller
             ], 200);
         }
 
-        if (!$booking->is_seen && $booking->provider_id == $provider->id) {
-            $booking->update([
-                'is_seen' => true,
-                'seen_at' => now()
-            ]);
-        }
-
         $data = [
             'booking_id'   => $booking->id,
             'request_id'    => $booking->serviceRequest->id,
@@ -634,11 +628,8 @@ class BookingRequestController extends Controller
             ], 200);
         }
 
-        /*
-    |----------------------------------------------------
-    | Provider Stats
-    |----------------------------------------------------
-    */
+
+
         $provider = $booking->provider;
 
         $totalCompletedBookings = $provider
@@ -651,11 +642,8 @@ class BookingRequestController extends Controller
             ? $provider->ratings()->avg('rating')
             : 0;
 
-        /*
-    |----------------------------------------------------
-    | Shopkeeper Stats
-    |----------------------------------------------------
-    */
+
+
         $shopkeeper = $booking->shopkeeper;
 
         $shopkeeperCompletedBookings = $shopkeeper
@@ -668,14 +656,12 @@ class BookingRequestController extends Controller
             ? $shopkeeper->ratings()->avg('rating')
             : 0;
 
-        /*
-    |----------------------------------------------------
-    | Response Data
-    |----------------------------------------------------
-    */
+
+
         $data = [
             'booking_id'    => $booking->id ?? null,
             'request_id'    => $booking->serviceRequest->id ?? null,
+            'is_seen'       => $booking->is_seen ?? 0,
             'sub_category'  => $booking->serviceRequest->subCategory->name ?? null,
             'main_category' => $booking->serviceRequest->category->name ?? null,
 
@@ -858,7 +844,7 @@ class BookingRequestController extends Controller
                 'amount'         => 'nullable|integer',
                 'cancel_reason'  => 'nullable|string',
                 'details'        => 'nullable|string',
-                'audio'          => 'nullable|file|mimes:mp3,wav,m4a,ogg,aac|max:102400',
+                'audio'          => $this->audioUploadRule(),
             ]);
 
             $booking = BookingRequest::findOrFail($validated['booking_id']);
@@ -878,10 +864,7 @@ class BookingRequestController extends Controller
 
             if ($request->hasFile('audio')) {
                 $file = $request->file('audio');
-
-                // Same as upload function
-                $fileType = $file->getClientOriginalExtension();
-                $fileName = time() . '_' . $file->getClientOriginalName();
+                $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
 
                 $uploadDir = public_path('uploads');
                 if (!file_exists($uploadDir)) {
@@ -941,8 +924,8 @@ class BookingRequestController extends Controller
                     'booking_id'    => $booking->id,
                     'status'        => $booking->status,
                     'details'       => $booking->details,
-                    // 'audio_url'     => $booking->audio ? url($booking->audio) : null,
-                    'audio_path'    => $booking->audio,
+                    'audio'         => $booking->audio,
+                    'audio_path'    => $booking->getRawOriginal('audio'),
                     'cancel_by'     => $booking->cancel_by,
                     'cancel_reason' => $booking->cancel_reason,
                 ]
@@ -971,7 +954,9 @@ class BookingRequestController extends Controller
                 'booking_id'    => 'required|integer|exists:booking_requests,id',
                 'status'        => 'required|string|in:complete_booking',
                 'payment_type'  => 'required|string|in:cash',
-                'price'         => 'nullable',
+                'price'         => 'required|numeric|min:0.01',
+                'details'       => 'nullable|string',
+                'audio'         => $this->audioUploadRule(),
             ]);
 
             DB::beginTransaction();
@@ -986,8 +971,26 @@ class BookingRequestController extends Controller
                 ], 400);
             }
 
+            if ($request->filled('details')) {
+                $booking->details = $validated['details'];
+            }
+
+            if ($request->hasFile('audio')) {
+                $file = $request->file('audio');
+                $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+
+                $uploadDir = public_path('uploads');
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $file->move($uploadDir, $fileName);
+                $booking->audio = 'uploads/' . $fileName;
+            }
+
             // Update booking status
             $booking->status = $validated['status'];
+            $booking->req_status = $validated['status'];
             $booking->payment_type = $validated['payment_type'];
             $booking->price = $validated['price'];
             $booking->save();
@@ -1014,10 +1017,14 @@ class BookingRequestController extends Controller
                 'booking_id' => $booking->id,
                 'price' => $booking->price,
                 'status' => $booking->status,
-                // 'payment_type' => $booking->payment_type,
-                // 'commission_deducted' => $commissionResult['commission_deducted'],
-                // 'wallet_balance' => $commissionResult['new_balance'],
-                // 'message' => $commissionResult['message']
+                'req_status' => $booking->req_status,
+                'details' => $booking->details,
+                'audio' => $booking->audio,
+                'audio_path' => $booking->getRawOriginal('audio'),
+                'payment_type' => $booking->payment_type,
+                'commission_deducted' => $commissionResult['commission_deducted'] ?? 0,
+                'wallet_balance' => $commissionResult['new_balance'],
+                'commission_message' => $commissionResult['message'] ?? null,
             ];
 
             return response()->json([
@@ -1114,126 +1121,49 @@ class BookingRequestController extends Controller
         return $wallet ? $wallet->amount : 0;
     }
 
+    private function audioUploadRule(): array
+    {
+        $allowedExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg'];
+        $allowedMimeTypes = [
+            'audio/mpeg',
+            'audio/mp3',
+            'audio/wav',
+            'audio/x-wav',
+            'audio/wave',
+            'audio/vnd.wave',
+            'audio/mp4',
+            'audio/x-m4a',
+            'audio/aac',
+            'audio/x-aac',
+            'audio/ogg',
+            'application/ogg',
+            'application/octet-stream',
+        ];
+
+        return [
+            'nullable',
+            'file',
+            'max:102400',
+            function ($attribute, $value, $fail) use ($allowedExtensions, $allowedMimeTypes) {
+                if (!$value) {
+                    return;
+                }
+
+                $extension = strtolower($value->getClientOriginalExtension() ?: $value->extension() ?: '');
+                $mimeType = strtolower((string) $value->getMimeType());
+
+                $hasValidExtension = in_array($extension, $allowedExtensions, true);
+                $hasValidMimeType = in_array($mimeType, $allowedMimeTypes, true) || str_starts_with($mimeType, 'audio/');
+
+                if (!$hasValidExtension && !$hasValidMimeType) {
+                    $fail('The ' . $attribute . ' field must be an audio file of type: mp3, wav, m4a, aac, ogg.');
+                }
+            },
+        ];
+    }
+
 
     // display requests to providers
-    // public function allRequests()
-    // {
-    //     try {
-    //         $provider = Auth::guard('provider-api')->user();
-    //         $shopkeeper = Auth::guard('shopkeeper-api')->user();
-
-    //         $query = ServiceRequest::with([
-    //             'category:id,name',
-    //             'subCategory:id,name',
-    //             'bookingRequests' => function ($q) use ($provider, $shopkeeper) {
-    //                 // Only load booking requests related to this provider/shopkeeper
-    //                 if ($provider) {
-    //                     $q->where('provider_id', $provider->id);
-    //                 }
-    //                 if ($shopkeeper) {
-    //                     $q->where('shopkeeper_id', $shopkeeper->id);
-    //                 }
-    //             },
-    //             'bookingRequests.provider:id,full_name',
-    //             'shop:id,shop_name,category,shopkeeper_id',
-    //             'bookingRequests.shopkeeper:id,name'
-    //         ])->whereIn('status', ['pending', 'accept'])->orderBy('id', 'desc');
-
-    //         // Provider Filter
-    //         if ($provider) {
-    //             $subCategoryNames = collect($provider->services)
-    //                 ->pluck('sub_services')
-    //                 ->flatten()
-    //                 ->filter()
-    //                 ->toArray();
-
-    //             $subCategoryIds = SubCategory::whereIn('name', $subCategoryNames)
-    //                 ->pluck('id')
-    //                 ->toArray();
-
-    //             if (!empty($subCategoryIds)) {
-    //                 $query->whereIn('subcat_id', $subCategoryIds);
-    //             }
-    //         }
-
-    //         // Shopkeeper Filter
-    //         if ($shopkeeper) {
-    //             $query->whereHas('shop', function ($q) use ($shopkeeper) {
-    //                 $q->where('shopkeeper_id', $shopkeeper->id);
-    //             });
-    //         }
-
-    //         $serviceRequests = $query->get()->map(function ($request) use ($provider, $shopkeeper) {
-
-    //             // Find the specific booking request for this provider/shopkeeper
-    //             $specificBooking = null;
-
-    //             if ($provider) {
-    //                 $specificBooking = $request->bookingRequests
-    //                     ->where('provider_id', $provider->id)
-    //                     ->first();
-    //             }
-
-    //             if ($shopkeeper) {
-    //                 $specificBooking = $request->bookingRequests
-    //                     ->where('shopkeeper_id', $shopkeeper->id)
-    //                     ->first();
-    //             }
-
-    //             // Determine the correct status
-    //             $requestStatus = 'pending'; // Default status
-
-    //             if ($specificBooking) {
-    //                 // If booking exists, use its req_status
-    //                 $requestStatus = $specificBooking->req_status;
-    //             } else {
-    //                 // No booking yet - check if provider/shopkeeper is eligible
-    //                 // and show 'pending' or 'new' status
-    //                 $requestStatus = 'pending';
-    //             }
-
-    //             // Get provider/shopkeeper name from the specific booking
-    //             $providerName = null;
-    //             $shopkeeperName = null;
-
-    //             if ($specificBooking && $specificBooking->provider) {
-    //                 $providerName = $specificBooking->provider->full_name;
-    //             }
-
-    //             if ($specificBooking && $specificBooking->shopkeeper) {
-    //                 $shopkeeperName = $specificBooking->shopkeeper->name;
-    //             }
-
-    //             return [
-    //                 'id' => $request->id,
-    //                 'is_seen' => $request->is_seen,
-    //                 'cat_name' => optional($request->category)->name,
-    //                 'subcat_name' => optional($request->subCategory)->name,
-    //                 'shop_name' => optional($request->shop)->shop_name,
-    //                 'shop_cat' => optional($request->shop)->category,
-    //                 'desc' => $request->desc,
-    //                 'status' => $requestStatus, // Now shows 'pending' for fresh providers
-    //                 'created_at' => $request->created_at,
-    //                 'provider_name' => $providerName,
-    //                 'shopkeeper_name' => $shopkeeperName,
-    //                 'has_accepted' => $specificBooking ? true : false, // Optional: to know if they've accepted
-    //                 'booking_id' => $specificBooking ? $specificBooking->id : null, // Optional: booking ID if exists
-    //             ];
-    //         });
-
-    //         return response()->json([
-    //             'status' => true,
-    //             'message' => 'Requests fetched successfully',
-    //             'data' => $serviceRequests
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Something went wrong',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
     public function allRequests()
     {
         try {
@@ -1243,6 +1173,11 @@ class BookingRequestController extends Controller
             $query = ServiceRequest::with([
                 'category:id,name',
                 'subCategory:id,name',
+                'providerSeens' => function ($q) use ($provider) {
+                    if ($provider) {
+                        $q->where('provider_id', $provider->id);
+                    }
+                },
                 'bookingRequests' => function ($q) use ($provider, $shopkeeper) {
                     if ($provider) {
                         $q->where('provider_id', $provider->id);
@@ -1254,7 +1189,7 @@ class BookingRequestController extends Controller
                 'bookingRequests.provider:id,full_name',
                 'shop:id,shop_name,category,shopkeeper_id',
                 'bookingRequests.shopkeeper:id,name'
-            ])->whereIn('status', ['pending', 'accept'])->orderBy('id', 'desc');
+            ])->whereIn('status', ['pending', 'accept', 'cancel'])->orderBy('id', 'desc');
 
             // Provider Filter
             if ($provider) {
@@ -1286,19 +1221,24 @@ class BookingRequestController extends Controller
 
                 if ($provider) {
                     $booking = $request->bookingRequests->firstWhere('provider_id', $provider->id);
+                    // return $booking;
                 } elseif ($shopkeeper) {
                     $booking = $request->bookingRequests->firstWhere('shopkeeper_id', $shopkeeper->id);
                 }
 
+                $providerSeen = $provider
+                    ? $request->providerSeens->firstWhere('provider_id', $provider->id)
+                    : null;
+
                 return [
                     'id' => $request->id,
-                    'is_seen' => $request->is_seen,
+                    'is_seen' => $providerSeen ? (int) $providerSeen->is_seen : 0,
                     'cat_name' => optional($request->category)->name,
                     'subcat_name' => optional($request->subCategory)->name,
                     'shop_name' => optional($request->shop)->shop_name,
                     'shop_cat' => optional($request->shop)->category,
                     'desc' => $request->desc,
-                    'status' => $booking ? $booking->req_status : 'pending', // Fixed!
+                    'status' => $booking ? $booking->req_status : $request->status, // Fixed: Now uses ServiceRequest status when no booking
                     'created_at' => $request->created_at,
                     'provider_name' => optional(optional($booking)->provider)->full_name,
                     'shopkeeper_name' => optional(optional($booking)->shopkeeper)->name,
@@ -1327,71 +1267,40 @@ class BookingRequestController extends Controller
                 'request_id' => 'required|integer|exists:service_requests,id'
             ]);
 
-            // Check which user is authenticated
             $provider = Auth::guard('provider-api')->user();
-            $shopkeeper = Auth::guard('shopkeeper-api')->user();
 
-            $authenticatedUser = null;
-            $userType = null;
-            $userId = null;
-
-            if ($provider) {
-                $authenticatedUser = $provider;
-                $userType = 'provider';
-                $userId = $provider->id;
-            } elseif ($shopkeeper) {
-                $authenticatedUser = $shopkeeper;
-                $userType = 'shopkeeper';
-                $userId = $shopkeeper->id;
-            } else {
+            if (!$provider) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Unauthorized - Please login as provider or shopkeeper'
+                    'message' => 'Unauthorized - Please login as provider'
                 ], 401);
             }
 
-            // Find booking request
-            $bookingRequest = ServiceRequest::where('id', $validated['request_id'])
-                ->first();
+            $serviceRequest = ServiceRequest::find($validated['request_id']);
 
-            if (!$bookingRequest) {
+            if (!$serviceRequest) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Booking not found for this request'
+                    'message' => 'Request not found'
                 ], 404);
             }
 
-            // Verify that this booking belongs to the authenticated user
-            $authorized = false;
-
-            if ($userType == 'provider' && $bookingRequest->provider_id == $userId) {
-                $authorized = true;
-            } elseif ($userType == 'shopkeeper' && $bookingRequest->shopkeeper_id == $userId) {
-                $authorized = true;
-            }
-
-            if (!$authorized) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'You are not authorized to update this request'
-                ], 403);
-            }
-
-            // Update is_seen and seen_at
-            $bookingRequest->update([
+            $providerSeen = ProviderRequestSeen::updateOrCreate([
+                'request_id' => $serviceRequest->id,
+                'provider_id' => $provider->id,
+            ], [
                 'is_seen' => 1,
-                'seen_at' => now()
+                'seen_at' => now(),
             ]);
 
             return response()->json([
                 'status' => true,
-                'message' => ucfirst($userType) . ' request marked as seen successfully',
+                'message' => 'Request marked as seen successfully',
                 'data' => [
-                    'request_id' => $validated['request_id'],
-                    'booking_id' => $bookingRequest->id,
-                    'is_seen' => $bookingRequest->is_seen,
-                    'seen_at' => $bookingRequest->seen_at,
-                    'seen_by' => $userType
+                    'request_id' => $serviceRequest->id,
+                    'provider_id' => $provider->id,
+                    'is_seen' => (int) $providerSeen->is_seen,
+                    'seen_at' => $providerSeen->seen_at,
                 ]
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -1409,6 +1318,7 @@ class BookingRequestController extends Controller
         }
     }
 
+
     // request details for provider
     public function providerRequestDetails($id)
     {
@@ -1420,6 +1330,11 @@ class BookingRequestController extends Controller
                 'category:id,name',
                 'subCategory:id,name',
                 'address:id,name,street,city,PostalCode',
+                'providerSeens' => function ($q) use ($provider) {
+                    if ($provider) {
+                        $q->where('provider_id', $provider->id);
+                    }
+                },
                 'bookingRequests' => function ($q) use ($provider) {
                     // Only load booking requests for this specific provider
                     if ($provider) {
@@ -1439,10 +1354,10 @@ class BookingRequestController extends Controller
             }
 
             /*
-        |--------------------------------------------------------------------------
-        | Address
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Address
+    |--------------------------------------------------------------------------
+    */
             $address = null;
             if ($serviceRequest->address) {
                 $address = collect([
@@ -1454,10 +1369,10 @@ class BookingRequestController extends Controller
             }
 
             /*
-        |--------------------------------------------------------------------------
-        | Find the booking request for this specific provider
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Find the booking request for this specific provider
+    |--------------------------------------------------------------------------
+    */
             $specificBooking = null;
             if ($provider) {
                 $specificBooking = $serviceRequest->bookingRequests
@@ -1466,10 +1381,10 @@ class BookingRequestController extends Controller
             }
 
             /*
-        |--------------------------------------------------------------------------
-        | Provider Data
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Provider Data
+    |--------------------------------------------------------------------------
+    */
             $providerData = null;
             if ($specificBooking && $specificBooking->provider) {
                 $provider = $specificBooking->provider;
@@ -1491,12 +1406,19 @@ class BookingRequestController extends Controller
                 ];
             }
 
+            // Apply the same logic: if booking exists -> use booking status, else use service request status
+            $status = $specificBooking ? $specificBooking->req_status : $serviceRequest->status;
+            $providerSeen = $provider
+                ? $serviceRequest->providerSeens->firstWhere('provider_id', $provider->id)
+                : null;
+
             return response()->json([
                 'status' => true,
                 'message' => 'Service request details retrieved successfully',
                 'data' => [
                     'id' => $serviceRequest->id,
                     'user_id' => $serviceRequest->user_id,
+                    'is_seen' => $providerSeen ? (int) $providerSeen->is_seen : 0,
                     'goto' => $specificBooking ? ($specificBooking->goto ?? 0) : 0,
                     'cat_name' => optional($serviceRequest->category)->name,
                     'subcat_name' => optional($serviceRequest->subCategory)->name,
@@ -1509,7 +1431,7 @@ class BookingRequestController extends Controller
                     'desc' => $serviceRequest->desc,
                     'file' => $serviceRequest->file,
                     'file_type' => $serviceRequest->file_type,
-                    'status' => $specificBooking ? $specificBooking->req_status : 'pending', // Fixed!
+                    'status' => $status, // Changed: now uses service request status if no booking exists
                     'created_at' => $serviceRequest->created_at,
                     'user' => [
                         'id'    => optional($serviceRequest->user)->id,

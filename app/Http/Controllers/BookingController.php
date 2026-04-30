@@ -78,19 +78,10 @@ class BookingController extends Controller
             ->where('status', $status)
             ->first();
 
-        $messages = Chat::where(function ($q) use ($user_id, $provider_id) {
-            $q->where('sender_id', $user_id)
-                ->where('receiver_id', $provider_id);
-        })
-            ->orWhere(function ($q) use ($user_id, $provider_id) {
-                $q->where('sender_id', $provider_id)
-                    ->where('receiver_id', $user_id);
-            })
-            ->with(['sender', 'receiver'])
-            ->orderBy('created_at', 'asc')
-            ->get();
+        abort_unless($booking, 404);
 
         $sender = User::find($user_id);
+        abort_unless($sender, 404);
 
         // ✅ FIXED RECEIVER LOGIC
         if ($booking && $booking->provider_id) {
@@ -98,6 +89,16 @@ class BookingController extends Controller
         } else {
             $receiver = $booking->shopkeeper ?? null;
         }
+
+        abort_unless($receiver, 404);
+
+        $messages = Chat::betweenParticipants(
+            ['id' => $sender->id, 'type' => User::class],
+            ['id' => $receiver->id, 'type' => get_class($receiver)]
+        )
+            ->with(['sender', 'receiver'])
+            ->orderBy('created_at', 'asc')
+            ->get();
 
         return view('booking.chat', compact('messages', 'sender', 'receiver', 'status'));
     }

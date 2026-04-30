@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
-    <title>Otika - Admin Dashboard Template</title>
+    <title>Meezan Services - Admin Dashboard</title>
     <!-- General CSS Files -->
     <link rel="stylesheet" href="{{ asset('assets/css/app.min.css') }}">
     <!-- Template CSS -->
@@ -73,7 +73,7 @@
                     <div class="sidebar-brand">
                         <a href="{{ route('dashboard') }}"> <img alt="image"
                                 src="{{ asset('assets/img/logo.png') }}" class="header-logo" /> <span
-                                class="logo-name">Otika</span>
+                                class="logo-name">Meezan</span>
                         </a>
                     </div>
                     <ul class="sidebar-menu">

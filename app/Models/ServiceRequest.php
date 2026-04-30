@@ -120,6 +120,11 @@ class ServiceRequest extends Model
         return $this->hasMany(BookingRequest::class, 'request_id');
     }
 
+    public function providerSeens()
+    {
+        return $this->hasMany(ProviderRequestSeen::class, 'request_id');
+    }
+
     public function acceptedProviders()
     {
         return $this->belongsToMany(Provider::class, 'booking_requests', 'request_id', 'provider_id')

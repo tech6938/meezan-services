@@ -40,7 +40,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::resource('/sub-categories',  SubCategoryController::class);
     // for chat list
     Route::get('/chat-list',  [ChatsController::class, 'chatsList'])->name('chatsList');
-    Route::get('/chats/{sender_id}/{receiver_id}', [ChatsController::class, 'chatBetween'])->name('chats.between');
+    Route::get('/chats/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}', [ChatsController::class, 'chatBetween'])->name('chats.between');
     Route::post('/admin/chats/export', [ChatsController::class, 'exportSelectedChats'])->name('chats.export');
 
     /*

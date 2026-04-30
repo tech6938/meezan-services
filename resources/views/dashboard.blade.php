@@ -137,37 +137,6 @@
                 </div>
             </div>
 
-            <!-- App Status Card - Added here -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4><i class="fas fa-mobile-alt"></i> Application Status</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <p class="mb-0">Control your application access from here. When turned OFF, users won't be able to access the app.</p>
-                                </div>
-                                {{-- @dd($appIsOn) --}}
-                                <div class="app-status-switch">
-                                    <span class="status-label {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }} mr-2">
-                                        <i class="fas {{ $appIsOn == 1 ? 'fa-check-circle' : 'fa-power-off' }}"></i>
-                                    </span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="appStatusSwitch" {{ $appIsOn == 1 ? 'checked' : '' }}>
-                                        <span class="slider round"></span>
-                                    </label>
-                                    <span id="appStatusText" class="status-text ml-2 {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }}">
-                                        {{ $appIsOn == 1 ? 'App is ON' : 'App is OFF' }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Date Filter Section -->
             <div class="row">
                 <div class="col-12">
@@ -376,76 +345,128 @@
                 </div>
             </div>
         </section>
+
+        <div class="row">
+            <div class="col-12 col-sm-12 col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Chart</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="chart4" class="chartsh"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-12 col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Chart</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="summary">
+                            <div class="summary-chart active" data-tab-group="summary-tab" id="summary-chart">
+                                <div id="chart3" class="chartsh"></div>
+                            </div>
+                            <div data-tab-group="summary-tab" id="summary-text">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-12 col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Chart</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="chart2" class="chartsh"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- App Status Card - Added here -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4><i class="fas fa-mobile-alt"></i> Application Status</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <p class="mb-0">Control your application access from here. When turned OFF, users
+                                    won't be able to access the app.</p>
+                            </div>
+                            {{-- @dd($appIsOn) --}}
+                            <div class="app-status-switch">
+                                <span class="status-label {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }} mr-2">
+                                    <i class="fas {{ $appIsOn == 1 ? 'fa-check-circle' : 'fa-power-off' }}"></i>
+                                </span>
+                                <label class="switch">
+                                    <input type="checkbox" id="appStatusSwitch" {{ $appIsOn == 1 ? 'checked' : '' }}>
+                                    <span class="slider round"></span>
+                                </label>
+                                <span id="appStatusText"
+                                    class="status-text ml-2 {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }}">
+                                    {{ $appIsOn == 1 ? 'App is ON' : 'App is OFF' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
 
 {{-- @push('scripts') --}}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const appStatusSwitch = document.getElementById('appStatusSwitch');
-            const appStatusText = document.getElementById('appStatusText');
-            const statusLabel = document.querySelector('.status-label i');
-            const statusLabelSpan = document.querySelector('.status-label');
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const appStatusSwitch = document.getElementById('appStatusSwitch');
+        const appStatusText = document.getElementById('appStatusText');
+        const statusLabel = document.querySelector('.status-label i');
+        const statusLabelSpan = document.querySelector('.status-label');
 
-            if (appStatusSwitch) {
-                appStatusSwitch.addEventListener('change', function() {
-                    const isChecked = this.checked ? 1 : 0;
-                    const statusText = isChecked ? 'App is ON' : 'App is OFF';
-                    const statusColor = isChecked ? 'text-success' : 'text-danger';
-                    const iconClass = isChecked ? 'fa-check-circle' : 'fa-power-off';
+        if (appStatusSwitch) {
+            appStatusSwitch.addEventListener('change', function() {
+                const isChecked = this.checked ? 1 : 0;
+                const statusText = isChecked ? 'App is ON' : 'App is OFF';
+                const statusColor = isChecked ? 'text-success' : 'text-danger';
+                const iconClass = isChecked ? 'fa-check-circle' : 'fa-power-off';
 
-                    // Update text and colors
-                    appStatusText.textContent = statusText;
-                    appStatusText.className = `status-text ml-2 ${statusColor}`;
+                // Update text and colors
+                appStatusText.textContent = statusText;
+                appStatusText.className = `status-text ml-2 ${statusColor}`;
 
-                    // Update icon
-                    if (statusLabel) {
-                        statusLabel.className = `fas ${iconClass}`;
-                    }
-                    if (statusLabelSpan) {
-                        statusLabelSpan.className = `status-label ${statusColor} mr-2`;
-                    }
+                // Update icon
+                if (statusLabel) {
+                    statusLabel.className = `fas ${iconClass}`;
+                }
+                if (statusLabelSpan) {
+                    statusLabelSpan.className = `status-label ${statusColor} mr-2`;
+                }
 
-                    // Send AJAX request to update the setting
-                    fetch('{{ route('settings.appIsOn') }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                appIsOn: isChecked
-                            })
+                // Send AJAX request to update the setting
+                fetch('{{ route('settings.appIsOn') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            appIsOn: isChecked
                         })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data.status) {
-                                // Revert the switch if update failed
-                                this.checked = !this.checked;
-                                const revertStatusText = this.checked ? 'App is ON' : 'App is OFF';
-                                const revertStatusColor = this.checked ? 'text-success' : 'text-danger';
-                                const revertIconClass = this.checked ? 'fa-check-circle' : 'fa-power-off';
-
-                                appStatusText.textContent = revertStatusText;
-                                appStatusText.className = `status-text ml-2 ${revertStatusColor}`;
-
-                                if (statusLabel) {
-                                    statusLabel.className = `fas ${revertIconClass}`;
-                                }
-                                if (statusLabelSpan) {
-                                    statusLabelSpan.className = `status-label ${revertStatusColor} mr-2`;
-                                }
-
-                                alert(data.message || 'Failed to update app status');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            // Revert the switch if request failed
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.status) {
+                            // Revert the switch if update failed
                             this.checked = !this.checked;
                             const revertStatusText = this.checked ? 'App is ON' : 'App is OFF';
                             const revertStatusColor = this.checked ? 'text-success' : 'text-danger';
-                            const revertIconClass = this.checked ? 'fa-check-circle' : 'fa-power-off';
+                            const revertIconClass = this.checked ? 'fa-check-circle' :
+                                'fa-power-off';
 
                             appStatusText.textContent = revertStatusText;
                             appStatusText.className = `status-text ml-2 ${revertStatusColor}`;
@@ -454,15 +475,37 @@
                                 statusLabel.className = `fas ${revertIconClass}`;
                             }
                             if (statusLabelSpan) {
-                                statusLabelSpan.className = `status-label ${revertStatusColor} mr-2`;
+                                statusLabelSpan.className =
+                                    `status-label ${revertStatusColor} mr-2`;
                             }
 
-                            alert('Network error. Please try again.');
-                        });
-                });
-            }
-        });
-    </script>
+                            alert(data.message || 'Failed to update app status');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Revert the switch if request failed
+                        this.checked = !this.checked;
+                        const revertStatusText = this.checked ? 'App is ON' : 'App is OFF';
+                        const revertStatusColor = this.checked ? 'text-success' : 'text-danger';
+                        const revertIconClass = this.checked ? 'fa-check-circle' : 'fa-power-off';
+
+                        appStatusText.textContent = revertStatusText;
+                        appStatusText.className = `status-text ml-2 ${revertStatusColor}`;
+
+                        if (statusLabel) {
+                            statusLabel.className = `fas ${revertIconClass}`;
+                        }
+                        if (statusLabelSpan) {
+                            statusLabelSpan.className = `status-label ${revertStatusColor} mr-2`;
+                        }
+
+                        alert('Network error. Please try again.');
+                    });
+            });
+        }
+    });
+</script>
 {{-- @endpush --}}
 
 <style>
@@ -511,15 +554,15 @@
         transition: 0.4s;
     }
 
-    input:checked + .slider {
+    input:checked+.slider {
         background-color: #28a745;
     }
 
-    input:focus + .slider {
+    input:focus+.slider {
         box-shadow: 0 0 1px #28a745;
     }
 
-    input:checked + .slider:before {
+    input:checked+.slider:before {
         transform: translateX(26px);
     }
 

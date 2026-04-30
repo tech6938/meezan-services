@@ -19,8 +19,13 @@ class CommissionService
      */
     public function processCommissionDeduction(BookingRequest $booking)
     {
+        $startedTransaction = false;
+
         try {
-            DB::beginTransaction();
+            if (DB::transactionLevel() === 0) {
+                DB::beginTransaction();
+                $startedTransaction = true;
+            }
 
             $serviceRequest = ServiceRequest::find($booking->request_id);
 
@@ -28,21 +33,37 @@ class CommissionService
                 throw new \Exception('Service request not found for this booking.');
             }
 
+            if (!$serviceRequest->subcat_id) {
+                throw new \Exception('Subcategory is missing for this booking request.');
+            }
+
+            if ($booking->price === null || (float) $booking->price <= 0) {
+                throw new \Exception('A valid booking price is required before commission can be deducted.');
+            }
+
             // Get commission details for the subcategory
             $commission = $this->getCommissionDetails($serviceRequest->subcat_id);
 
             if (!$commission) {
                 // No commission defined, skip deduction
-                DB::commit();
+                if ($startedTransaction) {
+                    DB::commit();
+                }
                 return [
                     'success' => true,
                     'message' => 'No commission defined for this subcategory.',
-                    'commission_deducted' => 0
+                    'commission_deducted' => 0,
+                    'old_balance' => null,
+                    'new_balance' => null,
                 ];
             }
 
             // Calculate commission amount
             $commissionAmount = $this->calculateCommissionAmount($commission, $booking->price);
+
+            if ($commissionAmount < 0) {
+                throw new \Exception('Calculated commission amount is invalid.');
+            }
 
             // Determine who to deduct from (provider or shopkeeper)
             $wallet = $this->getWallet($booking);
@@ -52,7 +73,7 @@ class CommissionService
             }
 
             // Deduct commission from wallet
-            $oldBalance = $wallet->amount;
+            $oldBalance = (float) $wallet->amount;
             $wallet->amount -= $commissionAmount;
             $wallet->save();
 
@@ -70,7 +91,9 @@ class CommissionService
                 'new_balance' => $wallet->amount,
             ]);
 
-            DB::commit();
+            if ($startedTransaction) {
+                DB::commit();
+            }
 
             return [
                 'success' => true,
@@ -81,7 +104,9 @@ class CommissionService
             ];
 
         } catch (\Exception $e) {
-            DB::rollBack();
+            if ($startedTransaction && DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             Log::error('Commission deduction failed: ' . $e->getMessage(), [
                 'booking_id' => $booking->id,
                 'error' => $e->getMessage()
@@ -131,10 +156,10 @@ class CommissionService
     private function calculateCommissionAmount(Commission $commission, $bookingPrice)
     {
         if ($commission->type === 'percentage') {
-            return ($commission->amount / 100) * $bookingPrice;
+            return round(($commission->amount / 100) * $bookingPrice, 2);
         } else {
             // Fixed amount
-            return $commission->amount;
+            return round((float) $commission->amount, 2);
         }
     }
 
@@ -148,12 +173,12 @@ class CommissionService
     {
         // Check if provider exists
         if ($booking->provider_id) {
-            return Wallet::where('provider_id', $booking->provider_id)->first();
+            return Wallet::where('provider_id', $booking->provider_id)->lockForUpdate()->first();
         }
 
         // Check if shopkeeper exists
         if ($booking->shopkeeper_id) {
-            return Wallet::where('shopkeeper_id', $booking->shopkeeper_id)->first();
+            return Wallet::where('shopkeeper_id', $booking->shopkeeper_id)->lockForUpdate()->first();
         }
 
         return null;

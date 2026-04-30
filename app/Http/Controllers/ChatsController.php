@@ -6,39 +6,81 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Chat;
 use App\Models\Provider;
+use App\Models\ShopKeeper;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 use Illuminate\Support\Facades\Response;
 
 class ChatsController extends Controller
 {
+    private const TYPE_MAP = [
+        'user' => User::class,
+        'provider' => Provider::class,
+        'shopkeeper' => ShopKeeper::class,
+    ];
+
     // List of all chats (modified with checkboxes)
     public function chatsList(Request $request)
     {
-        $data = Chat::with(['sender', 'receiver'])
+        $chats = Chat::with(['sender', 'receiver'])
             ->latest()
-            ->paginate(100);
+            ->get()
+            ->unique(function (Chat $chat) {
+                $participants = [
+                    Chat::participantKey([
+                        'id' => $chat->sender_id,
+                        'type' => $chat->sender_type,
+                    ]),
+                    Chat::participantKey([
+                        'id' => $chat->receiver_id,
+                        'type' => $chat->receiver_type,
+                    ]),
+                ];
+
+                sort($participants);
+
+                return implode('|', $participants);
+            })
+            ->values();
+
+        $perPage = 100;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        $data = new LengthAwarePaginator(
+            $chats->forPage($page, $perPage)->values(),
+            $chats->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         return view('chat.chatsList', compact('data'));
     }
 
     // Chat between a user (sender) and provider (receiver)
-    public function chatBetween($user_id, $provider_id)
+    public function chatBetween($sender_type, $sender_id, $receiver_type, $receiver_id)
     {
-        // Fetch messages between this user and provider
-        $messages = Chat::where(function ($q) use ($user_id, $provider_id) {
-            $q->where('sender_id', $user_id)
-                ->where('receiver_id', $provider_id);
-        })->orWhere(function ($q) use ($user_id, $provider_id) {
-            $q->where('sender_id', $provider_id)
-                ->where('receiver_id', $user_id);
-        })
+        $senderType = $this->resolveType($sender_type);
+        $receiverType = $this->resolveType($receiver_type);
+
+        abort_unless($senderType && $receiverType, 404);
+
+        $messages = Chat::betweenParticipants(
+            ['id' => (int) $sender_id, 'type' => $senderType],
+            ['id' => (int) $receiver_id, 'type' => $receiverType]
+        )
             ->with(['sender', 'receiver'])
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $sender = User::findOrFail($user_id);
-        $receiver = Provider::findOrFail($provider_id);
+        $sender = $this->findParticipant((int) $sender_id, $senderType);
+        $receiver = $this->findParticipant((int) $receiver_id, $receiverType);
+
+        abort_unless($sender && $receiver, 404);
 
         return view('chat.chatBetween', compact('messages', 'sender', 'receiver'));
     }
@@ -61,11 +103,35 @@ class ChatsController extends Controller
 
         if ($exportType === 'all') {
             // Get all unique chat pairs
-            $chatPairs = Chat::select('sender_id', 'receiver_id')
-                ->distinct()
+            $chatPairs = Chat::latest()
                 ->get()
+                ->unique(function (Chat $chat) {
+                    $participants = [
+                        Chat::participantKey([
+                            'id' => $chat->sender_id,
+                            'type' => $chat->sender_type,
+                        ]),
+                        Chat::participantKey([
+                            'id' => $chat->receiver_id,
+                            'type' => $chat->receiver_type,
+                        ]),
+                    ];
+
+                    sort($participants);
+
+                    return implode('|', $participants);
+                })
                 ->map(function ($chat) {
-                    return $chat->sender_id . '_' . $chat->receiver_id;
+                    return implode('|', [
+                        Chat::participantKey([
+                            'id' => $chat->sender_id,
+                            'type' => $chat->sender_type,
+                        ]),
+                        Chat::participantKey([
+                            'id' => $chat->receiver_id,
+                            'type' => $chat->receiver_type,
+                        ]),
+                    ]);
                 })
                 ->toArray();
 
@@ -90,21 +156,23 @@ class ChatsController extends Controller
                 continue;
             }
 
-            $parts = explode('_', $chatKey);
-            if (count($parts) != 2) {
+            $participants = explode('|', $chatKey);
+            if (count($participants) !== 2) {
                 continue;
             }
 
-            list($senderId, $receiverId) = $parts;
+            [$senderType, $senderId] = $this->parseParticipantKey($participants[0]);
+            [$receiverType, $receiverId] = $this->parseParticipantKey($participants[1]);
+
+            if (!$senderType || !$receiverType) {
+                continue;
+            }
 
             // Get all messages between these users
-            $messages = Chat::where(function ($q) use ($senderId, $receiverId) {
-                $q->where('sender_id', $senderId)
-                    ->where('receiver_id', $receiverId);
-            })->orWhere(function ($q) use ($senderId, $receiverId) {
-                $q->where('sender_id', $receiverId)
-                    ->where('receiver_id', $senderId);
-            })
+            $messages = Chat::betweenParticipants(
+                ['id' => (int) $senderId, 'type' => $senderType],
+                ['id' => (int) $receiverId, 'type' => $receiverType]
+            )
                 ->with(['sender', 'receiver'])
                 ->orderBy('created_at', 'asc')
                 ->get();
@@ -114,15 +182,18 @@ class ChatsController extends Controller
             }
 
             // Get user details
-            $sender = User::find($senderId) ?: Provider::find($senderId);
-            $receiver = User::find($receiverId) ?: Provider::find($receiverId);
-            // dd($receiver);
+            $sender = $this->findParticipant((int) $senderId, $senderType);
+            $receiver = $this->findParticipant((int) $receiverId, $receiverType);
+
+            if (!$sender || !$receiver) {
+                continue;
+            }
 
             // Create HTML content for this chat
             $htmlContent = $this->generateChatHTML($messages, $sender, $receiver, $tempDir);
 
             // Save HTML file
-            $filename = "chat_{$senderId}_{$receiverId}.html";
+            $filename = "chat_{$this->typeAlias($senderType)}_{$senderId}_{$this->typeAlias($receiverType)}_{$receiverId}.html";
             $filepath = $tempDir . '/' . $filename;
             file_put_contents($filepath, $htmlContent);
             $exportedFiles[] = $filepath;
@@ -163,11 +234,14 @@ class ChatsController extends Controller
     // Generate HTML for chat export
     private function generateChatHTML($messages, $sender, $receiver, $tempDir)
     {
+        $senderMeta = $this->participantMeta($sender);
+        $receiverMeta = $this->participantMeta($receiver);
+
         $html = '<!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Chat Export - ' . e($sender->name ?? $sender->full_name) . ' & ' . e($receiver->name ?? $receiver->full_name) . '</title>
+            <title>Chat Export - ' . e($senderMeta['name']) . ' & ' . e($receiverMeta['name']) . '</title>
             <style>
                 body {
                     font-family: Arial, sans-serif;
@@ -273,15 +347,15 @@ class ChatsController extends Controller
             <div class="chat-container">
                 <div class="chat-header">
                     <h2>Chat Conversation</h2>
-                    <p>Between ' . e($sender->name ?? $sender->full_name) . ' and ' . e($receiver->name ?? $receiver->full_name) . '</p>
+                    <p>Between ' . e($senderMeta['name']) . ' and ' . e($receiverMeta['name']) . '</p>
                     <p>Exported on: ' . date('F j, Y, g:i a') . '</p>
                 </div>
                 <div class="messages">';
 
         foreach ($messages as $message) {
-            $isSent = $message->sender_id == ($sender->id ?? $sender->id);
-            $senderName = $isSent ? ($sender->name ?? $sender->full_name) : ($receiver->name ?? $receiver->full_name);
-            $avatar = $isSent ? ($sender->image_url ?? $sender->profile_image_url  ?? '') : ($receiver->image_url ?? $sender->profile_image_url ?? '');
+            $isSent = $message->sender_id === $sender->id
+                && $message->sender_type === get_class($sender);
+            $avatar = $isSent ? $senderMeta['image'] : $receiverMeta['image'];
 
             $html .= '<div class="message ' . ($isSent ? 'sent' : 'received') . '">';
 
@@ -297,12 +371,12 @@ class ChatsController extends Controller
                 $html .= '<div class="file-attachment">';
 
                 // Check if it's an image
-                if (in_array($message->file_type, ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'])) {
+                if ($this->isImageFile($message->file_type, $message->file_name)) {
                     $html .= '<img src="' . e(asset($message->file_path)) . '" alt="' . e($message->file_name) . '"><br>';
                     $html .= '<small>📷 ' . e($message->file_name) . '</small>';
                 }
                 // Check if it's audio
-                elseif (strpos($message->file_type, 'audio/') !== false) {
+                elseif ($this->matchesMimePrefix($message->file_type, 'audio/')) {
                     $html .= '<audio controls style="max-width: 200px;">
                                 <source src="' . e(asset($message->file_path)) . '" type="' . e($message->file_type) . '">
                                 Your browser does not support the audio element.
@@ -310,7 +384,7 @@ class ChatsController extends Controller
                     $html .= '<small>🎵 ' . e($message->file_name) . '</small>';
                 }
                 // Check if it's video
-                elseif (strpos($message->file_type, 'video/') !== false) {
+                elseif ($this->matchesMimePrefix($message->file_type, 'video/')) {
                     $html .= '<video controls style="max-width: 200px;">
                                 <source src="' . e(asset($message->file_path)) . '" type="' . e($message->file_type) . '">
                                 Your browser does not support the video element.
@@ -346,6 +420,73 @@ class ChatsController extends Controller
         </html>';
 
         return $html;
+    }
+
+    private function resolveType(string $type): ?string
+    {
+        return self::TYPE_MAP[$type] ?? (in_array($type, self::TYPE_MAP, true) ? $type : null);
+    }
+
+    private function typeAlias(string $type): string
+    {
+        return array_search($type, self::TYPE_MAP, true) ?: 'unknown';
+    }
+
+    private function parseParticipantKey(string $participantKey): array
+    {
+        $position = strrpos($participantKey, '_');
+
+        if ($position === false) {
+            return [null, null];
+        }
+
+        $type = substr($participantKey, 0, $position);
+        $id = substr($participantKey, $position + 1);
+
+        return [$this->resolveType($type), $id];
+    }
+
+    private function findParticipant(int $id, string $type): ?object
+    {
+        return class_exists($type) ? $type::find($id) : null;
+    }
+
+    private function participantMeta(object $participant): array
+    {
+        if ($participant instanceof User) {
+            return [
+                'name' => $participant->name,
+                'image' => $participant->image_url ?? asset('assets/img/user.png'),
+            ];
+        }
+
+        if ($participant instanceof Provider) {
+            return [
+                'name' => $participant->full_name ?? $participant->name,
+                'image' => $participant->profile_image_url ?? asset('assets/img/download.png'),
+            ];
+        }
+
+        return [
+            'name' => $participant->name ?? 'Unknown',
+            'image' => $participant->profile_image ?? asset('assets/img/user.png'),
+        ];
+    }
+
+    private function matchesMimePrefix(?string $fileType, string $prefix): bool
+    {
+        return is_string($fileType) && str_starts_with($fileType, $prefix);
+    }
+
+    private function isImageFile(?string $fileType, ?string $fileName): bool
+    {
+        if ($this->matchesMimePrefix($fileType, 'image/')) {
+            return true;
+        }
+
+        $extension = strtolower(pathinfo((string) $fileName, PATHINFO_EXTENSION));
+
+        return in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
     }
 
     // Helper method to add folder to zip

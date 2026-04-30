@@ -17,6 +17,62 @@ use illuminate\Support\Facades\Auth;
 class ServiceRequestController extends Controller
 {
     // get user all requests
+    // public function ServiceRequest()
+    // {
+    //     try {
+    //         $user_id = Auth::user()->id;
+
+    //         $serviceRequests = ServiceRequest::with([
+    //             'category:id,name',
+    //             'subCategory:id,name',
+    //             'bookingRequests.provider:id,full_name',
+    //             'bookingRequests.shopkeeper:id,name',
+    //             'shop:id,shop_name,category',
+    //         ])
+    //             ->where('user_id', $user_id)
+    //             ->orderBy('id', 'desc')
+    //             ->get()
+    //             ->map(function ($request) {
+
+    //                 // 👉 Get latest booking OR you can customize logic
+    //                 $booking = $request->bookingRequests->first();
+
+    //                 return [
+    //                     'id' => $request->id,
+    //                     'cat_name' => optional($request->category)->name,
+    //                     'subcat_name' => optional($request->subCategory)->name,
+    //                     'shop_name' => optional($request->shop)->shop_name,
+    //                     'shop_cat' => optional($request->shop)->category,
+    //                     'desc' => $request->desc,
+
+    //                     // STATUS from booking_requests table
+    //                     'status' => optional($booking)->req_status ?? 'pending',
+    //                     // 'status' => optional($request)->status, //according to old system
+
+    //                     'created_at' => $request->created_at,
+
+    //                     // Provider Name
+    //                     'provider_name' => optional(optional($booking)->provider)->full_name,
+
+    //                     // Shopkeeper Name
+    //                     'shopkeeper_name' => optional(optional($booking)->shopkeeper)->name,
+    //                 ];
+    //             });
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Service requests fetched successfully',
+    //             'data' => $serviceRequests
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Something went wrong',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function ServiceRequest()
     {
         try {
@@ -45,9 +101,8 @@ class ServiceRequestController extends Controller
                         'shop_cat' => optional($request->shop)->category,
                         'desc' => $request->desc,
 
-                        // STATUS from booking_requests table
-                        'status' => optional($booking)->req_status ?? 'pending',
-                        // 'status' => optional($request)->status, //according to old system
+                        // STATUS: if booking exists -> use booking status, else use service request status
+                        'status' => $booking ? $booking->req_status : $request->status,
 
                         'created_at' => $request->created_at,
 
@@ -137,66 +192,65 @@ class ServiceRequestController extends Controller
     // }
 
     public function ServiceRequestStore(Request $request)
-{
-    try {
-        // Validate request with 'file' as array
-        $validatedData = $request->validate([
-            'cat_id' => 'nullable|integer',
-            'subcat_id' => 'nullable|integer',
-            'address_id' => 'nullable|integer',
-            'shop_id' => 'nullable|integer',
-            'lang' => 'required|string',
-            'lat' => 'required|string',
-            'desc' => 'nullable|string',
-            'file' => 'nullable|array',
-            'file.*' => 'file|max:102400',
-            'status' => 'nullable|string',
-        ]);
+    {
+        try {
+            // Validate request with 'file' as array
+            $validatedData = $request->validate([
+                'cat_id' => 'nullable|integer',
+                'subcat_id' => 'nullable|integer',
+                'address_id' => 'nullable|integer',
+                'shop_id' => 'nullable|integer',
+                'lang' => 'required|string',
+                'lat' => 'required|string',
+                'desc' => 'nullable|string',
+                'file' => 'nullable|array',
+                'file.*' => 'file|max:102400',
+                'status' => 'nullable|string',
+            ]);
 
-        $filePaths = [];
-        if ($request->hasFile('file')) {
-            foreach ($request->file('file') as $file) {
-                $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
-                $uploadDir = public_path('uploads');
+            $filePaths = [];
+            if ($request->hasFile('file')) {
+                foreach ($request->file('file') as $file) {
+                    $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+                    $uploadDir = public_path('uploads');
 
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
+                    if (!file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0777, true);
+                    }
+
+                    $file->move($uploadDir, $fileName);
+                    $filePaths[] = 'uploads/' . $fileName;
                 }
-
-                $file->move($uploadDir, $fileName);
-                $filePaths[] = 'uploads/' . $fileName;
             }
+
+            // Convert file paths array to JSON string for database storage
+            $validatedData['file'] = !empty($filePaths) ? json_encode($filePaths) : null;
+
+            // Add logged-in user's ID
+            $validatedData['user_id'] = $request->user()->id;
+
+            // Create the service request record
+            $serviceRequest = ServiceRequest::create($validatedData);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Service request created successfully',
+                'data' => $serviceRequest,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation error',
+                'errors' => $ve->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Convert file paths array to JSON string for database storage
-        $validatedData['file'] = !empty($filePaths) ? json_encode($filePaths) : null;
-
-        // Add logged-in user's ID
-        $validatedData['user_id'] = $request->user()->id;
-
-        // Create the service request record
-        $serviceRequest = ServiceRequest::create($validatedData);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Service request created successfully',
-            'data' => $serviceRequest,
-        ], 201);
-
-    } catch (\Illuminate\Validation\ValidationException $ve) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Validation error',
-            'errors' => $ve->errors()
-        ], 422);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Something went wrong',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 
 
     // update status
@@ -244,69 +298,92 @@ class ServiceRequestController extends Controller
     //     }
     // }
 
-public function updateStatus(Request $request, $id)
-{
-    try {
-        // Validate the request
-        $validatedData = $request->validate([
-            'status' => 'required|string|in:pending,accept,in_progress,complete_booking,cancel', // adjust allowed statuses
-        ]);
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            // Validate the request
+            $validatedData = $request->validate([
+                'status' => 'required|string|in:pending,accept,in_progress,complete_booking,cancel',
+            ]);
 
-        // Find the service request
-        $serviceRequest = ServiceRequest::find($id);
+            // Find the service request
+            $serviceRequest = ServiceRequest::find($id);
 
-        if (!$serviceRequest) {
+            if (!$serviceRequest) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Service request not found',
+                ], 404);
+            }
+
+            // Check if any booking requests exist for this request_id
+            $bookingExists = BookingRequest::where('request_id', $id)->exists();
+
+            // Check if trying to cancel
+            if ($validatedData['status'] == 'cancel') {
+                if ($bookingExists) {
+                    // Booking already exists, cannot cancel
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Booking is created for this order',
+                    ], 400);
+                } else {
+                    // No booking exists, can cancel the service request
+                    $serviceRequest->status = 'cancel';
+                    $serviceRequest->save();
+
+                    return response()->json([
+                        'status' => true,
+                        'message' => 'Service request cancelled successfully',
+                        'data' => [
+                            'status' => $serviceRequest->status,
+                        ],
+                    ], 200);
+                }
+            }
+
+            // For non-cancel status updates
+            $updatedCount = 0;
+            $updatedIn = '';
+
+            if ($bookingExists) {
+                // Update all booking requests with this request_id
+                $updatedCount = BookingRequest::where('request_id', $id)
+                    ->update(['req_status' => $validatedData['status']]);
+                $updatedIn = 'booking_requests';
+
+                // Get the updated status from booking request for response
+                $updatedStatus = $validatedData['status'];
+            } else {
+                // No booking records found, update service request table
+                $serviceRequest->status = $validatedData['status'];
+                $serviceRequest->save();
+                $updatedCount = 1;
+                $updatedIn = 'service_requests';
+                $updatedStatus = $serviceRequest->status;
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => "Status updated successfully",
+                'data' => [
+                    'status' => $updatedStatus,
+                ],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $ve) {
             return response()->json([
                 'status' => false,
-                'message' => 'Service request not found',
-            ], 404);
+                'message' => 'Validation error',
+                'errors' => $ve->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Check if any booking requests exist for this request_id
-        $bookingExists = BookingRequest::where('request_id', $id)->exists();
-
-        $updatedCount = 0;
-        $updatedIn = '';
-
-        if ($bookingExists) {
-            // Update all booking requests with this request_id
-            $updatedCount = BookingRequest::where('request_id', $id)
-                ->update(['req_status' => $validatedData['status']]);
-            $updatedIn = 'booking_requests';
-        } else {
-            // No booking records found, update service request table
-            $serviceRequest->status = $validatedData['status'];
-            $serviceRequest->save();
-            $updatedCount = 1;
-            $updatedIn = 'service_requests';
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => "Status updated successfully in {$updatedIn} table",
-            'data' => [
-                // 'request_id' => $id,
-                // 'updated_in' => $updatedIn,
-                // 'updated_count' => $updatedCount,
-                // 'new_status' => $validatedData['status'],
-                'status' => $serviceRequest->status, //service_request
-            ],
-        ], 200);
-    } catch (\Illuminate\Validation\ValidationException $ve) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Validation error',
-            'errors' => $ve->errors()
-        ], 422);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Something went wrong',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
-
 
     // request details for users
     // public function serviceRequestDetails($id)
@@ -536,6 +613,9 @@ public function updateStatus(Request $request, $id)
                 ->whereIn('req_status', ['in_progress', 'accept'])
                 ->first();
 
+            // Apply the same logic: if booking exists -> use booking status, else use service request status
+            $status = $currentBooking ? $currentBooking->req_status : $serviceRequest->status;
+
             return response()->json([
                 'status' => true,
                 'message' => 'Service request details retrieved successfully',
@@ -553,7 +633,7 @@ public function updateStatus(Request $request, $id)
                     'desc' => $serviceRequest->desc,
                     'file' => $serviceRequest->file,
                     'file_type' => $serviceRequest->file_type,
-                    'status' => optional($currentBooking)->req_status ?? 'pending',
+                    'status' => $status, // Changed: now uses service request status if no booking exists
                     'created_at' => $serviceRequest->created_at,
                     'providers' => $providersList, // Always returns an array (may be empty)
                     'shopkeepers' => $shopkeepersList, // Always returns an array (may be empty)

@@ -5,7 +5,7 @@
         <section class="section">
 
             <div class="section-header">
-                <h1>Chat Between {{ $sender->name }} & {{ $receiver->full_name }}</h1>
+                <h1>Chat Between {{ $sender->name ?? $sender->full_name }} & {{ $receiver->name ?? $receiver->full_name }}</h1>
             </div>
 
             <div class="section-body">
@@ -22,14 +22,14 @@
 
                             @foreach ($messages as $message)
                                 @php
-                                    $isSender = $message->sender_id == $sender->id;
+                                    $isSender = $message->sender_id === $sender->id && $message->sender_type === get_class($sender);
                                 @endphp
 
                                 <div class="message-item d-flex mb-3 {{ $isSender ? '' : 'justify-content-end' }}">
 
                                     @if ($isSender)
                                         <!-- Sender Message -->
-                                        <img src="{{ $message->sender->image_url ?? ($message->sender->profile_image_url ?? asset('assets/img/user.png'))}}"
+                                        <img src="{{ $message->sender->image_url ?? ($message->sender->profile_image_url ?? ($message->sender->profile_image ?? asset('assets/img/user.png'))) }}"
                                             class="rounded-circle mr-2" style="width:40px;height:40px;object-fit:cover;">
 
                                         <div class="message-text-container bg-primary text-white p-2 rounded"
@@ -52,7 +52,7 @@
                                             </small>
                                         </div>
 
-                                        <img src="{{ $message->receiver->image_url ?? ($message->receiver->profile_image_url ?? asset('assets/img/user.png')) }}"
+                                        <img src="{{ $message->sender->image_url ?? ($message->sender->profile_image_url ?? ($message->sender->profile_image ?? asset('assets/img/user.png'))) }}"
                                             class="rounded-circle ml-2" style="width:40px;height:40px;object-fit:cover;">
                                     @endif
 

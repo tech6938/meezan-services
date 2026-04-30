@@ -46,24 +46,47 @@
                                 <div class="card-body p-3">
                                     <ul class="list-unstyled" id="chatList">
                                         @foreach ($data as $index => $chat)
+                                            @php
+                                                $senderType = $chat->sender_type === \App\Models\User::class
+                                                    ? 'user'
+                                                    : ($chat->sender_type === \App\Models\Provider::class
+                                                        ? 'provider'
+                                                        : 'shopkeeper');
+                                                $receiverType = $chat->receiver_type === \App\Models\User::class
+                                                    ? 'user'
+                                                    : ($chat->receiver_type === \App\Models\Provider::class
+                                                        ? 'provider'
+                                                        : 'shopkeeper');
+                                                $senderImage = $chat->sender->image_url ??
+                                                    $chat->sender->profile_image_url ??
+                                                    $chat->sender->profile_image ??
+                                                    asset('assets/img/user.png');
+                                                $receiverImage = $chat->receiver->image_url ??
+                                                    $chat->receiver->profile_image_url ??
+                                                    $chat->receiver->profile_image ??
+                                                    asset('assets/img/download.png');
+                                                $senderName = $chat->sender->name ?? $chat->sender->full_name ?? 'Unknown';
+                                                $receiverName = $chat->receiver->name ??
+                                                    $chat->receiver->full_name ??
+                                                    'Unknown';
+                                            @endphp
                                             <li class="list-group-item chat-item" data-chat-id="{{ $chat->id }}">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <!-- Checkbox - Fixed -->
                                                     <div class="d-flex align-items-center" style="width: 50px;">
                                                         <input type="checkbox" class="chat-checkbox"
-                                                            value="{{ $chat->sender->id }}_{{ $chat->receiver->id }}"
+                                                            value="{{ $senderType }}_{{ $chat->sender->id }}|{{ $receiverType }}_{{ $chat->receiver->id }}"
                                                             id="chat_{{ $chat->id }}"
                                                             style="width: 14px; height: 14px; cursor: pointer;">
                                                     </div>
 
                                                     <!-- Sender -->
                                                     <div class="d-flex align-items-center sender flex-grow-1">
-                                                        <img src="{{ $chat->sender->image_url ??  ($chat->profile_image_url ?? asset('assets/img/user.png')) }}"
+                                                        <img src="{{ $senderImage }}"
                                                             class="rounded-circle mr-2"
                                                             style="width:40px; height:40px; object-fit:cover;">
                                                         <div>
-                                                            <strong
-                                                                class="sender-name">{{ $chat->sender->name }}</strong><br>
+                                                            <strong class="sender-name">{{ $senderName }}</strong><br>
                                                             <small
                                                                 class="sender-phone text-muted">{{ $chat->sender->phone }}</small>
                                                         </div>
@@ -78,19 +101,18 @@
                                                     <div
                                                         class="d-flex align-items-center receiver flex-grow-1 justify-content-end">
                                                         <div class="text-right mr-2">
-                                                            <strong
-                                                                class="receiver-name">{{ $chat->receiver->full_name }}</strong><br>
+                                                            <strong class="receiver-name">{{ $receiverName }}</strong><br>
                                                             <small
                                                                 class="receiver-phone text-muted">{{ $chat->receiver->phone }}</small>
                                                         </div>
-                                                        <img src="{{ $chat->receiver->image_url ??($chat->profile_image_url ?? asset('assets/img/download.png')) }}"
+                                                        <img src="{{ $receiverImage }}"
                                                             class="rounded-circle"
                                                             style="width:40px; height:40px; object-fit:cover;">
                                                     </div>
 
                                                     <!-- Button -->
                                                     <div class="ml-3">
-                                                        <a href="{{ route('chats.between', ['sender_id' => $chat->sender->id, 'receiver_id' => $chat->receiver->id]) }}"
+                                                        <a href="{{ route('chats.between', ['sender_type' => $senderType, 'sender_id' => $chat->sender->id, 'receiver_type' => $receiverType, 'receiver_id' => $chat->receiver->id]) }}"
                                                             class="btn btn-info btn-sm">
                                                             <i class="fas fa-comments"></i>
                                                         </a>

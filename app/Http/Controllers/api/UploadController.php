@@ -21,8 +21,8 @@ class UploadController extends Controller
             $user = Auth::user();
             $file = $request->file('file');
 
-            $fileType = $file->getClientOriginalExtension();
-            $fileName = time() . '_' . $file->getClientOriginalName();
+            $fileType = $file->getMimeType() ?: $file->getClientMimeType() ?: $file->getClientOriginalExtension();
+            $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
 
             $uploadDir = public_path('uploads');
             if (!file_exists($uploadDir)) {
@@ -48,6 +48,9 @@ class UploadController extends Controller
                 'message' => 'File uploaded successfully',
                 'data' => $upload,
                 'url' => url($filePath),
+                'file_url' => url($filePath),
+                'file_path' => $filePath,
+                'file_type' => $fileType,
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -80,6 +83,8 @@ class UploadController extends Controller
                     'name' => $upload->file_name,
                     'type' => $upload->file_type,
                     'url' => url($upload->file_path),
+                    'file_url' => url($upload->file_path),
+                    'file_path' => $upload->file_path,
                     'uploaded_at' => $upload->created_at->toDateTimeString(),
                 ];
             });
