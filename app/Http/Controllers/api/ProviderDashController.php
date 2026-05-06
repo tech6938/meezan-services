@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use App\Models\BookingRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ProviderDashController extends Controller
 {
@@ -22,17 +23,29 @@ class ProviderDashController extends Controller
             $pending = BookingRequest::where('provider_id', $provider_id)->where('status', 'pending')->get();
             $cancel = BookingRequest::where('provider_id', $provider_id)->where('status', 'cancel')->get();
             $completed = BookingRequest::where('provider_id', $provider_id)->where('status', 'complete_booking')->get();
-            $amount = 0;
-            foreach ($completed as $newdata) {
-                $amount += $newdata['price'];
-            }
+
+            // Get completed booking IDs
+            $completedIds = $completed->pluck('id');
+
+            // Calculate total booking price for completed bookings
+            $totalBookingPrice = $completed->sum('price');
+
+            // Calculate total commission deducted from commission_logs
+            $totalCommissionDeducted = DB::table('commission_logs')
+                ->whereIn('booking_id', $completedIds)
+                ->where('provider_id', $provider_id)
+                ->sum('commission_deducted');
+
+            // Total earnings = total booking price - total commission deducted
+            $totalEarning = $totalBookingPrice - $totalCommissionDeducted;
+
             $data = [
                 'total_bookings' => count($totalbookings),
                 'pending' => count($pending),
                 'cancel' => count($cancel),
                 'compeleted' => count($completed),
-                'total_earning ' => $amount,
-                'app_commission' => '0.00',
+                'total_earning' => number_format($totalEarning, 2),
+                'app_commission' => number_format($totalCommissionDeducted, 2),
             ];
             return response()->json([
                 'status' => true,
