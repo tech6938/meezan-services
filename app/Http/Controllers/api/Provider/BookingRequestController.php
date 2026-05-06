@@ -73,6 +73,17 @@ class BookingRequestController extends Controller
                 'request_id'  => 'required|integer|exists:service_requests,id',
             ]);
 
+            // Check wallet balance for the provider before accepting request
+            $wallet = Wallet::where('provider_id', $validated['provider_id'])->first();
+            $walletBalance = $wallet ? (float) $wallet->amount : 0.00;
+
+            if ($walletBalance < 0) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Please add your wallet balance!',
+                ], 400);
+            }
+
             // Check maximum 3 bookings in 'in_progress' status
             $inProgressCount = BookingRequest::where('provider_id', $validated['provider_id'])
                 ->where('status', 'in_progress')
