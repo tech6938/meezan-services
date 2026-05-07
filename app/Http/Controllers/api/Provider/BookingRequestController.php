@@ -28,43 +28,6 @@ class BookingRequestController extends Controller
     }
 
     //provider accept request
-    // public function providerAcceptRequest(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'provider_id' => 'required|integer|exists:providers,id',
-    //         'request_id'  => 'required|integer|exists:service_requests,id',
-    //     ]);
-
-    //     $hasActiveBooking = BookingRequest::where('provider_id', $validated['provider_id'])
-    //         ->whereIn('status', ['pending', 'in_progress'])
-    //         ->exists();
-
-    //     if ($hasActiveBooking) {
-    //         return response()->json([
-    //             'status'  => false,
-    //             'message' => 'You already have an active booking request',
-    //         ], 400);
-    //     }
-
-    //     $serviceRequest = ServiceRequest::findOrFail($validated['request_id']);
-
-
-    //     //  Create booking request
-    //     BookingRequest::create([
-    //         'provider_id'   => $validated['provider_id'],
-    //         'request_id'    => $validated['request_id'],
-    //         'user_id'       => $serviceRequest->user_id,
-    //         'status'        => 'pending',
-    //         'req_status' => 'accept',
-    //         'cancel_reason' => null,
-    //     ]);
-
-    //     return response()->json([
-    //         'status'  => true,
-    //         'message' => 'Request accepted successfully',
-    //     ], 200);
-    // }
-
     public function providerAcceptRequest(Request $request)
     {
         try {
@@ -248,7 +211,6 @@ class BookingRequestController extends Controller
     public function goto(Request $request)
     {
         try {
-            // Get the authenticated provider or shopkeeper
             $provider = Auth::guard('provider-api')->user();
             $shopkeeper = Auth::guard('shopkeeper-api')->user();
 
@@ -290,7 +252,6 @@ class BookingRequestController extends Controller
                 'assigned' => 1,
                 'is_seen'  => 0,
                 'seen_at'  => null,
-                // 'status' => 'in_progress' // Optional: Update status to in_progress
             ]);
 
             return response()->json([
@@ -403,20 +364,6 @@ class BookingRequestController extends Controller
 
         // Fetch shop service request
         $shopServiceRequest = ServiceRequest::findOrFail($validated['request_id']);
-        // return $shopServiceRequest;
-
-        // // Prevent duplicate acceptance
-        // if ($shopServiceRequest->status === 'accept') {
-        //     return response()->json([
-        //         'status'  => false,
-        //         'message' => 'This service request has already been accepted',
-        //     ], 400);
-        // }
-
-        // // Update shop service request status
-        // $shopServiceRequest->update([
-        //     'status' => 'accept',
-        // ]);
 
         // Create shop booking request
         $shopBookingRequest = BookingRequest::create([
@@ -723,129 +670,6 @@ class BookingRequestController extends Controller
 
 
     // startBooking/ cancelBooking
-    // public function startBooking(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'booking_id'     => 'required|exists:booking_requests,id',
-    //         'status'         => 'required|string|in:in_progress,cancel',
-    //         'amount'         => 'nullable|integer',
-    //         'cancel_reason'  => 'nullable|string',
-    //         'details'        => 'nullable|string',
-    //         'audio'          => 'nullable',
-    //         // 'audio'          => 'nullable|file|mimes:mp3,wav,m4a,ogg,aac',
-    //     ]);
-
-    //     $booking = BookingRequest::findOrFail($validated['booking_id']);
-    //     $authUser = Auth::user();
-
-    //     // 🔒 Block updates if booking already finished
-    //     if (in_array($booking->status, ['completed', 'cancel'])) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'This booking can no longer be updated'
-    //         ], 400);
-    //     }
-
-    //     /**
-    //      * ===============================
-    //      * STORE DETAILS
-    //      * ===============================
-    //      */
-    //     if ($request->filled('details')) {
-    //         $booking->details = $validated['details'];
-    //     }
-
-    //     /**
-    //      * ===============================
-    //      * STORE AUDIO FILE
-    //      * ===============================
-    //      */
-    //     if ($request->hasFile('audio')) {
-    //         $file = $request->file('audio');
-    //         $directory = public_path('booking_audio');
-
-    //         // Create directory if it doesn't exist
-    //         if (!file_exists($directory)) {
-    //             mkdir($directory, 0755, true);
-    //         }
-
-    //         $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-    //         $file->move($directory, $fileName);
-    //         $booking->audio = 'booking_audio/' . $fileName;
-    //     }
-
-    //     /**
-    //      * ===============================
-    //      * PROVIDER ACTIONS
-    //      * ===============================
-    //      */
-    //     if ($authUser->id === $booking->provider_id) {
-
-    //         if ($booking->status === 'in_progress' && $validated['status'] === 'in_progress') {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'Booking is already in progress'
-    //             ], 400);
-    //         }
-
-    //         $booking->status = $validated['status'];
-    //         $booking->price  = $validated['amount'] ?? $booking->price;
-
-    //         if ($validated['status'] === 'cancel') {
-    //             $booking->cancel_by = 'provider';
-    //             $booking->cancel_reason = $validated['cancel_reason'];
-    //         }
-    //     }
-
-    //     /**
-    //      * ===============================
-    //      * USER (CUSTOMER) ACTIONS
-    //      * ===============================
-    //      */
-    //     elseif ($authUser->id === $booking->user_id) {
-
-    //         if ($validated['status'] !== 'cancel') {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'User can only cancel the booking'
-    //             ], 403);
-    //         }
-
-    //         $booking->status = 'cancel';
-    //         $booking->cancel_by = 'user';
-    //         $booking->cancel_reason = $validated['cancel_reason'];
-    //     }
-
-    //     /**
-    //      * ===============================
-    //      * UNAUTHORIZED
-    //      * ===============================
-    //      */
-    //     else {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Unauthorized to update this booking'
-    //         ], 403);
-    //     }
-
-    //     $booking->save();
-
-    //     return response()->json([
-    //         'status'  => true,
-    //         'message' => $booking->status === 'cancel'
-    //             ? 'Booking cancelled successfully'
-    //             : 'Booking started successfully',
-    //         'data' => [
-    //             'booking_id'    => $booking->id,
-    //             'status'        => $booking->status,
-    //             'details'       => $booking->details,
-    //             'audio'         => $booking->audio,
-    //             'cancel_by'     => $booking->cancel_by,
-    //             'cancel_reason' => $booking->cancel_reason,
-    //         ]
-    //     ], 200);
-    // }
-
     public function startBooking(Request $request)
     {
         try {
@@ -1364,11 +1188,6 @@ class BookingRequestController extends Controller
                 ], 404);
             }
 
-            /*
-    |--------------------------------------------------------------------------
-    | Address
-    |--------------------------------------------------------------------------
-    */
             $address = null;
             if ($serviceRequest->address) {
                 $address = collect([
@@ -1379,11 +1198,6 @@ class BookingRequestController extends Controller
                 ])->filter()->implode(', ');
             }
 
-            /*
-    |--------------------------------------------------------------------------
-    | Find the booking request for this specific provider
-    |--------------------------------------------------------------------------
-    */
             $specificBooking = null;
             if ($provider) {
                 $specificBooking = $serviceRequest->bookingRequests
@@ -1391,11 +1205,6 @@ class BookingRequestController extends Controller
                     ->first();
             }
 
-            /*
-    |--------------------------------------------------------------------------
-    | Provider Data
-    |--------------------------------------------------------------------------
-    */
             $providerData = null;
             if ($specificBooking && $specificBooking->provider) {
                 $provider = $specificBooking->provider;
@@ -1431,6 +1240,7 @@ class BookingRequestController extends Controller
                     'user_id' => $serviceRequest->user_id,
                     'is_seen' => $providerSeen ? (int) $providerSeen->is_seen : 0,
                     'goto' => $specificBooking ? ($specificBooking->goto ?? 0) : 0,
+                    'assigned' => $specificBooking ? ($specificBooking->assigned ?? 0) : 0,
                     'cat_name' => optional($serviceRequest->category)->name,
                     'subcat_name' => optional($serviceRequest->subCategory)->name,
                     'shop_name' => optional($serviceRequest->shop)->shop_name,
