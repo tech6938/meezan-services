@@ -4,11 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Chat extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'chats';
     protected $fillable = [
+        'booking_id',
         'sender_id',
         'sender_type',
         'receiver_id',
@@ -76,5 +80,10 @@ class Chat extends Model
     public static function participantKey(array $participant): string
     {
         return $participant['type'] . '_' . $participant['id'];
+    }
+
+    public function bookingRequest()
+    {
+        return $this->belongsTo(BookingRequest::class, 'booking_id');
     }
 }

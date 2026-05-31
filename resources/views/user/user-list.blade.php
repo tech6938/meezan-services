@@ -127,11 +127,20 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
-                                <h4>Users List</h4>
-                            </div>
+                            {{-- <div class="card-header">
+                            </div> --}}
 
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <h4>Users List</h4>
+                                @include('components.export-button', [
+                                    'apiUrl' => route('users.export'),
+                                    'fileName' => 'users',
+                                    'queryParams' => request()->all(),
+                                    'buttonLabel' => 'Export'
+                                ])
+                            </div>
                             <div class="card-body">
+                                @include('components.date-range-filter')
                                 <div class="table-responsive">
                                     <table class="table table-striped" id="table-1">
                                         <thead>

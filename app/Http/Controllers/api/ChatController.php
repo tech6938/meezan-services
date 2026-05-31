@@ -465,6 +465,7 @@ class ChatController extends Controller
                 'receiver_id'   => 'required|integer',
                 'message'       => 'nullable|string',
                 'file'          => 'nullable|file|max:102400', // 100MB
+                'booking_id'          => 'required|integer|exists:booking_requests,id',
             ]);
 
             // Must send message or file
@@ -511,6 +512,7 @@ class ChatController extends Controller
 
             /* -------- Save Chat -------- */
             $chat = Chat::create([
+                'booking_id'     => $request->booking_id,
                 'sender_id'     => $auth['id'],
                 'sender_type'   => $auth['type'],
                 'receiver_id'   => $request->receiver_id,

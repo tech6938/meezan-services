@@ -63,10 +63,18 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header"
+                                style="display: flex; justify-content: space-between; align-items: center;">
                                 <h4>Pending Bookings</h4>
+                                @include('components.export-button', [
+                                    'apiUrl' => route('bookings.export'),
+                                    'fileName' => 'cancelled_bookings',
+                                    'queryParams' => array_merge(request()->all(), ['status' => 'cancel']),
+                                    'buttonLabel' => 'Export',
+                                ])
                             </div>
                             <div class="card-body">
+                                @include('components.date-range-filter')
                                 <div class="table-responsive">
                                     <table class="table table-striped" id="table-pending">
                                         <thead>
@@ -97,7 +105,6 @@
                                                                 'complete_booking' => 'badge-complete',
                                                                 'cancel' => 'badge-cancel',
                                                             ];
-
                                                             $statusLabels = [
                                                                 'pending' => 'Pending',
                                                                 'in_progress' => 'In Progress',

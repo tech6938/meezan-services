@@ -218,7 +218,8 @@
                         <div class="d-card-body">
                             <div class="profile-row">
                                 @if ($booking->user?->image_url)
-                                    <img src="{{ $booking->user->image_url ?? asset('assets/img/user.png')}}" class="d-avatar">
+                                    <img src="{{ $booking->user->image_url ?? asset('assets/img/user.png') }}"
+                                        class="d-avatar">
                                 @else
                                     <div class="d-avatar-placeholder">
                                         {{ strtoupper(substr($booking->user?->name ?? 'U', 0, 2)) }}
@@ -283,22 +284,39 @@
                                     <span
                                         class="row-value">{{ $booking->serviceRequest->subCategory?->name ?? 'N/A' }}</span>
                                 </div>
-                                <div class="row-item">
-                                    <span class="row-label">Address</span>
-                                    <span class="row-value" style="max-width:60%">
-                                        {{ collect([
-                                            $booking->serviceRequest->address?->street,
-                                            $booking->serviceRequest->address?->city,
-                                            $booking->serviceRequest->address?->PostalCode,
-                                        ])->filter()->implode(', ') ?? 'N/A' }}
-
-                                        <br>
-                                        <span class="row-value" style="max-width:60%">Address User Name : </span>
-
-                                        {{ collect([$booking->serviceRequest->address?->name])->filter()->implode(', ') ?? 'N/A' }}
-
-                                    </span>
-                                </div>
+<div class="row-item">
+    <span class="row-label">Address</span>
+    <span class="row-value" style="max-width:60%">
+        @if($booking->serviceRequest->address)
+            {{ implode(', ', array_filter([
+                $booking->serviceRequest->address->street,
+                $booking->serviceRequest->address->city,
+                $booking->serviceRequest->address->PostalCode
+            ])) }}
+        @elseif($booking->serviceRequest->lang && $booking->serviceRequest->lat)
+            <div class="map-links">
+                <a href="https://www.google.com/maps?q={{ $booking->serviceRequest->lat }},{{ $booking->serviceRequest->lang }}"
+                   target="_blank"
+                   class="btn btn-sm btn-outline-primary"
+                   title="Open in Google Maps">
+                    <i class="fas fa-map-marker-alt"></i>
+                    📍 {{ number_format($booking->serviceRequest->lat, 4) }}, {{ number_format($booking->serviceRequest->lang, 4) }}
+                </a>
+                <a href="https://www.openstreetmap.org/?mlat={{ $booking->serviceRequest->lat }}&mlon={{ $booking->serviceRequest->lang }}#map=15/{{ $booking->serviceRequest->lat }}/{{ $booking->serviceRequest->lang }}"
+                   target="_blank"
+                   class="btn btn-sm btn-outline-secondary ml-1"
+                   title="Open in OpenStreetMap">
+                    <i class="fas fa-map"></i>
+                </a>
+            </div>
+        @else
+            N/A
+        @endif
+        <br>
+        <span class="row-value">Address User Name : </span>
+        {{ $booking->serviceRequest->address->name ?? 'N/A' }}
+    </span>
+</div>
                                 @if ($booking->serviceRequest->desc)
                                     <div class="row-item">
                                         <span class="row-label">Description</span>

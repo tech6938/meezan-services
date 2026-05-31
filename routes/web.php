@@ -42,6 +42,12 @@ Route::controller(AuthController::class)->group(function () {
     Route::get('/chat-list',  [ChatsController::class, 'chatsList'])->name('chatsList');
     Route::get('/chats/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}', [ChatsController::class, 'chatBetween'])->name('chats.between');
     Route::post('/admin/chats/export', [ChatsController::class, 'exportSelectedChats'])->name('chats.export');
+    Route::delete('chats/delete-by-order/{orderNo}', [ChatsController::class, 'deleteChatsByOrderNo'])->name('chats.deleteByOrderNo');
+
+    // Admin chat management
+    Route::get('/admin/chats/by-order/{orderNo}', [ChatsController::class, 'getChatsByOrderNumber'])->name('chats.getByOrderNo');
+    Route::delete('/admin/chats/message/{messageId}', [ChatsController::class, 'deleteSingleMessage'])->name('chats.deleteSingleMessage');
+    Route::delete('/admin/chats/conversation/{orderNo}', [ChatsController::class, 'deleteConversationByOrderNo'])->name('chats.deleteConversation');
 
     /*
 |--------------------------------------------------------------------------
@@ -55,6 +61,8 @@ Route::controller(AuthController::class)->group(function () {
         Route::post('/updateUserStatus', 'updateUserStatus')->name('updateUserStatus');
         Route::delete('/user/{id}', 'userDestroy')->name('user.destroy');
 
+    // Export routes
+    Route::get('/users/export', 'exportUsers')->name('users.export');
         // for providers list
         Route::get('/approved-providers', 'approvedProviders')->name('approvedProviders');
         Route::get('/blocked-providers', 'blockedProviders')->name('blockedProviders');
@@ -64,6 +72,7 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/provider/details/{id}', 'viewProviderDetail')->name('provider.details');
         Route::post('/statusUpdate', 'statusUpdate')->name('statusUpdate');
         Route::delete('/provider/{id}', 'destroy')->name('provider.destroy');
+        Route::get('/providers/export', 'exportProviders')->name('providers.export');
     });
 
     /*
@@ -78,6 +87,8 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/pending-request', 'pendingRequest')->name('pendingRequest');
         Route::get('/approved-request', 'approvedRequest')->name('approvedRequest');
         Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
+        Route::get('/service-requests/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
+        Route::get('/requests/export', 'exportRequests')->name('requests.export');
     });
 
     /*
@@ -98,6 +109,7 @@ Route::controller(AuthController::class)->group(function () {
 
         // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');
+        Route::get('/bookings/export', 'exportBookings')->name('bookings.export');
     });
 
     /*
@@ -136,7 +148,9 @@ Route::controller(AuthController::class)->group(function () {
     Route::controller(SettingController::class)->group(function () {
         Route::get('/appUrl', 'appUrl')->name('appUrl.index');
         Route::post('/appUrl/store', 'appUrlStore')->name('appUrl.store');
-        Route::post('app/is', 'appIsOn')->name('settings.appIsOn');
+        // Route::post('app/is', 'appIsOn')->name('settings.appIsOn');
+        Route::post('/settings/user-app-status','userAppIsOn')->name('settings.userAppIsOn');
+        Route::post('/settings/provider-app-status','providerAppIsOn')->name('settings.providerAppIsOn');
         Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
     });
 });

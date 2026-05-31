@@ -40,6 +40,7 @@ Route::post('reset-password', [ResetPassController::class, 'resetPassword']);
     */
 Route::controller(SettingController::class)->group(function () {
     Route::get('app_url', 'appUrl');
+    Route::get('appSetting', 'getApiSettings');
 });
 
 /*

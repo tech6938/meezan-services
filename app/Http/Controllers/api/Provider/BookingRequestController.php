@@ -28,6 +28,68 @@ class BookingRequestController extends Controller
     }
 
     //provider accept request
+    // public function providerAcceptRequest(Request $request)
+    // {
+    //     try {
+    //         $validated = $request->validate([
+    //             'provider_id' => 'required|integer|exists:providers,id',
+    //             'request_id'  => 'required|integer|exists:service_requests,id',
+    //         ]);
+
+    //         // Check wallet balance for the provider before accepting request
+    //         $wallet = Wallet::where('provider_id', $validated['provider_id'])->first();
+    //         $walletBalance = $wallet ? (float) $wallet->amount : 0.00;
+
+    //         if ($walletBalance < 0) {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => 'Please add your wallet balance!',
+    //             ], 400);
+    //         }
+
+    //         // Check maximum 3 bookings in 'in_progress' status
+    //         $inProgressCount = BookingRequest::where('provider_id', $validated['provider_id'])
+    //             ->where('status', 'in_progress')
+    //             ->count();
+
+    //         $maxInProgress = 3;
+
+    //         if ($inProgressCount >= $maxInProgress) {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => "You cannot accept more requests. You already have {$inProgressCount} booking(s) in progress. Maximum limit is {$maxInProgress}.",
+    //             ], 400);
+    //         }
+
+
+    //         $orderNo = now()->format('YmdHis') . random_int(10, 99);
+
+    //         $serviceRequest = ServiceRequest::findOrFail($validated['request_id']);
+
+    //         // Create booking request
+    //         BookingRequest::create([
+    //             'provider_id'   => $validated['provider_id'],
+    //             'request_id'    => $validated['request_id'],
+    //             'user_id'       => $serviceRequest->user_id,
+    //             'status'        => 'pending',
+    //             'req_status'    => 'accept',
+    //             'order_no'    => $orderNo,
+    //             'cancel_reason' => null,
+    //         ]);
+
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Request accepted successfully',
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Something went wrong',
+    //             'error'   => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function providerAcceptRequest(Request $request)
     {
         try {
@@ -36,56 +98,75 @@ class BookingRequestController extends Controller
                 'request_id'  => 'required|integer|exists:service_requests,id',
             ]);
 
-            // Check wallet balance for the provider before accepting request
-            $wallet = Wallet::where('provider_id', $validated['provider_id'])->first();
+            $providerId = $validated['provider_id'];
+            $requestId = $validated['request_id'];
+
+            // Check 1: Negative balance
+            $wallet = Wallet::where('provider_id', $providerId)->first();
             $walletBalance = $wallet ? (float) $wallet->amount : 0.00;
 
             if ($walletBalance < 0) {
                 return response()->json([
-                    'status'  => false,
-                    'message' => 'Please add your wallet balance!',
+                    'status' => false,
+                    'message' => 'You cannot accept bookings because your balance is negative.'
                 ], 400);
             }
 
-            // Check maximum 3 bookings in 'in_progress' status
-            $inProgressCount = BookingRequest::where('provider_id', $validated['provider_id'])
+            // Check 2: Maximum 3 in-progress bookings
+            $inProgressCount = BookingRequest::where('provider_id', $providerId)
                 ->where('status', 'in_progress')
                 ->count();
 
-            $maxInProgress = 3;
-
-            if ($inProgressCount >= $maxInProgress) {
+            if ($inProgressCount >= 3) {
                 return response()->json([
-                    'status'  => false,
-                    'message' => "You cannot accept more requests. You already have {$inProgressCount} booking(s) in progress. Maximum limit is {$maxInProgress}.",
+                    'status' => false,
+                    'message' => 'You already have 3 bookings in progress.'
                 ], 400);
             }
 
+            // Check 3: Pending bookings
+            $hasPendingBookings = BookingRequest::where('provider_id', $providerId)
+                ->where('status', 'pending')
+                ->exists();
 
+            if ($hasPendingBookings) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'You have pending bookings that must be completed first.'
+                ], 400);
+            }
+
+            // All checks passed - create booking
             $orderNo = now()->format('YmdHis') . random_int(10, 99);
+            $serviceRequest = ServiceRequest::findOrFail($requestId);
 
-            $serviceRequest = ServiceRequest::findOrFail($validated['request_id']);
-
-            // Create booking request
-            BookingRequest::create([
-                'provider_id'   => $validated['provider_id'],
-                'request_id'    => $validated['request_id'],
+            $booking = BookingRequest::create([
+                'provider_id'   => $providerId,
+                'request_id'    => $requestId,
                 'user_id'       => $serviceRequest->user_id,
                 'status'        => 'pending',
                 'req_status'    => 'accept',
-                'order_no'    => $orderNo,
+                'order_no'      => $orderNo,
                 'cancel_reason' => null,
             ]);
 
             return response()->json([
                 'status'  => true,
                 'message' => 'Request accepted successfully',
+                'data'    => [
+                    'booking_id' => $booking->id,
+                    'order_no'   => $orderNo
+                ]
             ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invalid data provided'
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'status'  => false,
-                'message' => 'Something went wrong',
-                'error'   => $e->getMessage()
+                'status' => false,
+                'message' => 'Something went wrong. Please try again.'
             ], 500);
         }
     }

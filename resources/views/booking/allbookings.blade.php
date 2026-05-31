@@ -81,10 +81,18 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
-                                <h4>All Bookings</h4>
+                            <div class="card-header"
+                            style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4>All Bookings</h4>
+                                @include('components.export-button', [
+                                    'apiUrl' => route('bookings.export'),
+                                    'fileName' => 'all_bookings',
+                                    'queryParams' => request()->all(),
+                                    'buttonLabel' => 'Export',
+                                ])
                             </div>
                             <div class="card-body">
+                                @include('components.date-range-filter')
                                 <div class="table-responsive">
                                     <table class="table table-striped" id="table-all">
                                         <thead>
@@ -123,7 +131,6 @@
                                                                 'cancel' => 'Cancel',
                                                             ];
                                                         @endphp
-
                                                         <div
                                                             class="badge {{ $statusClasses[$booking->status] ?? 'badge-secondary' }}">
                                                             {{ $statusLabels[$booking->status] ?? ucfirst(str_replace('_', ' ', $booking->status)) }}

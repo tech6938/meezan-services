@@ -385,7 +385,7 @@
             </div>
         </div>
 
-        <!-- App Status Card - Added here -->
+        {{-- <!-- App Status Card - Added here -->
         <div class="row">
             <div class="col-12">
                 <div class="card">
@@ -398,7 +398,6 @@
                                 <p class="mb-0">Control your application access from here. When turned OFF, users
                                     won't be able to access the app.</p>
                             </div>
-                            {{-- @dd($appIsOn) --}}
                             <div class="app-status-switch">
                                 <span class="status-label {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }} mr-2">
                                     <i class="fas {{ $appIsOn == 1 ? 'fa-check-circle' : 'fa-power-off' }}"></i>
@@ -416,178 +415,6 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> --}}
     </div>
 @endsection
-
-{{-- @push('scripts') --}}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const appStatusSwitch = document.getElementById('appStatusSwitch');
-        const appStatusText = document.getElementById('appStatusText');
-        const statusLabel = document.querySelector('.status-label i');
-        const statusLabelSpan = document.querySelector('.status-label');
-
-        if (appStatusSwitch) {
-            appStatusSwitch.addEventListener('change', function() {
-                const isChecked = this.checked ? 1 : 0;
-                const statusText = isChecked ? 'App is ON' : 'App is OFF';
-                const statusColor = isChecked ? 'text-success' : 'text-danger';
-                const iconClass = isChecked ? 'fa-check-circle' : 'fa-power-off';
-
-                // Update text and colors
-                appStatusText.textContent = statusText;
-                appStatusText.className = `status-text ml-2 ${statusColor}`;
-
-                // Update icon
-                if (statusLabel) {
-                    statusLabel.className = `fas ${iconClass}`;
-                }
-                if (statusLabelSpan) {
-                    statusLabelSpan.className = `status-label ${statusColor} mr-2`;
-                }
-
-                // Send AJAX request to update the setting
-                fetch('{{ route('settings.appIsOn') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify({
-                            appIsOn: isChecked
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!data.status) {
-                            // Revert the switch if update failed
-                            this.checked = !this.checked;
-                            const revertStatusText = this.checked ? 'App is ON' : 'App is OFF';
-                            const revertStatusColor = this.checked ? 'text-success' : 'text-danger';
-                            const revertIconClass = this.checked ? 'fa-check-circle' :
-                                'fa-power-off';
-
-                            appStatusText.textContent = revertStatusText;
-                            appStatusText.className = `status-text ml-2 ${revertStatusColor}`;
-
-                            if (statusLabel) {
-                                statusLabel.className = `fas ${revertIconClass}`;
-                            }
-                            if (statusLabelSpan) {
-                                statusLabelSpan.className =
-                                    `status-label ${revertStatusColor} mr-2`;
-                            }
-
-                            alert(data.message || 'Failed to update app status');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        // Revert the switch if request failed
-                        this.checked = !this.checked;
-                        const revertStatusText = this.checked ? 'App is ON' : 'App is OFF';
-                        const revertStatusColor = this.checked ? 'text-success' : 'text-danger';
-                        const revertIconClass = this.checked ? 'fa-check-circle' : 'fa-power-off';
-
-                        appStatusText.textContent = revertStatusText;
-                        appStatusText.className = `status-text ml-2 ${revertStatusColor}`;
-
-                        if (statusLabel) {
-                            statusLabel.className = `fas ${revertIconClass}`;
-                        }
-                        if (statusLabelSpan) {
-                            statusLabelSpan.className = `status-label ${revertStatusColor} mr-2`;
-                        }
-
-                        alert('Network error. Please try again.');
-                    });
-            });
-        }
-    });
-</script>
-{{-- @endpush --}}
-
-<style>
-    /* Switch Styles */
-    .app-status-switch {
-        display: flex;
-        align-items: center;
-        padding: 10px 20px;
-        background: #f8f9fa;
-        border-radius: 50px;
-    }
-
-    .switch {
-        position: relative;
-        display: inline-block;
-        width: 50px;
-        height: 24px;
-        margin: 0 10px;
-    }
-
-    .switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #ccc;
-        transition: 0.4s;
-    }
-
-    .slider:before {
-        position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        bottom: 3px;
-        background-color: white;
-        transition: 0.4s;
-    }
-
-    input:checked+.slider {
-        background-color: #28a745;
-    }
-
-    input:focus+.slider {
-        box-shadow: 0 0 1px #28a745;
-    }
-
-    input:checked+.slider:before {
-        transform: translateX(26px);
-    }
-
-    .slider.round {
-        border-radius: 34px;
-    }
-
-    .slider.round:before {
-        border-radius: 50%;
-    }
-
-    .text-success {
-        color: #28a745 !important;
-    }
-
-    .text-danger {
-        color: #dc3545 !important;
-    }
-
-    .status-text {
-        font-size: 14px;
-        font-weight: 600;
-    }
-
-    .status-label {
-        font-size: 18px;
-    }
-</style>

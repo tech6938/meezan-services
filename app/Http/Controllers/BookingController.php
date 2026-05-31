@@ -7,33 +7,39 @@ use App\Models\Chat;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\BookingsExport;
 class BookingController extends Controller
 {
-    public function pendingBooking()
+    public function pendingBooking(Request $request)
     {
-        $data = BookingRequest::with(['provider', 'shopkeeper'])
-            ->where('status', 'pending')
-            ->get();
+        $data = $this->applyDateRangeFilter(
+            BookingRequest::with(['provider', 'shopkeeper'])->where('status', 'pending'),
+            $request
+        )->get();
 
         return view('booking.pending', compact('data'));
     }
     // acceptedbooking
-    public function startBooking()
+    public function startBooking(Request $request)
     {
-        $data = BookingRequest::with(['provider', 'shopkeeper'])
-            ->where('status', 'in_progress')
-            ->get();
+        $data = $this->applyDateRangeFilter(
+            BookingRequest::with(['provider', 'shopkeeper'])->where('status', 'in_progress'),
+            $request
+        )->get();
 
         return view('booking.start', compact('data'));
     }
 
     // cancelbooking
-    public function endBooking()
+    public function endBooking(Request $request)
     {
-        $data = BookingRequest::with(['provider', 'shopkeeper'])
-            ->where('status', 'complete_booking')
-            ->get();
+        $data = $this->applyDateRangeFilter(
+            BookingRequest::with(['provider', 'shopkeeper'])->where('status', 'complete_booking'),
+            $request
+        )->get();
 
         return view('booking.end', compact('data'));
     }
@@ -52,19 +58,48 @@ class BookingController extends Controller
         return redirect()->back()->with('success', 'Booking status updated successfully!');
     }
     // all
-    public function allBookings()
+    public function allBookings(Request $request)
     {
-        $data = BookingRequest::with(['provider', 'shopkeeper'])->get();
+        $data = $this->applyDateRangeFilter(
+            BookingRequest::with(['provider', 'shopkeeper']),
+            $request
+        )->get();
         return view('booking.allbookings', compact('data'));
     }
     //cancel booking
-    public function cancelBooking()
+    public function cancelBooking(Request $request)
     {
-        $data = BookingRequest::with(['provider', 'shopkeeper'])
-            ->where('status', 'cancel')
-            ->get();
+        $data = $this->applyDateRangeFilter(
+            BookingRequest::with(['provider', 'shopkeeper'])->where('status', 'cancel'),
+            $request
+        )->get();
 
         return view('booking.cancel', compact('data'));
+    }
+
+    protected function applyDateRangeFilter($query, Request $request)
+    {
+        if ($request->has('start_date') && $request->start_date) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+
+        if ($request->has('end_date') && $request->end_date) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        return $query;
+    }
+
+    protected function validateExportDateRange(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+        ]);
+
+        if ($validator->fails()) {
+            abort(422, $validator->errors()->first());
+        }
     }
 
 
@@ -116,7 +151,21 @@ class BookingController extends Controller
 
         // Receiver is provider if exists, otherwise shopkeeper
         $receiver = $booking->provider ?? $booking->shopkeeper;
+        // dd($booking->serviceRequest->lang);
 
         return view('booking.detail', compact('booking', 'receiver'));
+    }
+
+    /**
+     * Export bookings to Excel
+     */
+    public function exportBookings(Request $request)
+    {
+        $this->validateExportDateRange($request);
+
+        return Excel::download(
+            BookingsExport::fromRequest($request),
+            'bookings_export_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+        );
     }
 }
