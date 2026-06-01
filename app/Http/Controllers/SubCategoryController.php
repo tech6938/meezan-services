@@ -24,22 +24,22 @@ class SubCategoryController extends Controller
      */
     public function store(Request $request)
     {
-       $request->validate([
-    'name' => 'required|string|max:255',
-    'urdu_name' => 'nullable|string|max:255', // <-- add this
-    'cat_id' => 'required|exists:main_categories,id',
-    'image' => 'required|image|max:2048'
-]);
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'urdu_name' => 'nullable|string|max:255', // <-- add this
+            'cat_id' => 'required|exists:main_categories,id',
+            'image' => 'required|image|max:2048'
+        ]);
 
 
         $path = $request->file('image')->store('subcategory', 'public');
 
-       SubCategory::create([
-    'name' => $request->name,
-    'urdu_name' => $request->urdu_name, // <-- add this
-    'cat_id' => $request->cat_id,
-    'image' => $path
-]);
+        SubCategory::create([
+            'name' => $request->name,
+            'urdu_name' => $request->urdu_name, // <-- add this
+            'cat_id' => $request->cat_id,
+            'image' => $path
+        ]);
 
 
         return redirect()->back()->with('success', 'Sub Category added successfully.');
@@ -53,26 +53,26 @@ class SubCategoryController extends Controller
     {
         $subCategory = SubCategory::findOrFail($id);
 
-      $request->validate([
-    'name' => 'required|string|max:255',
-    'urdu_name' => 'nullable|string|max:255', // <-- add this
-    'cat_id' => 'required|exists:main_categories,id',
-    'image' => 'nullable|image|max:2048'
-]);
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'urdu_name' => 'nullable|string|max:255', // <-- add this
+            'cat_id' => 'required|exists:main_categories,id',
+            'image' => 'nullable|image|max:2048'
+        ]);
 
 
-      $subCategory->name = $request->name;
-$subCategory->urdu_name = $request->urdu_name; // <-- add this
-$subCategory->cat_id = $request->cat_id;
+        $subCategory->name = $request->name;
+        $subCategory->urdu_name = $request->urdu_name; // <-- add this
+        $subCategory->cat_id = $request->cat_id;
 
-if ($request->hasFile('image')) {
-    if ($subCategory->image) {
-        Storage::disk('public')->delete($subCategory->image);
-    }
-    $subCategory->image = $request->file('image')->store('subcategory', 'public');
-}
+        if ($request->hasFile('image')) {
+            if ($subCategory->image) {
+                Storage::disk('public')->delete($subCategory->image);
+            }
+            $subCategory->image = $request->file('image')->store('subcategory', 'public');
+        }
 
-$subCategory->save();
+        $subCategory->save();
 
 
         return redirect()->back()->with('success', 'Sub Category updated successfully.');

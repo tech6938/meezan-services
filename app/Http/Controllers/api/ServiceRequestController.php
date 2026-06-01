@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingRequest;
+use App\Models\Chat;
 use App\Models\Provider;
 use App\Models\ServiceRequest;
 use App\Models\Shop;
@@ -525,7 +526,6 @@ class ServiceRequestController extends Controller
             ])
                 ->where('user_id', $user_id)
                 ->find($id);
-            // return $serviceRequest;
 
             if (!$serviceRequest) {
                 return response()->json([
@@ -534,7 +534,6 @@ class ServiceRequestController extends Controller
                 ], 404);
             }
 
-            /* Address */
             $address = null;
             if ($serviceRequest->address) {
                 $address = collect([
@@ -545,22 +544,25 @@ class ServiceRequestController extends Controller
                 ])->filter()->implode(', ');
             }
 
-            /* ---------------- Providers List (ARRAY) ---------------- */
             $providersList = [];
             $shopkeepersList = [];
 
-            // Define allowed statuses
             $allowedStatuses = ['accept', 'in_progress', 'complete_booking'];
-
-            // Filter booking requests by status
             $filteredBookingRequests = $serviceRequest->bookingRequests
                 ->whereIn('req_status', $allowedStatuses);
 
             foreach ($filteredBookingRequests as $bookingRequest) {
-                // return $bookingRequest;
-                // Provider data
+                // Provider data with unread count
                 if ($bookingRequest->provider) {
                     $provider = $bookingRequest->provider;
+
+                    // Get unread count for this provider in this booking
+                    $providerUnreadCount = Chat::where('booking_id', $bookingRequest->id)
+                        ->where('receiver_id', $provider->id)
+                        ->where('receiver_type', 'App\Models\Provider')
+                        ->where('is_seen', false)
+                        ->whereNull('deleted_at')
+                        ->count();
 
                     $totalCompletedBookings = $provider->bookingRequests()
                         ->where('req_status', 'complete_booking')
@@ -576,17 +578,24 @@ class ServiceRequestController extends Controller
                             ? url('profiles/' . $provider->profile_image)
                             : null,
                         'total_completed_bookings' => $totalCompletedBookings,
-                        'average_rating' => $averageRating
-                            ? round($averageRating, 1)
-                            : 0,
+                        'average_rating' => $averageRating ? round($averageRating, 1) : 0,
                         'status' => $bookingRequest->req_status,
-                        // 'booking_request_id' => $bookingRequest->id,
+                        'unread_count' => $providerUnreadCount, // Add unread count
+                        'booking_id' => $bookingRequest->id,
                     ];
                 }
 
-                // Shopkeeper data
+                // Shopkeeper data with unread count
                 if ($bookingRequest->shopkeeper) {
                     $shopkeeper = $bookingRequest->shopkeeper;
+
+                    // Get unread count for this shopkeeper in this booking
+                    $shopkeeperUnreadCount = Chat::where('booking_id', $bookingRequest->id)
+                        ->where('receiver_id', $shopkeeper->id)
+                        ->where('receiver_type', 'App\Models\ShopKeeper')
+                        ->where('is_seen', false)
+                        ->whereNull('deleted_at')
+                        ->count();
 
                     $totalCompletedBookings = $shopkeeper->bookingRequests()
                         ->where('req_status', 'complete_booking')
@@ -599,21 +608,18 @@ class ServiceRequestController extends Controller
                         'name' => $shopkeeper->name,
                         'profile_image' => $shopkeeper->profile_image ?? null,
                         'total_completed_bookings' => $totalCompletedBookings,
-                        'average_rating' => $averageRating
-                            ? round($averageRating, 1)
-                            : 0,
+                        'average_rating' => $averageRating ? round($averageRating, 1) : 0,
                         'status' => $bookingRequest->req_status,
-                        // 'booking_request_id' => $bookingRequest->id,
+                        'unread_count' => $shopkeeperUnreadCount, // Add unread count
+                        'booking_id' => $bookingRequest->id,
                     ];
                 }
             }
 
-            /* ---------------- Current Active Booking Status ---------------- */
             $currentBooking = $serviceRequest->bookingRequests
                 ->whereIn('req_status', ['in_progress', 'accept'])
                 ->first();
 
-            // Apply the same logic: if booking exists -> use booking status, else use service request status
             $status = $currentBooking ? $currentBooking->req_status : $serviceRequest->status;
 
             return response()->json([
@@ -633,10 +639,10 @@ class ServiceRequestController extends Controller
                     'desc' => $serviceRequest->desc,
                     'file' => $serviceRequest->file,
                     'file_type' => $serviceRequest->file_type,
-                    'status' => $status, // Changed: now uses service request status if no booking exists
+                    'status' => $status,
                     'created_at' => $serviceRequest->created_at,
-                    'providers' => $providersList, // Always returns an array (may be empty)
-                    'shopkeepers' => $shopkeepersList, // Always returns an array (may be empty)
+                    'providers' => $providersList,
+                    'shopkeepers' => $shopkeepersList,
                 ]
             ], 200);
         } catch (\Exception $e) {

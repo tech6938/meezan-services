@@ -3,6 +3,8 @@
 @section('css')
     <link rel="stylesheet" href="assets/bundles/datatables/datatables.min.css">
     <link rel="stylesheet" href="assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
+    <!-- Font Awesome for WhatsApp icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         /* Modal background */
@@ -116,6 +118,22 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
         }
+
+        /* WhatsApp Icon Specific Styling */
+        .btn-whatsapp{
+            background-color: #25D366 !important;
+        }
+        .btn-whatsapp .fab.fa-whatsapp {
+            font-size: 18px;
+            color: white;
+        }
+
+        /* If you want to ensure the icon is visible */
+        .btn-whatsapp i {
+            width: auto;
+            height: auto;
+            font-size: 18px;
+        }
     </style>
 @endsection
 
@@ -130,13 +148,14 @@
                             {{-- <div class="card-header">
                             </div> --}}
 
-                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div class="card-header"
+                                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                 <h4>Users List</h4>
                                 @include('components.export-button', [
                                     'apiUrl' => route('users.export'),
                                     'fileName' => 'users',
                                     'queryParams' => request()->all(),
-                                    'buttonLabel' => 'Export'
+                                    'buttonLabel' => 'Export',
                                 ])
                             </div>
                             <div class="card-body">
@@ -177,20 +196,27 @@
                                                             <a href="{{ route('viewUserDetail', ['id' => $user->id]) }}"
                                                                 class="btn btn-dark"><i data-feather="eye"></i>
                                                             </a>
-                                                            <!-- Action Button -->
+
                                                             <button class="btn btn-primary openModalBtn"
                                                                 data-user-id="{{ $user->id }}">
                                                                 <i data-feather="refresh-cw"></i>
                                                             </button>
 
-                                                            <form
-                                                                action="{{ route('user.destroy', ['id' => $user->id]) }}"
+                                                            <form action="{{ route('user.destroy', ['id' => $user->id]) }}"
                                                                 method="POST" class="p-1">
                                                                 @csrf
                                                                 @method('DELETE')
-                                                                <button type="submit" class="btn btn-danger"><i
-                                                                        data-feather="trash-2"></i></button>
+                                                                <button type="submit" class="btn btn-danger">
+                                                                    <i data-feather="trash-2"></i>
+                                                                </button>
                                                             </form>
+
+                                                            <!-- WhatsApp Button with proper icon -->
+                                                            <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $user->phone) }}"
+                                                                class="btn btn-whatsapp" target="_blank"
+                                                                title="Chat on WhatsApp">
+                                                                <i class="fab fa-whatsapp"></i>
+                                                            </a>
                                                         </td>
                                                     </tr>
                                                 @endforeach

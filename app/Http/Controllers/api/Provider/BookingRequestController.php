@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingRequest;
+use App\Models\Chat;
 use App\Models\Commission;
 use App\Models\ProviderRequestSeen;
 use App\Models\ServiceRequest;
 use App\Models\SubCategory;
 use App\Models\Wallet;
 use App\Services\CommissionService;
+use App\Traits\HasUnreadMessages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -592,7 +594,7 @@ class BookingRequestController extends Controller
             'serviceRequest.subCategory:id,name',
             'serviceRequest.address:id,name,street,city',
             'serviceRequest.shop:id,shop_name,category',
-            'provider.ratings' // assuming provider hasMany ratings relationship
+            'provider.ratings'
         ])->find($id);
 
         if (!$booking) {
@@ -603,27 +605,50 @@ class BookingRequestController extends Controller
             ], 200);
         }
 
+        // Get unread count for provider in this booking
+        $providerUnreadCount = Chat::where('booking_id', $booking->id)
+            ->where('receiver_id', $provider->id)
+            ->where('receiver_type', 'App\Models\Provider')
+            ->where('is_seen', false)
+            ->whereNull('deleted_at')
+            ->count();
+
+        // Get unread count for user in this booking
+        $userUnreadCount = Chat::where('booking_id', $booking->id)
+            ->where('receiver_id', $booking->user_id)
+            ->where('receiver_type', 'App\Models\User')
+            ->where('is_seen', false)
+            ->whereNull('deleted_at')
+            ->count();
+
         $data = [
             'booking_id'   => $booking->id,
-            'request_id'    => $booking->serviceRequest->id,
-            'sub_category'  => $booking->serviceRequest->subCategory->name ?? null,
+            'request_id'   => $booking->serviceRequest->id,
+            'sub_category' => $booking->serviceRequest->subCategory->name ?? null,
             'main_category' => $booking->serviceRequest->category->name ?? null,
-            'shop_name' => $booking->serviceRequest->shop->shop_name ?? null,
-            'shop_cat' => $booking->serviceRequest->shop->category ?? null,
-            'status'        => $booking->status,
-            'details'        => $booking->details ?? null,
+            'shop_name'    => $booking->serviceRequest->shop->shop_name ?? null,
+            'shop_cat'     => $booking->serviceRequest->shop->category ?? null,
+            'status'       => $booking->status,
+            'details'      => $booking->details ?? null,
             'audio'        => $booking->audio ?? null,
-            'cancelled_by'  => $booking->cancel_by ?? null,
-            'cancel_reason'  => $booking->cancel_reason ?? null,
-            'file_url'      => $booking->serviceRequest->file ?? null,
-            'lang'      => $booking->serviceRequest->lang ?? null,
-            'lat'      => $booking->serviceRequest->lat ?? null,
-            'address'       => $booking->serviceRequest->address->name ?? null,
-            'address_id'    => $booking->serviceRequest->address_id ?? null,
+            'cancelled_by' => $booking->cancel_by ?? null,
+            'cancel_reason' => $booking->cancel_reason ?? null,
+            'file_url'     => $booking->serviceRequest->file ?? null,
+            'lang'         => $booking->serviceRequest->lang ?? null,
+            'lat'          => $booking->serviceRequest->lat ?? null,
+            'address'      => $booking->serviceRequest->address->name ?? null,
+            'address_id'   => $booking->serviceRequest->address_id ?? null,
             'provider_name' => $booking->provider->full_name ?? null,
-            'description'   => $booking->serviceRequest->desc ?? null,
-            'price'         => $booking->price,
+            'description'  => $booking->serviceRequest->desc ?? null,
+            'price'        => $booking->price,
             'starting_date' => optional($booking->serviceRequest->created_at)->format('Y-m-d'),
+
+            // Unread message counts
+            'unread_counts' => [
+                'provider' => $providerUnreadCount,  // Messages for provider
+                'user' => $userUnreadCount,          // Messages for user
+                'total' => $providerUnreadCount + $userUnreadCount
+            ],
 
             'user' => [
                 'id'    => optional($booking->user)->id,
@@ -631,8 +656,8 @@ class BookingRequestController extends Controller
                 'image' => optional($booking->user)->image
                     ? url('profiles/' . $booking->user->image)
                     : null,
+                'unread_count' => $userUnreadCount, // User's unread messages in this booking
             ],
-
         ];
 
         return response()->json([
@@ -649,10 +674,8 @@ class BookingRequestController extends Controller
         $booking = BookingRequest::with([
             'provider:id,full_name,profile_image',
             'provider.ratings:id,provider_id,rating',
-
             'shopkeeper:id,name,profile_image',
             'shopkeeper.ratings:id,shopkeeper_id,rating',
-
             'serviceRequest.category:id,name',
             'serviceRequest.subCategory:id,name',
             'serviceRequest.address:id,name,street,city',
@@ -667,9 +690,40 @@ class BookingRequestController extends Controller
             ], 200);
         }
 
-
-
+        $userId = Auth::id();
         $provider = $booking->provider;
+        $shopkeeper = $booking->shopkeeper;
+
+        // Calculate unread counts
+        $providerUnreadCount = 0;
+        $shopkeeperUnreadCount = 0;
+        $userUnreadCount = 0;
+
+        if ($provider) {
+            $providerUnreadCount = Chat::where('booking_id', $booking->id)
+                ->where('receiver_id', $provider->id)
+                ->where('receiver_type', 'App\Models\Provider')
+                ->where('is_seen', false)
+                ->whereNull('deleted_at')
+                ->count();
+        }
+
+        if ($shopkeeper) {
+            $shopkeeperUnreadCount = Chat::where('booking_id', $booking->id)
+                ->where('receiver_id', $shopkeeper->id)
+                ->where('receiver_type', 'App\Models\ShopKeeper')
+                ->where('is_seen', false)
+                ->whereNull('deleted_at')
+                ->count();
+        }
+
+        // User's own unread count (messages sent to user)
+        $userUnreadCount = Chat::where('booking_id', $booking->id)
+            ->where('receiver_id', $userId)
+            ->where('receiver_type', 'App\Models\User')
+            ->where('is_seen', false)
+            ->whereNull('deleted_at')
+            ->count();
 
         $totalCompletedBookings = $provider
             ? $provider->bookingRequests()
@@ -681,10 +735,6 @@ class BookingRequestController extends Controller
             ? $provider->ratings()->avg('rating')
             : 0;
 
-
-
-        $shopkeeper = $booking->shopkeeper;
-
         $shopkeeperCompletedBookings = $shopkeeper
             ? $shopkeeper->bookingRequests()
             ->where('status', 'complete_booking')
@@ -695,21 +745,17 @@ class BookingRequestController extends Controller
             ? $shopkeeper->ratings()->avg('rating')
             : 0;
 
-
-
         $data = [
             'booking_id'    => $booking->id ?? null,
             'request_id'    => $booking->serviceRequest->id ?? null,
             'is_seen'       => $booking->is_seen ?? 0,
             'sub_category'  => $booking->serviceRequest->subCategory->name ?? null,
             'main_category' => $booking->serviceRequest->category->name ?? null,
-
             'shop_name' => $booking->serviceRequest->shop->shop_name ?? null,
             'shop_cat'  => $booking->serviceRequest->shop->category ?? null,
-
             'status'        => $booking->status,
-            'details'        => $booking->details,
-            'audio'        => $booking->audio,
+            'details'       => $booking->details,
+            'audio'         => $booking->audio,
             'file_url'      => $booking->serviceRequest->file ?? null,
             'address'       => $booking->serviceRequest->address->name ?? null,
             'address_id'    => $booking->serviceRequest->address_id ?? null,
@@ -721,6 +767,14 @@ class BookingRequestController extends Controller
             'price'         => $booking->price,
             'starting_date' => optional($booking->created_at)->format('Y-m-d'),
 
+            // Unread message counts
+            'unread_counts' => [
+                'user' => $userUnreadCount,           // Messages for user
+                'provider' => $providerUnreadCount,   // Messages for provider
+                'shopkeeper' => $shopkeeperUnreadCount, // Messages for shopkeeper
+                'total' => $userUnreadCount + $providerUnreadCount + $shopkeeperUnreadCount
+            ],
+
             'provider' => $provider ? [
                 'id' => $provider->id,
                 'name' => $provider->full_name,
@@ -729,16 +783,17 @@ class BookingRequestController extends Controller
                     : null,
                 'total_completed_bookings' => $totalCompletedBookings,
                 'average_rating' => round($averageRating, 1),
+                'unread_count' => $providerUnreadCount, // Provider's unread messages in this booking
             ] : null,
 
             'shopkeeper' => $shopkeeper ? [
                 'id' => $shopkeeper->id,
-                'goto'        => $booking->goto,
+                'goto' => $booking->goto,
                 'name' => $shopkeeper->name,
-                'profile_image' => $shopkeeper->profile_image
-                    ?? null,
+                'profile_image' => $shopkeeper->profile_image ?? null,
                 'total_completed_bookings' => $shopkeeperCompletedBookings,
                 'average_rating' => round($shopkeeperAverageRating, 1),
+                'unread_count' => $shopkeeperUnreadCount, // Shopkeeper's unread messages in this booking
             ] : null,
         ];
 
@@ -1252,7 +1307,6 @@ class BookingRequestController extends Controller
                     }
                 },
                 'bookingRequests' => function ($q) use ($provider) {
-                    // Only load booking requests for this specific provider
                     if ($provider) {
                         $q->where('provider_id', $provider->id);
                     }
@@ -1286,28 +1340,50 @@ class BookingRequestController extends Controller
                     ->first();
             }
 
+            // Get unread counts
+            $providerUnreadCount = 0;
+            $userUnreadCount = 0;
+
+            if ($specificBooking) {
+                // Provider's unread messages
+                $providerUnreadCount = Chat::where('booking_id', $specificBooking->id)
+                    ->where('receiver_id', $provider->id)
+                    ->where('receiver_type', 'App\Models\Provider')
+                    ->where('is_seen', false)
+                    ->whereNull('deleted_at')
+                    ->count();
+
+                // User's unread messages
+                $userUnreadCount = Chat::where('booking_id', $specificBooking->id)
+                    ->where('receiver_id', $serviceRequest->user_id)
+                    ->where('receiver_type', 'App\Models\User')
+                    ->where('is_seen', false)
+                    ->whereNull('deleted_at')
+                    ->count();
+            }
+
             $providerData = null;
             if ($specificBooking && $specificBooking->provider) {
-                $provider = $specificBooking->provider;
+                $providerDataProvider = $specificBooking->provider;
 
-                $totalCompletedBookings = $provider->bookingRequests()
+                $totalCompletedBookings = $providerDataProvider->bookingRequests()
                     ->where('req_status', 'complete_booking')
                     ->count();
 
-                $averageRating = $provider->ratings()->avg('rating');
+                $averageRating = $providerDataProvider->ratings()->avg('rating');
 
                 $providerData = [
-                    'id' => $provider->id,
-                    'name' => $provider->full_name,
-                    'profile_image' => $provider->profile_image
-                        ? url('profiles/' . $provider->profile_image)
+                    'id' => $providerDataProvider->id,
+                    'name' => $providerDataProvider->full_name,
+                    'profile_image' => $providerDataProvider->profile_image
+                        ? url('profiles/' . $providerDataProvider->profile_image)
                         : null,
                     'total_completed_bookings' => $totalCompletedBookings,
                     'average_rating' => $averageRating ? round($averageRating, 1) : 0,
+                    'unread_count' => $providerUnreadCount, // Add unread count
                 ];
             }
 
-            // Apply the same logic: if booking exists -> use booking status, else use service request status
             $status = $specificBooking ? $specificBooking->req_status : $serviceRequest->status;
             $providerSeen = $provider
                 ? $serviceRequest->providerSeens->firstWhere('provider_id', $provider->id)
@@ -1333,17 +1409,26 @@ class BookingRequestController extends Controller
                     'desc' => $serviceRequest->desc,
                     'file' => $serviceRequest->file,
                     'file_type' => $serviceRequest->file_type,
-                    'status' => $status, // Changed: now uses service request status if no booking exists
+                    'status' => $status,
                     'created_at' => $serviceRequest->created_at,
+
+                    // Unread message counts
+                    'unread_counts' => [
+                        'provider' => $providerUnreadCount,
+                        'user' => $userUnreadCount,
+                        'total' => $providerUnreadCount + $userUnreadCount
+                    ],
+
                     'user' => [
                         'id'    => optional($serviceRequest->user)->id,
                         'name'  => optional($serviceRequest->user)->name,
                         'image' => optional($serviceRequest->user)->image
                             ? url('profiles/' . $serviceRequest->user->image)
                             : null,
+                        'unread_count' => $userUnreadCount, // User's unread messages
                     ],
-                    'provider' => $providerData, // Only show provider data if they've accepted
-                    'booking_id' => $specificBooking ? $specificBooking->id : null, // Optional
+                    'provider' => $providerData,
+                    'booking_id' => $specificBooking ? $specificBooking->id : null,
                 ]
             ], 200);
         } catch (\Exception $e) {

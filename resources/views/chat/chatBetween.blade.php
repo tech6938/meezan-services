@@ -2,12 +2,18 @@
 
 @section('content')
     @php
-        $senderType = $sender instanceof \App\Models\User
-            ? 'user'
-            : ($sender instanceof \App\Models\Provider ? 'provider' : 'shopkeeper');
-        $receiverType = $receiver instanceof \App\Models\User
-            ? 'user'
-            : ($receiver instanceof \App\Models\Provider ? 'provider' : 'shopkeeper');
+        $senderType =
+            $sender instanceof \App\Models\User
+                ? 'user'
+                : ($sender instanceof \App\Models\Provider
+                    ? 'provider'
+                    : 'shopkeeper');
+        $receiverType =
+            $receiver instanceof \App\Models\User
+                ? 'user'
+                : ($receiver instanceof \App\Models\Provider
+                    ? 'provider'
+                    : 'shopkeeper');
     @endphp
     <div class="main-content">
         <section class="section">
@@ -26,6 +32,13 @@
 
             <div class="section-body">
                 <div class="card">
+                    @if ($bookingInfo)
+                        <div class="alert alert-info mb-3">
+                            <strong>Booking Details:</strong> Order #{{ $bookingInfo->order_no ?? 'N/A' }} |
+                            Status: {{ ucfirst($bookingInfo->status ?? 'N/A') }} |
+                            Total Messages: {{ $messages->count() }}
+                        </div>
+                    @endif
 
                     <!-- Search Input -->
                     <div class="card-header d-flex justify-content-end">
@@ -51,7 +64,10 @@
                                             <!-- Display file if exists -->
                                             @if ($message->file_path)
                                                 <div class="mt-2">
-                                                    @if (str_starts_with((string) $message->file_type, 'image/') || in_array(strtolower(pathinfo((string) $message->file_name, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true))
+                                                    @if (str_starts_with((string) $message->file_type, 'image/') ||
+                                                            in_array(strtolower(pathinfo((string) $message->file_name, PATHINFO_EXTENSION)),
+                                                                ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+                                                                true))
                                                         <img src="{{ asset($message->file_path) }}"
                                                             style="max-width: 200px; max-height: 200px; border-radius: 5px;">
                                                     @elseif(str_starts_with((string) $message->file_type, 'video/'))
@@ -83,7 +99,10 @@
                                             <!-- Display file if exists -->
                                             @if ($message->file_path)
                                                 <div class="mt-2">
-                                                    @if (str_starts_with((string) $message->file_type, 'image/') || in_array(strtolower(pathinfo((string) $message->file_name, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true))
+                                                    @if (str_starts_with((string) $message->file_type, 'image/') ||
+                                                            in_array(strtolower(pathinfo((string) $message->file_name, PATHINFO_EXTENSION)),
+                                                                ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+                                                                true))
                                                         <img src="{{ asset($message->file_path) }}"
                                                             style="max-width: 200px; max-height: 200px; border-radius: 5px;">
                                                     @elseif(str_starts_with((string) $message->file_type, 'video/'))
@@ -218,7 +237,9 @@
             const selectedInput = document.createElement('input');
             selectedInput.type = 'hidden';
             selectedInput.name = 'selected_chats';
-            selectedInput.value = JSON.stringify(['{{ $senderType }}_{{ $sender->id }}|{{ $receiverType }}_{{ $receiver->id }}']);
+            selectedInput.value = JSON.stringify([
+                '{{ $senderType }}_{{ $sender->id }}|{{ $receiverType }}_{{ $receiver->id }}'
+            ]);
             form.appendChild(selectedInput);
 
             const typeInput = document.createElement('input');

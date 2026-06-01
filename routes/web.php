@@ -38,16 +38,26 @@ Route::controller(AuthController::class)->group(function () {
     Route::resource('/main-categories', MainCategoryController::class);
     // for sub category
     Route::resource('/sub-categories',  SubCategoryController::class);
-    // for chat list
-    Route::get('/chat-list',  [ChatsController::class, 'chatsList'])->name('chatsList');
-    Route::get('/chats/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}', [ChatsController::class, 'chatBetween'])->name('chats.between');
-    Route::post('/admin/chats/export', [ChatsController::class, 'exportSelectedChats'])->name('chats.export');
-    Route::delete('chats/delete-by-order/{orderNo}', [ChatsController::class, 'deleteChatsByOrderNo'])->name('chats.deleteByOrderNo');
 
-    // Admin chat management
-    Route::get('/admin/chats/by-order/{orderNo}', [ChatsController::class, 'getChatsByOrderNumber'])->name('chats.getByOrderNo');
-    Route::delete('/admin/chats/message/{messageId}', [ChatsController::class, 'deleteSingleMessage'])->name('chats.deleteSingleMessage');
-    Route::delete('/admin/chats/conversation/{orderNo}', [ChatsController::class, 'deleteConversationByOrderNo'])->name('chats.deleteConversation');
+    // // for chat list
+    Route::prefix('admin')->group(function () {
+        Route::controller(ChatsController::class)->group(function () {
+            Route::get('/chat-list', 'chatsList')->name('chatsList');
+            Route::get('/chats/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}/{booking_id}', 'chatBetween')->name('chats.between');
+            Route::post('/chats/export', 'exportSelectedChats')->name('chats.export');
+        });
+        // Chat deletion routes
+        Route::get('/chats/delete/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}', [ChatsController::class, 'deleteChatPage'])->name('chats.delete.page');
+        Route::post('/chats/delete-by-booking', [ChatsController::class, 'deleteChatByBooking'])->name('chats.delete.by-booking');
+        Route::post('/chats/force-delete', [ChatsController::class, 'forceDeleteConversation'])->name('chats.force-delete');
+    });
+
+    // If you need routes without admin prefix for backward compatibility
+    Route::middleware(['auth', 'admin'])->group(function () {
+        Route::controller(ChatsController::class)->group(function () {
+            Route::delete('/chats/delete-by-order/{orderNo}', 'deleteChatsByOrderNo')->name('chats.deleteByOrderNo.legacy');
+        });
+    });
 
     /*
 |--------------------------------------------------------------------------
@@ -61,8 +71,8 @@ Route::controller(AuthController::class)->group(function () {
         Route::post('/updateUserStatus', 'updateUserStatus')->name('updateUserStatus');
         Route::delete('/user/{id}', 'userDestroy')->name('user.destroy');
 
-    // Export routes
-    Route::get('/users/export', 'exportUsers')->name('users.export');
+        // Export routes
+        Route::get('/users/export', 'exportUsers')->name('users.export');
         // for providers list
         Route::get('/approved-providers', 'approvedProviders')->name('approvedProviders');
         Route::get('/blocked-providers', 'blockedProviders')->name('blockedProviders');
@@ -149,8 +159,8 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/appUrl', 'appUrl')->name('appUrl.index');
         Route::post('/appUrl/store', 'appUrlStore')->name('appUrl.store');
         // Route::post('app/is', 'appIsOn')->name('settings.appIsOn');
-        Route::post('/settings/user-app-status','userAppIsOn')->name('settings.userAppIsOn');
-        Route::post('/settings/provider-app-status','providerAppIsOn')->name('settings.providerAppIsOn');
+        Route::post('/settings/user-app-status', 'userAppIsOn')->name('settings.userAppIsOn');
+        Route::post('/settings/provider-app-status', 'providerAppIsOn')->name('settings.providerAppIsOn');
         Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
     });
 });

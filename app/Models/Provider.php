@@ -80,4 +80,14 @@ class Provider extends Authenticatable
     {
         return $this->hasOne(Wallet::class);
     }
+
+    public function deposits()
+    {
+        return $this->hasMany(Deposit::class, 'provider_id', 'id');
+    }
+
+    public function previouses()
+    {
+        return $this->hasMany(Previous::class, 'provider_id', 'id');
+    }
 }

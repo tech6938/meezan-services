@@ -53,10 +53,10 @@
                                                 <button class="btn btn-sm btn-info" data-toggle="modal" data-target="#editSubCategoryModal{{ $cat->id }}"> <i data-feather="edit-3"></i> </button>
 
                                                 <!-- Delete Button -->
-                                                <form action="{{ route('sub-categories.destroy', $cat->id) }}" method="POST" style="display:inline;">
+                                                <form class="delete-subcategory-form" action="{{ route('sub-categories.destroy', $cat->id) }}" method="POST" style="display:inline;">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')"> <i data-feather="trash-2"></i> </button>
+                                                    <button type="submit" class="btn btn-sm btn-danger"> <i data-feather="trash-2"></i> </button>
                                                 </form>
                                             </td>
                                         </tr>
@@ -172,6 +172,36 @@
 
 @section('js')
 <script>
+    // SweetAlert confirmation for sub-category deletion
+    document.querySelectorAll('.delete-subcategory-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const categoryName = this.closest('tr')?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'this category';
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: `Delete ${categoryName}? This action cannot be undone.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            } else {
+                if (confirm('Are you sure you want to delete this category?')) {
+                    form.submit();
+                }
+            }
+        });
+    });
+
     $(document).ready(function() {
         $('.edit-image-input').on('change', function() {
             const input = this;

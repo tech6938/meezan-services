@@ -170,41 +170,40 @@ class ChatController extends Controller
                 'type' => $auth['type'],
             ];
 
-            $chats = Chat::with(['sender', 'receiver'])
+            // Get all chats where the authenticated user is a participant
+            $chats = Chat::with(['sender', 'receiver', 'bookingRequest'])
                 ->forParticipant($authParticipant)
+                ->whereNull('deleted_at')
                 ->latest()
                 ->get()
-                ->groupBy(function ($chat) use ($auth) {
-                    $isOutgoing = $chat->sender_id === $auth['id']
-                        && $chat->sender_type === $auth['type'];
+                ->groupBy('booking_id'); // Group by booking_id instead of participant key
 
-                    return Chat::participantKey([
-                        'id' => $isOutgoing ? $chat->receiver_id : $chat->sender_id,
-                        'type' => $isOutgoing ? $chat->receiver_type : $chat->sender_type,
-                    ]);
-                });
-
-            $list = $chats->map(function ($messages) use ($auth) {
+            $list = $chats->map(function ($messages, $bookingId) use ($auth) {
                 $chat = $messages->first();
 
                 $isOutgoing = $chat->sender_id === $auth['id']
                     && $chat->sender_type === $auth['type'];
 
+                // Get the other participant
                 $otherParticipant = [
                     'id' => $isOutgoing ? $chat->receiver_id : $chat->sender_id,
                     'type' => $isOutgoing ? $chat->receiver_type : $chat->sender_type,
                 ];
 
                 $otherUser = $this->findParticipant($otherParticipant['id'], $otherParticipant['type']);
-
                 $otherUserPayload = $this->participantPayload($otherUser);
 
                 if (!$otherUserPayload) {
                     return null;
                 }
 
-                // Count unread messages from this specific user
-                $unreadCount = $this->unreadConversationQuery(
+                // Get booking info
+                $booking = $chat->bookingRequest;
+                $orderNo = $booking->order_no ?? null;
+                $bookingStatus = $booking->status ?? 'N/A';
+
+                // Count unread messages for this specific booking
+                $unreadCount = Chat::betweenParticipants(
                     [
                         'id' => $auth['id'],
                         'type' => $auth['type'],
@@ -213,18 +212,29 @@ class ChatController extends Controller
                         'id' => $otherUserPayload['id'],
                         'type' => $otherUserPayload['type_class'],
                     ]
-                )->count();
+                )
+                    ->where('booking_id', $bookingId) // Important: Filter by booking_id
+                    ->where('receiver_id', $auth['id'])
+                    ->where('receiver_type', $auth['type'])
+                    ->where('is_seen', false)
+                    ->whereNull('deleted_at')
+                    ->count();
 
                 return [
-                    'id' => $otherUserPayload['id'],
-                    'type' => $otherUserPayload['type_class'],
-                    'type_alias' => $otherUserPayload['type'],
-                    'type_class' => $otherUserPayload['type_class'],
-                    'name' => $otherUserPayload['name'],
-                    'image' => $otherUserPayload['image'],
+                    'booking_id' => $bookingId,
+                    'order_no' => $orderNo,
+                    'booking_status' => $bookingStatus,
+                    'other_user' => [
+                        'id' => $otherUserPayload['id'],
+                        'type' => $otherUserPayload['type_class'],
+                        'type_alias' => $otherUserPayload['type'],
+                        'name' => $otherUserPayload['name'],
+                        'image' => $otherUserPayload['image'],
+                    ],
                     'latest_message' => $chat->message,
-                    'time' => $chat->created_at,
+                    'latest_message_time' => $chat->created_at,
                     'latest_file' => $this->fileUrl($chat->file_path),
+                    'total_messages' => $messages->count(),
                     'unread_count' => $unreadCount,
                 ];
             })->filter()->values();
@@ -322,70 +332,9 @@ class ChatController extends Controller
     }
 
     /**
-     * Full chat timeline
+     * Full chat timeline for a specific booking
      */
-    /**
-     * Full chat timeline (only created_at, sender_type, message)
-     */
-    // public function chatWithUser($receiverTypeParam, $receiverId)
-    // {
-    //     $types = [
-    //         'user' => User::class,
-    //         'provider' => Provider::class,
-    //         'shopkeeper' => ShopKeeper::class,
-    //     ];
-
-    //     if (!isset($types[$receiverTypeParam])) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Invalid receiver type'
-    //         ], 422);
-    //     }
-
-    //     $receiverType = $types[$receiverTypeParam];
-    //     $auth = $this->authInfo();
-
-    //     // Eager load sender relationship to avoid null values
-    //     $messages = Chat::with('sender')
-    //         ->where(function ($q) use ($auth, $receiverId, $receiverType) {
-    //             $q->where([
-    //                 'sender_id' => $auth['id'],
-    //                 'sender_type' => $auth['type'],
-    //                 'receiver_id' => $receiverId,
-    //                 'receiver_type' => $receiverType,
-    //             ]);
-    //         })
-    //         ->orWhere(function ($q) use ($auth, $receiverId, $receiverType) {
-    //             $q->where([
-    //                 'sender_id' => $receiverId,
-    //                 'sender_type' => $receiverType,
-    //                 'receiver_id' => $auth['id'],
-    //                 'receiver_type' => $auth['type'],
-    //             ]);
-    //         })
-    //         ->orderBy('created_at', 'asc')
-    //         ->get();
-
-    //     // Map messages with clean sender info
-    //     $formatted = $messages->map(function ($chat) {
-    //         $sender = $chat->sender;
-
-    //         return [
-    //             'id' => $chat->id,
-    //             'created_at' => $chat->created_at,
-    //             'sender_type' => $sender instanceof User ? 'user' : 'provider',
-    //             'message' => $chat->message,
-    //             'sender_name' => $sender->name ??  $sender->full_name,
-    //             'sender_image' => $sender->image ??  $sender->profile_image_url,
-    //         ];
-    //     });
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'data' => $formatted
-    //     ]);
-    // }
-    public function chatWithUser($receiverTypeParam, $receiverId)
+    public function chatWithUser($receiverTypeParam, $receiverId, Request $request)
     {
         $receiverType = $this->resolveType($receiverTypeParam);
 
@@ -406,29 +355,41 @@ class ChatController extends Controller
             ], 404);
         }
 
-        $messages = Chat::with('sender')
+        // Get booking_id from request (optional)
+        $bookingId = $request->input('booking_id');
+
+        // Build query for messages
+        $messageQuery = Chat::with('sender')
             ->betweenParticipants(
                 ['id' => $auth['id'], 'type' => $auth['type']],
                 ['id' => (int) $receiverId, 'type' => $receiverType]
             )
-            ->orderBy('created_at', 'asc')
-            ->get();
+            ->whereNull('deleted_at');
 
-        $markedAsSeen = $this->unreadConversationQuery(
-            [
-                'id' => $auth['id'],
-                'type' => $auth['type'],
-            ],
-            [
-                'id' => (int) $receiverId,
-                'type' => $receiverType,
-            ]
-        )->update([
-            'is_seen' => true,
-            'seen_at' => now()
-        ]);
+        if ($bookingId) {
+            $messageQuery->where('booking_id', $bookingId);
+        }
 
-        $formatted = $messages->map(function ($chat) {
+        $messages = $messageQuery->orderBy('created_at', 'asc')->get();
+
+        // Get unread message IDs (messages where auth user is receiver and not seen)
+        $unreadMessageIds = Chat::betweenParticipants(
+            ['id' => $auth['id'], 'type' => $auth['type']],
+            ['id' => (int) $receiverId, 'type' => $receiverType]
+        )
+            ->where('receiver_id', $auth['id'])
+            ->where('receiver_type', $auth['type'])
+            ->where('is_seen', false)
+            ->whereNull('deleted_at')
+            ->when($bookingId, function ($query) use ($bookingId) {
+                return $query->where('booking_id', $bookingId);
+            })
+            ->pluck('id')
+            ->toArray();
+
+        $unreadCount = count($unreadMessageIds);
+
+        $formatted = $messages->map(function ($chat) use ($unreadMessageIds) {
             $sender = $this->participantPayload($chat->sender);
 
             return [
@@ -439,6 +400,7 @@ class ChatController extends Controller
                 'file_url' => $this->fileUrl($chat->file_path),
                 'sender_name' => $sender['name'] ?? null,
                 'sender_image' => $sender['image'] ?? null,
+                'is_unread' => in_array($chat->id, $unreadMessageIds), // WhatsApp style: mark which messages are unread
             ];
         });
 
@@ -446,8 +408,9 @@ class ChatController extends Controller
             'status' => true,
             'data' => $formatted,
             'meta' => [
-                'marked_as_seen' => $markedAsSeen,
-                'unread_count' => 0,
+                'total_messages' => $messages->count(),
+                'unread_count' => $unreadCount, // Return actual unread count (not 0)
+                'booking_id' => $bookingId,
             ]
         ]);
     }

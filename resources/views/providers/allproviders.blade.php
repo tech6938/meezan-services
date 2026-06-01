@@ -4,7 +4,28 @@
             <link rel="stylesheet" href="assets/bundles/datatables/datatables.min.css">
             <link rel="stylesheet" href="assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
             <link rel="stylesheet" href="{{ asset('assets/css/modal.css') }}">
+            <!-- Font Awesome for WhatsApp icon -->
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         @endsection
+
+        <style>
+            /* WhatsApp Icon Specific Styling */
+            .btn-whatsapp {
+                background-color: #25D366 !important;
+            }
+
+            .btn-whatsapp .fab.fa-whatsapp {
+                font-size: 18px;
+                color: white;
+            }
+
+            /* If you want to ensure the icon is visible */
+            .btn-whatsapp i {
+                width: auto;
+                height: auto;
+                font-size: 18px;
+            }
+        </style>
 
         @section('content')
             <div class="main-content">
@@ -69,7 +90,7 @@
                                                                     @endif
                                                                 </td>
                                                                 <td>
-                                                                    <div class="d-flex align-items-center gap-2">
+                                                                    <div class="d-flex align-items-center gap-2 justify-content-between" style="display: inline-block;">
 
                                                                         <button class=" p-2 btn btn-primary openModalBtn"
                                                                             data-provider-id="{{ $provider->id }}">
@@ -81,15 +102,25 @@
                                                                             <i data-feather="eye"></i>
                                                                         </a>
 
-                                                                        {{-- <form class="p-1"
+                                                                        <form class="delete-form"
                                                                             action="{{ route('provider.destroy', ['id' => $provider->id]) }}"
-                                                                            method="POST" class="d-inline">
+                                                                            method="POST" style="display: inline-block;">
                                                                             @csrf
                                                                             @method('DELETE')
-                                                                            <button type="submit" class="btn btn-danger">
+                                                                            <button type="button"
+                                                                                class="btn btn-danger delete-btn"
+                                                                                data-provider-name="{{ $provider->full_name }}"
+                                                                                data-provider-id="{{ $provider->id }}">
                                                                                 <i data-feather="trash-2"></i>
                                                                             </button>
-                                                                        </form> --}}
+                                                                        </form>
+
+                                                                        <!-- WhatsApp Button with proper icon -->
+                                                                        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $provider->phone) }}"
+                                                                            class="btn btn-whatsapp" target="_blank"
+                                                                            title="Chat on WhatsApp">
+                                                                            <i class="fab fa-whatsapp"></i>
+                                                                        </a>
 
                                                                     </div>
                                                                 </td>
@@ -152,6 +183,83 @@
                         btn.addEventListener("click", function() {
                             providerIdInput.value = this.dataset.providerId;
                             statusModal.style.display = "block";
+                        });
+                    });
+                    document.querySelectorAll('.delete-btn').forEach(button => {
+                        button.addEventListener('click', function(e) {
+                            e.preventDefault();
+
+                            const providerName = this.dataset.providerName;
+                            const providerId = this.dataset.providerId;
+                            const form = this.closest('.delete-form');
+
+                            Swal.fire({
+                                title: 'Are you sure?',
+                                text: `You are about to delete provider "${providerName}". This action cannot be undone!`,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#d33',
+                                cancelButtonColor: '#3085d6',
+                                confirmButtonText: 'Yes, delete it!',
+                                cancelButtonText: 'Cancel',
+                                showLoaderOnConfirm: true,
+                                preConfirm: async () => {
+                                    try {
+                                        const formData = new FormData(form);
+                                        formData.append('_method', 'DELETE');
+
+                                        const response = await fetch(form.action, {
+                                            method: 'POST',
+                                            headers: {
+                                                'X-CSRF-TOKEN': document.querySelector(
+                                                    'input[name="_token"]').value,
+                                                'Accept': 'application/json',
+                                                'X-Requested-With': 'XMLHttpRequest'
+                                            },
+                                            body: formData
+                                        });
+
+                                        const text = await response.text(); // Get raw response
+                                        console.log('Raw response:',
+                                            text); // Debug: see what's being returned
+
+                                        let data;
+                                        try {
+                                            data = JSON.parse(text);
+                                        } catch (e) {
+                                            console.error('Failed to parse JSON:', e);
+                                            throw new Error(
+                                                'Server returned invalid response. Please check the server logs.'
+                                            );
+                                        }
+
+                                        if (!response.ok) {
+                                            throw new Error(data.message || data.error ||
+                                                'Something went wrong');
+                                        }
+
+                                        return data;
+                                    } catch (error) {
+                                        Swal.showValidationMessage(`Request failed: ${error.message}`);
+                                        throw error;
+                                    }
+                                },
+                                allowOutsideClick: () => !Swal.isLoading()
+                            }).then((result) => {
+                                if (result.isConfirmed && result.value) {
+                                    Swal.fire({
+                                        title: 'Deleted!',
+                                        text: `Provider "${providerName}" has been deleted successfully.`,
+                                        icon: 'success',
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        window.location.reload();
+                                    });
+                                }
+                            }).catch(error => {
+                                console.error('SweetAlert error:', error);
+                            });
                         });
                     });
 

@@ -141,17 +141,31 @@ class UserProviderController extends Controller
 
     public function destroy($id)
     {
-        $shopKeeper = Provider::with('bookingRequests')->findOrFail($id);
+        try {
+            $provider = Provider::findOrFail($id);
+            $providerName = $provider->full_name;
+            $provider->delete();
 
-        // if ($shopKeeper->bookingRequests()->exists()) {
-        //     return redirect()->back()->with('error', 'Cannot delete provider with bookings.');
-        // }
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Provider \"{$providerName}\" has been deleted successfully."
+                ]);
+            }
 
-        $shopKeeper->delete();
+            return redirect()->back()->with('success', "Provider \"{$providerName}\" has been deleted successfully.");
+        } catch (\Exception $e) {
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete provider: ' . $e->getMessage()
+                ], 500);
+            }
 
-        return redirect()->back()->with('success', 'Provider deleted successfully.');
+            return redirect()->back()->with('error', 'Failed to delete provider: ' . $e->getMessage());
+        }
     }
-        /**
+    /**
      * Export users to Excel
      */
     public function exportUsers(Request $request)

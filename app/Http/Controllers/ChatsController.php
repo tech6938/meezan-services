@@ -9,7 +9,6 @@ use App\Models\ShopKeeper;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
@@ -25,25 +24,27 @@ class ChatsController extends Controller
     // List of all chats (modified with checkboxes)
     public function chatsList(Request $request)
     {
+        // Group chats by booking_id to show each booking's conversation separately
         $chats = Chat::with(['sender', 'receiver', 'bookingRequest'])
-            ->has('bookingRequest')
+            ->whereNotNull('booking_id') // Only include chats with booking_id
             ->latest()
             ->get()
-            ->unique(function (Chat $chat) {
-                $participants = [
-                    Chat::participantKey([
-                        'id' => $chat->sender_id,
-                        'type' => $chat->sender_type,
-                    ]),
-                    Chat::participantKey([
-                        'id' => $chat->receiver_id,
-                        'type' => $chat->receiver_type,
-                    ]),
+            ->groupBy('booking_id')
+            ->map(function ($chatGroup, $bookingId) {
+                $firstChat = $chatGroup->first();
+                return (object) [
+                    'booking_id' => $bookingId,
+                    'sender' => $firstChat->sender,
+                    'receiver' => $firstChat->receiver,
+                    'sender_type' => $firstChat->sender_type,
+                    'receiver_type' => $firstChat->receiver_type,
+                    'last_message' => $firstChat->message,
+                    'last_message_time' => $firstChat->created_at,
+                    'message_count' => $chatGroup->count(),
+                    'order_no' => $firstChat->bookingRequest->order_no ?? null,
+                    'booking_status' => $firstChat->bookingRequest->status ?? 'N/A',
+                    'chat' => $firstChat // Keep reference for links
                 ];
-
-                sort($participants);
-
-                return implode('|', $participants);
             })
             ->values();
 
@@ -51,7 +52,7 @@ class ChatsController extends Controller
         $page = LengthAwarePaginator::resolveCurrentPage();
 
         $data = new LengthAwarePaginator(
-            $chats->forPage($page, $perPage)->values(),
+            $chats->slice(($page - 1) * $perPage, $perPage)->values(),
             $chats->count(),
             $perPage,
             $page,
@@ -64,31 +65,43 @@ class ChatsController extends Controller
         return view('chat.chatsList', compact('data'));
     }
 
-    // Chat between a user (sender) and provider (receiver)
-    public function chatBetween($sender_type, $sender_id, $receiver_type, $receiver_id)
+    // Chat between users for a specific booking
+    public function chatBetween($sender_type, $sender_id, $receiver_type, $receiver_id, $booking_id = null)
     {
         $senderType = $this->resolveType($sender_type);
         $receiverType = $this->resolveType($receiver_type);
 
         abort_unless($senderType && $receiverType, 404);
 
-        $messages = Chat::betweenParticipants(
+        $query = Chat::betweenParticipants(
             ['id' => (int) $sender_id, 'type' => $senderType],
             ['id' => (int) $receiver_id, 'type' => $receiverType]
-        )
-            ->with(['sender', 'receiver'])
+        );
+
+        // Filter by booking_id if provided
+        if ($booking_id) {
+            $query->where('booking_id', $booking_id);
+        }
+
+        $messages = $query->with(['sender', 'receiver', 'bookingRequest'])
             ->orderBy('created_at', 'asc')
             ->get();
 
         $sender = $this->findParticipant((int) $sender_id, $senderType);
         $receiver = $this->findParticipant((int) $receiver_id, $receiverType);
 
+        // Get booking info for display
+        $bookingInfo = null;
+        if ($booking_id) {
+            $bookingInfo = BookingRequest::find($booking_id);
+        }
+
         abort_unless($sender && $receiver, 404);
 
-        return view('chat.chatBetween', compact('messages', 'sender', 'receiver'));
+        return view('chat.chatBetween', compact('messages', 'sender', 'receiver', 'bookingInfo', 'booking_id'));
     }
 
-    // New method to export selected chats
+    // export selected chats
     public function exportSelectedChats(Request $request)
     {
         $selectedChats = $request->input('selected_chats', []);
@@ -234,80 +247,144 @@ class ChatsController extends Controller
         return response()->download($zipPath)->deleteFileAfterSend(true);
     }
 
-    public function deleteChatsByOrderNo($orderNo)
+    /**
+     * Display chat deletion page with booking selection
+     */
+    public function deleteChatPage($sender_type, $sender_id, $receiver_type, $receiver_id)
     {
-        try {
-            Log::info('Attempting to delete chats for order: ' . $orderNo);
+        $senderType = $this->resolveType($sender_type);
+        $receiverType = $this->resolveType($receiver_type);
 
-            // Find the booking request by order_no
-            $booking = BookingRequest::where('order_no', $orderNo)->first();
+        abort_unless($senderType && $receiverType, 404);
 
-            if (!$booking) {
-                Log::warning('Booking not found for order_no: ' . $orderNo);
+        $sender = $this->findParticipant((int) $sender_id, $senderType);
+        $receiver = $this->findParticipant((int) $receiver_id, $receiverType);
 
-                if (request()->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Booking request not found for order #' . $orderNo
-                    ], 404);
-                }
-                return redirect()->back()->with('error', 'Booking request not found for order #' . $orderNo);
-            }
+        abort_unless($sender && $receiver, 404);
 
-            Log::info('Found booking ID: ' . $booking->id . ' for order: ' . $orderNo);
+        // Get messages for preview (optional - shows recent messages)
+        $messages = Chat::betweenParticipants(
+            ['id' => (int) $sender_id, 'type' => $senderType],
+            ['id' => (int) $receiver_id, 'type' => $receiverType]
+        )
+            ->with(['sender', 'receiver'])
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get();
 
-            // Get all chats associated with this booking
-            $chats = Chat::where('booking_id', $booking->id)->get();
+        // Get all unique bookings for this conversation
+        $bookings = Chat::betweenParticipants(
+            ['id' => (int) $sender_id, 'type' => $senderType],
+            ['id' => (int) $receiver_id, 'type' => $receiverType]
+        )
+            ->whereNotNull('booking_id')
+            ->with('bookingRequest')
+            ->get()
+            ->unique('booking_id')
+            ->map(function ($chat) use ($sender_id, $receiver_id, $senderType, $receiverType) {
+                // Count total messages for this specific booking
+                $messageCount = Chat::betweenParticipants(
+                    ['id' => (int) $sender_id, 'type' => $senderType],
+                    ['id' => (int) $receiver_id, 'type' => $receiverType]
+                )->where('booking_id', $chat->booking_id)->count();
 
-            if ($chats->isEmpty()) {
-                Log::info('No chats found for booking_id: ' . $booking->id);
+                // Check if there are other bookings between these users
+                $otherBookingsExist = Chat::betweenParticipants(
+                    ['id' => (int) $sender_id, 'type' => $senderType],
+                    ['id' => (int) $receiver_id, 'type' => $receiverType]
+                )
+                    ->where('booking_id', '!=', $chat->booking_id)
+                    ->whereNotNull('booking_id')
+                    ->exists();
 
-                if (request()->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No chats found for order #' . $orderNo
-                    ], 404);
-                }
-                return redirect()->back()->with('error', 'No chats found for order #' . $orderNo);
-            }
+                return (object) [
+                    'booking_id' => $chat->booking_id,
+                    'booking' => $chat->bookingRequest,
+                    'message_count' => $messageCount,
+                    'has_other_bookings' => $otherBookingsExist
+                ];
+            })
+            ->values();
 
-            Log::info('Found ' . $chats->count() . ' chats to delete');
-
-            // Delete files if they exist
-            foreach ($chats as $chat) {
-                if ($chat->file_path && file_exists(public_path($chat->file_path))) {
-                    unlink(public_path($chat->file_path));
-                    Log::info('Deleted file: ' . $chat->file_path);
-                }
-            }
-
-            // Delete all chats
-            $deletedCount = Chat::where('booking_id', $booking->id)->delete();
-
-            Log::info('Successfully deleted ' . $deletedCount . ' chats');
-
-            if (request()->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => "Successfully deleted {$deletedCount} chat(s) for order #{$booking->order_no}.",
-                    'deleted_count' => $deletedCount
-                ], 200);
-            }
-
-            return redirect()->back()->with('success', "Successfully deleted {$deletedCount} chat(s) for order #{$booking->order_no}.");
-        } catch (\Exception $e) {
-            Log::error('Delete chats error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-
-            if (request()->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'An error occurred: ' . $e->getMessage()
-                ], 500);
-            }
-            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
-        }
+        return view('chat.deleteChat', compact('messages', 'sender', 'receiver', 'bookings'));
     }
+    /**
+     * Delete chat messages by booking ID
+     */
+    public function deleteChatByBooking(Request $request)
+    {
+        $request->validate([
+            'sender_type' => 'required|string',
+            'sender_id' => 'required|integer',
+            'receiver_type' => 'required|string',
+            'receiver_id' => 'required|integer',
+            'booking_id' => 'required|integer|exists:chats,booking_id'
+        ]);
+
+        $senderType = $this->resolveType($request->sender_type);
+        $receiverType = $this->resolveType($request->receiver_type);
+
+        if (!$senderType || !$receiverType) {
+            return response()->json(['error' => 'Invalid participant types.'], 400);
+        }
+
+        // Delete ONLY chats for this specific booking_id, regardless of other bookings
+        $deletedCount = Chat::betweenParticipants(
+            ['id' => (int) $request->sender_id, 'type' => $senderType],
+            ['id' => (int) $request->receiver_id, 'type' => $receiverType]
+        )
+            ->where('booking_id', $request->booking_id)
+            ->delete();
+
+        if ($deletedCount > 0) {
+            $message = "Successfully deleted {$deletedCount} chat message(s) for booking #{$request->booking_id}";
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'deleted_count' => $deletedCount
+            ]);
+        }
+
+        return response()->json(['error' => 'No chats found to delete.'], 404);
+    }
+
+    /**
+     * Alternative: Delete entire conversation for a specific booking (force delete)
+     */
+    public function forceDeleteConversation(Request $request)
+    {
+        $request->validate([
+            'sender_type' => 'required|string',
+            'sender_id' => 'required|integer',
+            'receiver_type' => 'required|string',
+            'receiver_id' => 'required|integer',
+            'booking_id' => 'required|integer'
+        ]);
+
+        $senderType = $this->resolveType($request->sender_type);
+        $receiverType = $this->resolveType($request->receiver_type);
+
+        if (!$senderType || !$receiverType) {
+            return redirect()->back()->with('error', 'Invalid participant types.');
+        }
+
+        // Delete chats regardless of other bookings (use with caution)
+        $deletedCount = Chat::betweenParticipants(
+            ['id' => (int) $request->sender_id, 'type' => $senderType],
+            ['id' => (int) $request->receiver_id, 'type' => $receiverType]
+        )
+            ->where('booking_id', $request->booking_id)
+            ->forceDelete();
+
+        if ($deletedCount > 0) {
+            return redirect()->route('chats.list')
+                ->with('success', "Successfully force deleted {$deletedCount} chat message(s) for booking #{$request->booking_id}");
+        }
+
+        return redirect()->back()->with('error', 'No chats found to delete.');
+    }
+
+
     // Generate HTML for chat export
     private function generateChatHTML($messages, $sender, $receiver, $tempDir)
     {
@@ -603,175 +680,5 @@ class ChatsController extends Controller
         }
 
         return rmdir($dir);
-    }
-
-    /**
-     * Get chats filtered by order number
-     *
-     * @param string $orderNo
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getChatsByOrderNumber($orderNo)
-    {
-        try {
-            Log::info('Fetching chats for order: ' . $orderNo);
-
-            // Find the booking request
-            $booking = BookingRequest::where('order_no', $orderNo)->first();
-
-            if (!$booking) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Booking request not found for order #' . $orderNo
-                ], 404);
-            }
-
-            // Get all non-deleted chats associated with this booking
-            // SoftDeletes automatically excludes trashed records
-            $chats = Chat::where('booking_id', $booking->id)
-                ->with(['sender', 'receiver', 'bookingRequest'])
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            if ($chats->isEmpty()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'No chats found for order #' . $orderNo,
-                    'data' => [],
-                    'count' => 0
-                ]);
-            }
-
-            // Format the response
-            $formattedChats = $chats->map(function ($chat) {
-                return [
-                    'id' => $chat->id,
-                    'booking_id' => $chat->booking_id,
-                    'message' => $chat->message,
-                    'sender' => [
-                        'id' => $chat->sender_id,
-                        'type' => $chat->sender_type,
-                        'name' => optional($chat->sender)->name ?? optional($chat->sender)->full_name ?? 'Unknown'
-                    ],
-                    'receiver' => [
-                        'id' => $chat->receiver_id,
-                        'type' => $chat->receiver_type,
-                        'name' => optional($chat->receiver)->name ?? optional($chat->receiver)->full_name ?? 'Unknown'
-                    ],
-                    'file_name' => $chat->file_name,
-                    'file_path' => $chat->file_path,
-                    'created_at' => $chat->created_at->format('Y-m-d H:i:s'),
-                    'created_at_readable' => $chat->created_at->format('M d, Y h:i A')
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $formattedChats,
-                'count' => $chats->count(),
-                'order_no' => $orderNo
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Get chats error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Delete a single message (soft delete)
-     *
-     * @param int $messageId
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function deleteSingleMessage($messageId)
-    {
-        try {
-            Log::info('Attempting to soft delete message: ' . $messageId);
-
-            $message = Chat::find($messageId);
-
-            if (!$message) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Message not found'
-                ], 404);
-            }
-
-            // Soft delete the message
-            $message->delete();
-
-            Log::info('Successfully soft deleted message: ' . $messageId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Message deleted successfully',
-                'message_id' => $messageId
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('Delete message error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Delete entire conversation for an order (soft delete)
-     *
-     * @param string $orderNo
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function deleteConversationByOrderNo($orderNo)
-    {
-        try {
-            Log::info('Attempting to soft delete conversation for order: ' . $orderNo);
-
-            // Find the booking request by order_no
-            $booking = BookingRequest::where('order_no', $orderNo)->first();
-
-            if (!$booking) {
-                Log::warning('Booking not found for order_no: ' . $orderNo);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Booking request not found for order #' . $orderNo
-                ], 404);
-            }
-
-            // Get all chats associated with this booking
-            $chats = Chat::where('booking_id', $booking->id)->get();
-
-            if ($chats->isEmpty()) {
-                Log::info('No chats found for booking_id: ' . $booking->id);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No chats found for order #' . $orderNo
-                ], 404);
-            }
-
-            Log::info('Found ' . $chats->count() . ' chats to soft delete');
-
-            // Soft delete all chats for this booking
-            $deletedCount = Chat::where('booking_id', $booking->id)->delete();
-
-            Log::info('Successfully soft deleted ' . $deletedCount . ' chats');
-
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully deleted {$deletedCount} chat(s) for order #{$booking->order_no}.",
-                'deleted_count' => $deletedCount
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('Delete conversation error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred: ' . $e->getMessage()
-            ], 500);
-        }
     }
 }

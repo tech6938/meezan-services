@@ -29,7 +29,8 @@ class Previous extends Model
         }, $images);
     }
     // provider
-    public function provider(){
-       return $this->belongsTo(Provider::class,'provider_id');
+    public function provider()
+    {
+        return $this->belongsTo(Provider::class, 'provider_id');
     }
 }
