@@ -83,6 +83,10 @@ class SettingController extends Controller
         $response['userAppIsOn'] = $settings ? (bool)$settings->userAppIsOn : true;
         $response['providerAppIsOn'] = $settings ? (bool)$settings->providerAppIsOn : true;
 
-        return response()->json($response);
+        return response()->json([
+            'status' => true,
+            'message' => 'Settings retrieved successfully',
+            'data' => $response
+        ]);
     }
 }
