@@ -165,7 +165,7 @@
                             </ul>
                         </li>
                         <li
-                            class="dropdown  {{ request()->routeIs('shopkeepers') || request()->routeIs('shops') ? 'active' : ' ' }}">
+                            class="dropdown {{ request()->routeIs('shopkeepers') || request()->routeIs('shops') ? 'active' : ' ' }}">
                             <a href="#" class="menu-toggle nav-link has-dropdown"><i
                                     data-feather="shopping-cart"></i>
 
@@ -174,6 +174,13 @@
                                 <li><a class="nav-link" href="{{ route('shopkeepers') }}">ShopKeepers</a></li>
                             </ul>
                         </li>
+
+                        <!-- Pages Menu Item -->
+                        <li class="dropdown {{ request()->routeIs('pages.index') ? 'active' : ' ' }}">
+                            <a href="{{ route('pages.index') }}" class="nav-link"><i
+                                    data-feather="file-text"></i><span>Pages</span></a>
+                        </li>
+
                         <li
                             class="dropdown {{ request()->routeIs('commission.*') || request()->routeIs('appUrl.*') ? 'active' : '' }}">
                             <a href="#" class="menu-toggle nav-link has-dropdown">

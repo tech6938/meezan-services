@@ -8,19 +8,38 @@ use Illuminate\Http\Request;
 
 class SettingController extends Controller
 {
-        // Available settings keys
+    // Available settings keys
     protected $settingKeys = [
+        // App & Social Settings
         'app_url',
-        'privacy_policy',
         'whatsapp',
         'website_url',
         'twitter_url',
         'instagram_url',
         'youtube_url',
         'facebook_url',
-        'terms_and_conditions_url',
+
+        // Video Tutorials
         'customer_video_tutorial_url',
         'provider_video_tutorial_url',
+
+        // App Status Controls
+        'appIsOn',
+        'userAppIsOn',
+        'providerAppIsOn',
+
+        // Legal Pages - Partner
+        'partner_agreement',
+        'privacy_policy_partner',
+        'terms&Conditions_partner',
+
+        // Legal Pages - Customer
+        'privacy_policy_customer',
+        'terms&Conditions_customer',
+
+        // Information Pages
+        'about_us',
+        'contact_us',
     ];
     /**
      * Get app URL setting

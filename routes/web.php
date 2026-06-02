@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\{AuthController, BookingController, MainCategoryController, SettingController, SubCategoryController, TaxController, VolunteerController};
+use App\Http\Controllers\{AuthController, BookingController, MainCategoryController, SettingController, SubCategoryController, TaxController, VolunteerController, PageController};
 use App\Http\Controllers\api\RatingController;
 use App\Http\Controllers\ChatsController;
 use App\Http\Controllers\CommissionController;
@@ -162,5 +162,22 @@ Route::controller(AuthController::class)->group(function () {
         Route::post('/settings/user-app-status', 'userAppIsOn')->name('settings.userAppIsOn');
         Route::post('/settings/provider-app-status', 'providerAppIsOn')->name('settings.providerAppIsOn');
         Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
+        Route::get('/privacyPolicy/partner', 'privacyPolicy')->name('privacyPolicy.provider');
+        Route::get('/terms&conditions/partner', 'termsConditions')->name('termsConditions.provider');
+        Route::get('/privacyPolicy/customer', 'privacyCustomer')->name('privacyPolicy.customer');
+        Route::get('/terms&conditions/customer', 'termsConditionsCustomer')->name('termsConditions.customer');
+        Route::get('/partner/agreement', 'partnerAgreement')->name('partnerAgreement');
+        Route::get('/about_us', 'aboutUs')->name('aboutUs');
+        Route::get('/contact_us', 'contactUs')->name('contactUs');
+    });
+
+    /*
+|--------------------------------------------------------------------------
+| Pages Routes
+|--------------------------------------------------------------------------
+*/
+    Route::controller(PageController::class)->group(function () {
+        Route::get('/pages', 'index')->name('pages.index');
+        Route::get('/pages/content/{pageId}', 'getPageContent')->name('pages.content');
     });
 });

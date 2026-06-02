@@ -11,17 +11,36 @@ class SettingController extends Controller
 {
     // Available settings keys
     protected $settingKeys = [
+        // App & Social Settings
         'app_url',
-        'privacy_policy',
         'whatsapp',
         'website_url',
         'twitter_url',
         'instagram_url',
         'youtube_url',
         'facebook_url',
-        'terms_and_conditions_url',
+
+        // Video Tutorials
         'customer_video_tutorial_url',
         'provider_video_tutorial_url',
+
+        // App Status Controls
+        'appIsOn',
+        'userAppIsOn',
+        'providerAppIsOn',
+
+        // Legal Pages - Partner
+        'partner_agreement',
+        'privacy_policy_partner',
+        'terms&Conditions_partner',
+
+        // Legal Pages - Customer
+        'privacy_policy_customer',
+        'terms&Conditions_customer',
+
+        // Information Pages
+        'about_us',
+        'contact_us',
     ];
 
     /**
@@ -50,12 +69,37 @@ class SettingController extends Controller
             'setting_value' => 'required|string',
         ]);
 
-        $setting = Setting::firstOrCreate(['id' => 5]);
+        // Get or create the settings record
+        $setting = Setting::firstOrNew(['id' => 5]);
 
-        // Update the setting key with the value
-        $setting->update([
-            $request->setting_key => $request->setting_value
-        ]);
+        // If it's a new record, set default values
+        if (!$setting->exists) {
+            $setting->id = 5;
+            $setting->app_url = null;
+            $setting->whatsapp = null;
+            $setting->website_url = null;
+            $setting->twitter_url = null;
+            $setting->instagram_url = null;
+            $setting->youtube_url = null;
+            $setting->facebook_url = null;
+            $setting->customer_video_tutorial_url = null;
+            $setting->provider_video_tutorial_url = null;
+            $setting->appIsOn = 0;
+            $setting->userAppIsOn = 0;
+            $setting->providerAppIsOn = 0;
+            $setting->partner_agreement = null;
+            $setting->privacy_policy_partner = null;
+            $setting->termsConditions_partner = null;
+            $setting->privacy_policy_customer = null;
+            $setting->termsConditions_customer = null;
+            $setting->about_us = null;
+            $setting->contact_us = null;
+            $setting->save();
+        }
+
+        // Update only the specific setting key
+        $setting->{$request->setting_key} = $request->setting_value;
+        $setting->save();
 
         return redirect()->back()->with('success', ucfirst(str_replace('_', ' ', $request->setting_key)) . ' saved successfully');
     }
@@ -63,20 +107,24 @@ class SettingController extends Controller
     /**
      * Delete setting (reset to null)
      */
-    public function appUrlDestroy(string $key)
+    public function appUrlDestroy($key)
     {
-        if (!in_array($key, $this->settingKeys)) {
-            return redirect()->back()->with('error', 'Invalid setting key');
-        }
+        $setting = Setting::find(5);
 
-        $setting = Setting::first();
-        if ($setting) {
-            $setting->update([
-                $key => null
+        if ($setting && $setting->{$key} !== null) {
+            $setting->{$key} = null;
+            $setting->save();
+
+            return response()->json([
+                'status' => true,
+                'message' => ucfirst(str_replace('_', ' ', $key)) . ' deleted successfully'
             ]);
         }
 
-        return redirect()->back()->with('success', 'Setting deleted successfully');
+        return response()->json([
+            'status' => false,
+            'message' => 'Setting not found'
+        ], 404);
     }
 
     /**
@@ -157,5 +205,61 @@ class SettingController extends Controller
                 'message' => 'Failed to update provider app status: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Display privacy policy for providers
+     */
+    public function privacyPolicy()
+    {
+        return view('privacy_policy.provider');
+    }
+
+    /**
+     * Display terms and conditions for providers
+     */
+    public function termsConditions()
+    {
+        return view('terms_&_conditions.provider');
+    }
+
+    /**
+     * Display privacy policy for customers
+     */
+    public function privacyCustomer()
+    {
+        return view('privacy_policy.customer');
+    }
+
+    /**
+     * Display terms and conditions for customers
+     */
+    public function termsConditionsCustomer()
+    {
+        return view('terms_&_conditions.customer');
+    }
+
+    /**
+     * Display partner agreement
+     */
+    public function partnerAgreement()
+    {
+        return view('settings.provider_agreement');
+    }
+
+    /**
+     * Display about us page
+     */
+    public function aboutUs()
+    {
+        return view('settings.about_us');
+    }
+
+    /**
+     * Display contact us page
+     */
+    public function contactUs()
+    {
+        return view('settings.contact_us');
     }
 }

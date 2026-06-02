@@ -1,8 +1,9 @@
 @extends('layout.dashboard-layout')
 
 @section('css')
-    <link rel="stylesheet" href="assets/bundles/datatables/datatables.min.css">
-    <link rel="stylesheet" href="assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" href="{{ asset('assets/bundles/datatables/datatables.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
         .setting-key {
             text-transform: capitalize;
@@ -22,6 +23,10 @@
             color: #999;
             font-style: italic;
         }
+
+        .btn-group-sm .btn {
+            margin: 0 2px;
+        }
     </style>
 @endsection
 
@@ -33,28 +38,6 @@
             </div>
 
             <div class="section-body">
-                @if ($errors->any())
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                        <ul class="mb-0">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-
-                @if (session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                        {{ session('success') }}
-                    </div>
-                @endif
-
                 <div class="row">
                     <!-- Form Section -->
                     <div class="col-md-5">
@@ -72,12 +55,12 @@
                                             id="setting_key" name="setting_key" required>
                                             <option value="">-- Select Setting Key --</option>
                                             @foreach ($settingKeys as $key)
-                                                <option value="{{ $key }}"
-                                                    data-type="{{ strpos($key, 'whatsapp') !== false ? 'tel' : 'url' }}">
+                                                <option value="{{ $key }}">
                                                     {{ ucfirst(str_replace('_', ' ', $key)) }}
                                                 </option>
                                             @endforeach
                                         </select>
+                                        <input type="hidden" id="setting_key_hidden" name="setting_key_hidden" value="">
                                         @error('setting_key')
                                             <span class="invalid-feedback">{{ $message }}</span>
                                         @enderror
@@ -169,8 +152,7 @@
                                 @endphp
 
                                 @if (empty($existingSettings))
-                                    <p class="text-muted text-center">No settings added yet. Use the form to add settings.
-                                    </p>
+                                    <p class="text-muted text-center">No settings added yet. Use the form to add settings.</p>
                                 @else
                                     <div class="table-responsive">
                                         <table class="table table-hover" id="settingsTable">
@@ -190,7 +172,7 @@
                                                         <td class="value-cell">
                                                             @if (filter_var($value, FILTER_VALIDATE_URL))
                                                                 <a href="{{ $value }}"
-                                                                    target="_blank">{{ $value }}</a>
+                                                                    target="_blank">{{ Str::limit($value, 50) }}</a>
                                                             @else
                                                                 <span
                                                                     title="{{ $value }}">{{ Str::limit($value, 50) }}</span>
@@ -203,15 +185,11 @@
                                                                     data-value="{{ addslashes($value) }}">
                                                                     <i class="fas fa-edit"></i>
                                                                 </button>
-                                                                <form action="{{ route('appUrl.destroy', $key) }}"
-                                                                    method="POST" style="display: inline-block;">
-                                                                    @csrf
-                                                                    @method('DELETE')
-                                                                    <button type="submit" class="btn btn-danger"
-                                                                        onclick="return confirm('Are you sure you want to delete this setting?')">
-                                                                        <i class="fas fa-trash"></i>
-                                                                    </button>
-                                                                </form>
+                                                                <button type="button" class="btn btn-danger delete-setting"
+                                                                    data-key="{{ $key }}"
+                                                                    data-name="{{ ucfirst(str_replace('_', ' ', $key)) }}">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -230,8 +208,9 @@
 @endsection
 
 @section('js')
-    <script src="assets/bundles/datatables/datatables.min.js"></script>
-    <script src="assets/bundles/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js"></script>
+    <script src="{{ asset('assets/bundles/datatables/datatables.min.js') }}"></script>
+    <script src="{{ asset('assets/bundles/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         $(document).ready(function() {
             // Initialize DataTable
@@ -251,8 +230,8 @@
 
                 if (key === 'whatsapp') {
                     inputField.attr('type', 'tel');
-                    inputField.attr('placeholder', 'Enter WhatsApp number (e.g., +1234567890)');
-                    $('#inputHint').text('Enter WhatsApp number with country code');
+                    inputField.attr('placeholder', 'Enter WhatsApp number (e.g., +923001234567)');
+                    $('#inputHint').text('Enter WhatsApp number with country code (e.g., +923001234567)');
                 } else if (key && (key.includes('url') || key.includes('http'))) {
                     inputField.attr('type', 'url');
                     inputField.attr('placeholder', 'Enter URL (e.g., https://example.com)');
@@ -269,14 +248,16 @@
                 const key = $(this).data('key');
                 const value = $(this).data('value');
 
+                // Set the dropdown value
                 $('#setting_key').val(key).trigger('change');
                 $('#setting_value').val(value);
                 $('#formTitle').text('Edit Setting');
                 $('#submitBtnText').text('Update Setting');
                 $('#cancelBtn').show();
 
-                // Disable the dropdown during edit
+                // Disable dropdown and set hidden field for form submission
                 $('#setting_key').prop('disabled', true);
+                $('#setting_key_hidden').val(key);
 
                 // Scroll to form
                 $('html, body').animate({
@@ -289,10 +270,11 @@
                 resetForm();
             });
 
-            // Reset form on page load if needed
+            // Reset form
             function resetForm() {
                 $('#settingForm')[0].reset();
                 $('#setting_key').prop('disabled', false);
+                $('#setting_key_hidden').val('');
                 $('#formTitle').text('Add New Setting');
                 $('#submitBtnText').text('Save Setting');
                 $('#cancelBtn').hide();
@@ -300,9 +282,147 @@
                 $('#setting_value').attr('placeholder', 'Enter setting value');
                 $('#inputHint').text('');
             }
+
+            // Delete setting with SweetAlert
+            $('.delete-setting').on('click', function(e) {
+                e.preventDefault();
+
+                const key = $(this).data('key');
+                const name = $(this).data('name');
+
+                Swal.fire({
+                    title: 'Are you sure?',
+                    html: `You are about to delete the setting "<strong>${name}</strong>".<br>This action cannot be undone!`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel',
+                    showLoaderOnConfirm: true,
+                    preConfirm: async () => {
+                        try {
+                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                                             document.querySelector('input[name="_token"]')?.value;
+
+                            const response = await fetch(`{{ url('appUrl/destroy') }}/${key}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrfToken,
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                throw new Error(data.message || 'Something went wrong');
+                            }
+
+                            return data;
+                        } catch (error) {
+                            Swal.showValidationMessage(`Request failed: ${error.message}`);
+                            throw error;
+                        }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value && result.value.status) {
+                        Swal.fire({
+                            title: 'Deleted!',
+                            text: result.value.message || `${name} has been deleted successfully.`,
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            // Remove the row from table
+                            const row = $(`.delete-setting[data-key="${key}"]`).closest('tr');
+                            const table = $('#settingsTable').DataTable();
+                            table.row(row).remove().draw();
+
+                            // Show empty state if no rows left
+                            if (table.rows().count() === 0) {
+                                location.reload();
+                            }
+                        });
+                    } else if (result.isConfirmed && result.value && !result.value.status) {
+                        Swal.fire({
+                            title: 'Error!',
+                            text: result.value.message || 'Failed to delete setting.',
+                            icon: 'error',
+                            confirmButtonColor: '#3085d6'
+                        });
+                    }
+                });
+            });
         });
 
-        // Unified function to toggle all statuses
+        // Form submission validation
+        document.getElementById('settingForm').addEventListener('submit', function(e) {
+            let key = document.getElementById('setting_key').value;
+            const hiddenKey = document.getElementById('setting_key_hidden').value;
+            const value = document.getElementById('setting_value').value;
+
+            // If dropdown is disabled, use hidden field value
+            if (document.getElementById('setting_key').disabled) {
+                key = hiddenKey;
+            }
+
+            // Validate key exists
+            if (!key) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Validation Error',
+                    text: 'Setting key is required',
+                    icon: 'error',
+                    confirmButtonColor: '#3085d6'
+                });
+                return false;
+            }
+
+            // Validate WhatsApp number
+            if (key === 'whatsapp') {
+                const phoneRegex = /^[\+]?[0-9]{10,15}$/;
+                if (!phoneRegex.test(value.replace(/\s/g, ''))) {
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Validation Error',
+                        text: 'Please enter a valid WhatsApp number (10-15 digits, optional +)',
+                        icon: 'error',
+                        confirmButtonColor: '#3085d6'
+                    });
+                    return false;
+                }
+            }
+            // Validate URL
+            else if (key && (key.includes('url') || key === 'app_url' || key === 'website_url')) {
+                if (value && !value.match(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i)) {
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Validation Error',
+                        text: 'Please enter a valid URL (e.g., https://example.com)',
+                        icon: 'error',
+                        confirmButtonColor: '#3085d6'
+                    });
+                    return false;
+                }
+            }
+
+            // If dropdown is disabled, add the key to form data
+            if (document.getElementById('setting_key').disabled) {
+                let hiddenInput = document.querySelector('input[name="setting_key"]');
+                if (!hiddenInput) {
+                    hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'setting_key';
+                    this.appendChild(hiddenInput);
+                }
+                hiddenInput.value = key;
+            }
+        });
+
+        // Toggle status function
         function toggleStatus(type, checkbox) {
             const value = checkbox.checked ? 1 : 0;
             let url = '';
@@ -317,6 +437,8 @@
                     url = '{{ route('settings.providerAppIsOn') }}';
                     successMessage = value === 1 ? 'Provider app has been turned ON' : 'Provider app has been turned OFF';
                     break;
+                default:
+                    return;
             }
 
             fetch(url, {
@@ -333,10 +455,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.status) {
-                        // Update the badge and label
                         const badge = checkbox.parentElement.querySelector('.badge');
-                        const labelText = checkbox.parentElement.querySelector('strong');
-
                         if (value === 1) {
                             badge.className = 'badge badge-success';
                             badge.innerText = 'ON';
@@ -344,64 +463,33 @@
                             badge.className = 'badge badge-danger';
                             badge.innerText = 'OFF';
                         }
-
-                        // Show success message
-                        showAlert('success', data.message || successMessage);
+                        Swal.fire({
+                            title: 'Success!',
+                            text: data.message || successMessage,
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
                     } else {
                         checkbox.checked = !checkbox.checked;
-                        showAlert('danger', data.message || 'Error updating status');
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message || 'Error updating status',
+                            icon: 'error',
+                            confirmButtonColor: '#3085d6'
+                        });
                     }
                 })
                 .catch(error => {
                     checkbox.checked = !checkbox.checked;
-                    showAlert('danger', 'Error updating status');
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Error updating status. Please try again.',
+                        icon: 'error',
+                        confirmButtonColor: '#3085d6'
+                    });
                     console.error('Error:', error);
                 });
         }
-
-        function showAlert(type, message) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.role = 'alert';
-            alertDiv.innerHTML = `
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-            ${message}
-        `;
-
-            const sectionBody = document.querySelector('.section-body');
-            const firstChild = sectionBody.firstChild;
-            sectionBody.insertBefore(alertDiv, firstChild);
-
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => {
-                if (alertDiv && alertDiv.remove) {
-                    alertDiv.remove();
-                }
-            }, 5000);
-        }
-
-        // Add validation before form submission
-        document.getElementById('settingForm').addEventListener('submit', function(e) {
-            const key = document.getElementById('setting_key').value;
-            const value = document.getElementById('setting_value').value;
-
-            if (key === 'whatsapp') {
-                const phoneRegex = /^[\+]?[0-9]{10,15}$/;
-                if (!phoneRegex.test(value.replace(/\s/g, ''))) {
-                    e.preventDefault();
-                    showAlert('danger', 'Please enter a valid WhatsApp number (10-15 digits, optional +)');
-                    return false;
-                }
-            } else if (key && (key.includes('url') || key === 'app_url' || key === 'website_url')) {
-                const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
-                if (value && !urlRegex.test(value)) {
-                    e.preventDefault();
-                    showAlert('danger', 'Please enter a valid URL');
-                    return false;
-                }
-            }
-        });
     </script>
 @endsection
