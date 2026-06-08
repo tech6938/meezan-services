@@ -66,7 +66,7 @@
                                 style="display: flex; justify-content: space-between; align-items: center;">
                                 <h4>Pending Bookings</h4>
                                 @include('components.export-button', [
-                                    'apiUrl' => route('bookings.export'),
+                                    'apiUrl' => route('bookings.exportMultiMulti'),
                                     'fileName' => 'pending_bookings',
                                     'queryParams' => array_merge(request()->all(), ['status' => 'pending']),
                                     'buttonLabel' => 'Export',
@@ -179,7 +179,10 @@
 
     <script>
         $(document).ready(function() {
-            $('#table-pending').DataTable();
+            $('#table-pending').DataTable({
+                "pageLength": 100,
+                "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]]
+            });
             feather.replace();
 
             const modal = document.getElementById("myModal");

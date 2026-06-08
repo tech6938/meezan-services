@@ -94,4 +94,10 @@ class User extends Authenticatable
             'id'            // Local key on ServiceRequest table
         );
     }
+
+    public function bookingRequests()
+    {
+        // Since booking_requests table has user_id column directly
+        return $this->hasMany(BookingRequest::class, 'user_id');
+    }
 }

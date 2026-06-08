@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ProvidersExport;
+use App\Exports\ProvidersMultiSheetExport;
 use App\Exports\UsersExport;
+use App\Exports\UsersMultiSheetExport;
 use App\Models\BookingRequest;
 use App\Models\Provider;
 use App\Models\User;
@@ -76,6 +78,9 @@ class UserProviderController extends Controller
         $validator = Validator::make($request->all(), [
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'day' => ['nullable', 'regex:/^(\d{4}-\d{2}-\d{2}|\d{1,2})$/'],
+            'month' => 'nullable|integer|between:1,12',
+            'year' => 'nullable|integer|between:1900,2100',
         ]);
 
         if ($validator->fails()) {
@@ -172,10 +177,43 @@ class UserProviderController extends Controller
     {
         $this->validateExportDateRange($request);
 
-        return Excel::download(
-            UsersExport::fromRequest($request),
-            'users_export_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
-        );
+        try {
+            return Excel::download(
+                UsersExport::fromRequest($request),
+                'users_export_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            Log::error('User export failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            abort(500, 'User export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export users with multiple sheets (Summary + Details)
+     */
+    public function exportUsersMultiSheet(Request $request)
+    {
+        $this->validateExportDateRange($request);
+
+        try {
+            return Excel::download(
+                UsersMultiSheetExport::fromRequest($request),
+                'users_complete_report_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            Log::error('User multi-sheet export failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            abort(500, 'User export failed: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -198,6 +236,119 @@ class UserProviderController extends Controller
             ]);
 
             abort(500, 'Provider export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export providers to Excel with multiple sheets
+     */
+    public function exportProvidersDetailed(Request $request)
+    {
+        $this->validateExportDateRange($request);
+
+        try {
+            // Get providers with filters
+            $query = Provider::query();
+
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->has('status') && $request->status) {
+                $query->where('status', $request->status);
+            }
+
+            $providers = $query->get();
+
+            // Get booking requests with date filters
+            $bookingQuery = \App\Models\BookingRequest::with(['provider', 'user']);
+
+            // Apply date filters
+            if ($request->has('start_date') && $request->start_date) {
+                $bookingQuery->whereDate('created_at', '>=', $request->start_date);
+            }
+
+            if ($request->has('end_date') && $request->end_date) {
+                $bookingQuery->whereDate('created_at', '<=', $request->end_date);
+            }
+
+            if ($request->has('day') && $request->day) {
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->day)) {
+                    $bookingQuery->whereDate('created_at', $request->day);
+                } elseif (is_numeric($request->day)) {
+                    $bookingQuery->whereDay('created_at', intval($request->day));
+                }
+            }
+
+            if ($request->has('month') && $request->month) {
+                $bookingQuery->whereMonth('created_at', intval($request->month));
+            }
+
+            if ($request->has('year') && $request->year) {
+                $bookingQuery->whereYear('created_at', intval($request->year));
+            }
+
+            $bookingRequests = $bookingQuery->get();
+
+            return Excel::download(
+                new ProvidersMultiSheetExport($providers, $bookingRequests),
+                'providers_complete_report_' . now()->format('Y-m-d') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            Log::error('Provider detailed export failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            abort(500, 'Provider export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export providers with multiple sheets (Summary + Details + Pivot)
+     */
+    public function exportProvidersMultiSheet(Request $request)
+    {
+        $this->validateExportDateRange($request);
+
+        try {
+            // Get providers
+            $providers = Provider::query()->get();
+
+            // Get booking requests with filters
+            $bookingQuery = BookingRequest::with(['provider', 'user']);
+
+            if ($request->has('start_date') && $request->start_date) {
+                $bookingQuery->whereDate('created_at', '>=', $request->start_date);
+            }
+
+            if ($request->has('end_date') && $request->end_date) {
+                $bookingQuery->whereDate('created_at', '<=', $request->end_date);
+            }
+
+            if ($request->has('month') && $request->month) {
+                $bookingQuery->whereMonth('created_at', $request->month);
+            }
+
+            if ($request->has('year') && $request->year) {
+                $bookingQuery->whereYear('created_at', $request->year);
+            }
+
+            $bookingRequests = $bookingQuery->get();
+
+            return Excel::download(
+                new ProvidersMultiSheetExport($providers, $bookingRequests),
+                'providers_report_' . now()->format('Y-m-d') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            Log::error('Multi-sheet export failed', ['error' => $e->getMessage()]);
+            abort(500, 'Export failed: ' . $e->getMessage());
         }
     }
 }

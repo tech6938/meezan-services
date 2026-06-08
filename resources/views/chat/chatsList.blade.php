@@ -186,7 +186,8 @@
             if ($.fn.DataTable && $('#chatTable').length) {
                 $('#chatTable').DataTable({
                     "order": [[7, "desc"]],
-                    "pageLength": 25,
+                    "pageLength": 100,
+                    "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]],
                     "bDestroy": true
                 });
             }

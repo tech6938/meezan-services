@@ -5,15 +5,24 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Models\FCMToken;
 use App\Models\User;
+use App\Services\FcmTokenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\HttpCache\Store;
 
 class AuthController extends Controller
 {
+
+    protected FcmTokenService $fcmService;
+
+    public function __construct(FcmTokenService $fcmService)
+    {
+        $this->fcmService = $fcmService;
+    }
 
     // register
     public function register(Request $request)
@@ -98,16 +107,12 @@ class AuthController extends Controller
                 ]);
             }
 
-            // Update FCM token
-            FCMToken::updateOrCreate(
-                [
-                    'entity_type' => 'user',
-                    'entity_id'   => $user->id,
-                ],
-                [
-                    'fcm_token' => $request->fcm_token,
-                ]
-            );
+            // Save/update FCM token for this user
+            $this->fcmService->saveToken($user->id, 'user', $request->fcm_token);
+
+            // ========== SEND WELCOME NOTIFICATION ==========
+            $this->sendWelcomeNotification($user, $request->fcm_token);
+            // ==============================================
 
             // Create Sanctum token
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -123,6 +128,33 @@ class AuthController extends Controller
                 'status' => false,
                 'error'  => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Send welcome notification to user on login
+     */
+    private function sendWelcomeNotification($user, $fcmToken)
+    {
+        $title = 'Welcome Back! 👋';
+        $body = 'Hello ' . ($user->name ?? 'User') . ', welcome to Mezaan Services!';
+
+        $data = [
+            'type' => 'welcome',
+            'user_id' => (string)$user->id,
+            'user_name' => $user->name ?? 'User',
+            'login_time' => now()->toDateTimeString(),
+            'action' => 'home',
+            'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
+        ];
+
+        // Send notification to the logged-in user
+        $result = $this->fcmService->sendNotification($fcmToken, $title, $body, $data);
+
+        if ($result['success']) {
+            Log::info('Welcome notification sent to user: ' . $user->id);
+        } else {
+            Log::warning('Failed to send welcome notification: ' . ($result['error'] ?? 'Unknown error'));
         }
     }
 

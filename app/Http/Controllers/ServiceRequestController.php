@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\RequestsExport;
+use App\Exports\RequestsMultiSheetExport;
+use App\Models\ServiceRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use App\Models\ServiceRequest;
-
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\RequestsExport;
+
 class ServiceRequestController extends Controller
 {
 
@@ -170,6 +171,27 @@ class ServiceRequestController extends Controller
         );
     }
 
+    /**
+     * Export service requests with multi-sheet (Summary + Bids)
+     */
+    public function exportRequestsMultiSheet(Request $request)
+    {
+        try {
+            return Excel::download(
+                RequestsMultiSheetExport::fromRequest($request),
+                'requests_complete_report_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            Log::error('Requests export failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            abort(500, 'Requests export failed: ' . $e->getMessage());
+        }
+    }
+
     protected function applyDateRangeFilter($query, Request $request)
     {
         if ($request->has('start_date') && $request->start_date) {
@@ -194,5 +216,4 @@ class ServiceRequestController extends Controller
             abort(422, $validator->errors()->first());
         }
     }
-
 }

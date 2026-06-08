@@ -85,11 +85,17 @@
                             style="display: flex; justify-content: space-between; align-items: center;">
                             <h4>All Bookings</h4>
                                 @include('components.export-button', [
-                                    'apiUrl' => route('bookings.export'),
+                                    'apiUrl' => route('bookings.exportMultiMulti'),
                                     'fileName' => 'all_bookings',
                                     'queryParams' => request()->all(),
                                     'buttonLabel' => 'Export',
                                 ])
+                                {{-- @include('components.export-button', [
+                                    'apiUrl' => route('bookings.export'),
+                                    'fileName' => 'all_bookings',
+                                    'queryParams' => request()->all(),
+                                    'buttonLabel' => 'Export',
+                                ]) --}}
                             </div>
                             <div class="card-body">
                                 @include('components.date-range-filter')
@@ -198,7 +204,10 @@
 
     <script>
         $(document).ready(function() {
-            $('#table-all').DataTable(); // initialize table
+            $('#table-all').DataTable({
+                "pageLength": 100,
+                "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]]
+            }); // initialize table
             feather.replace();
 
             const modal = document.getElementById("myModal");

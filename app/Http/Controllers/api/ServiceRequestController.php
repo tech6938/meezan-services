@@ -627,6 +627,7 @@ class ServiceRequestController extends Controller
                 'message' => 'Service request details retrieved successfully',
                 'data' => [
                     'id' => $serviceRequest->id,
+                    'booking_id' => $currentBooking?->id ?? 'null',
                     'user_id' => $serviceRequest->user_id,
                     'cat_name' => optional($serviceRequest->category)->name,
                     'subcat_name' => optional($serviceRequest->subCategory)->name,

@@ -22,7 +22,7 @@
 ### Routes
 - [x] Add /users/export route (users.export)
 - [x] Add /providers/export route (providers.export)
-- [x] Add /bookings/export route (bookings.export)
+- [x] Add /bookings/export route (bookings.exportMulti)
 - [x] Add /requests/export route (requests.export)
 
 ### Frontend Components

@@ -291,7 +291,7 @@ Route::get('/users/export', 'exportUsers')->name('users.export');
 Route::get('/providers/export', 'exportProviders')->name('providers.export');
 
 // Bookings
-Route::get('/bookings/export', 'exportBookings')->name('bookings.export');
+Route::get('/bookings/export', 'exportBookings')->name('bookings.exportMulti');
 
 // Requests
 Route::get('/requests/export', 'exportRequests')->name('requests.export');

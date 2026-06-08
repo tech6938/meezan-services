@@ -156,21 +156,27 @@
                      <div class="row">
                          <div class="col-12">
                              <div class="card">
-                                <div class="card-header"
-                                style="display: flex; justify-content: space-between; align-items: center;">
-                                <h4>All Orders</h4>
-                                @include('components.export-button', [
-                                         'apiUrl' => route('requests.export'),
+                                 <div class="card-header"
+                                     style="display: flex; justify-content: space-between; align-items: center;">
+                                     <h4>All Orders</h4>
+                                     @include('components.export-button', [
+                                         'apiUrl' => route('requests.exportMulti'),
                                          'fileName' => 'all_requests',
                                          'queryParams' => request()->all(),
                                          'buttonLabel' => 'Export',
                                      ])
+                                     {{-- @include('components.export-button', [
+                                         'apiUrl' => route('requests.export'),
+                                         'fileName' => 'all_requests',
+                                         'queryParams' => request()->all(),
+                                         'buttonLabel' => 'Export',
+                                     ]) --}}
                                  </div>
 
                                  <div class="card-body">
                                      @include('components.date-range-filter')
                                      <div class="table-responsive">
-                                         <table class="table table-striped" id="table-1">
+                                         <table class="table table-striped" id="table">
                                              <thead>
                                                  <tr>
                                                      <th class="text-center">#</th>
@@ -321,55 +327,68 @@
 
          @section('js')
              <script>
-                 const viewModal = document.getElementById("viewModal");
+                 $(document).ready(function() {
+                     $('#table').DataTable({
+                         "pageLength": 100,
+                         "lengthMenu": [
+                             [100, 300, 500, 1000],
+                             [100, 300, 500, 1000]
+                         ]
+                     });
 
-                 document.querySelectorAll(".viewBtn").forEach(btn => {
-                     btn.addEventListener("click", function() {
-                         document.getElementById("viewName").textContent = this.dataset.name;
+                     feather.replace();
+                     const viewModal = document.getElementById("viewModal");
 
-                         const statusEl = document.getElementById("viewStatus");
-                         statusEl.textContent = this.dataset.status;
-                         statusEl.className = "status-badge " + this.dataset.status;
+                     document.querySelectorAll(".viewBtn").forEach(btn => {
+                         btn.addEventListener("click", function() {
+                             document.getElementById("viewName").textContent = this.dataset.name;
 
-                         document.getElementById("viewLat").textContent = this.dataset.lat;
-                         document.getElementById("viewLng").textContent = this.dataset.lng;
-                         document.getElementById("viewDesc").textContent = this.dataset.desc;
+                             const statusEl = document.getElementById("viewStatus");
+                             statusEl.textContent = this.dataset.status;
+                             statusEl.className = "status-badge " + this.dataset.status;
 
-                         // Handle multiple files
-                         const filesContainer = document.getElementById("viewFiles");
+                             document.getElementById("viewLat").textContent = this.dataset.lat;
+                             document.getElementById("viewLng").textContent = this.dataset.lng;
+                             document.getElementById("viewDesc").textContent = this.dataset.desc;
 
-                         try {
-                             // Parse file data (could be array or single URL)
-                             let fileUrls = [];
-                             if (this.dataset.file) {
-                                 try {
-                                     // Try to parse as JSON first
-                                     fileUrls = JSON.parse(this.dataset.file);
-                                 } catch (e) {
-                                     // If not JSON, treat as single string
-                                     fileUrls = [this.dataset.file];
+                             // Handle multiple files
+                             const filesContainer = document.getElementById("viewFiles");
+
+                             try {
+                                 // Parse file data (could be array or single URL)
+                                 let fileUrls = [];
+                                 if (this.dataset.file) {
+                                     try {
+                                         // Try to parse as JSON first
+                                         fileUrls = JSON.parse(this.dataset.file);
+                                     } catch (e) {
+                                         // If not JSON, treat as single string
+                                         fileUrls = [this.dataset.file];
+                                     }
                                  }
-                             }
 
-                             if (fileUrls.length > 0 && fileUrls[0]) {
-                                 let htmlContent = '<div class="file-preview-container">';
+                                 if (fileUrls.length > 0 && fileUrls[0]) {
+                                     let htmlContent = '<div class="file-preview-container">';
 
-                                 fileUrls.forEach((fileUrl, index) => {
-                                     if (!fileUrl || fileUrl === 'null' || fileUrl === 'N/A') return;
+                                     fileUrls.forEach((fileUrl, index) => {
+                                         if (!fileUrl || fileUrl === 'null' || fileUrl === 'N/A')
+                                             return;
 
-                                     // Extract filename
-                                     const fileName = fileUrl.split('/').pop();
-                                     const fileExt = fileName.split('.').pop().toLowerCase();
+                                         // Extract filename
+                                         const fileName = fileUrl.split('/').pop();
+                                         const fileExt = fileName.split('.').pop().toLowerCase();
 
-                                     // Determine file type
-                                     const audioExts = ['mp3', 'wav', 'ogg', 'm4a'];
-                                     const videoExts = ['mp4', 'webm', 'avi', 'mov', 'mkv'];
-                                     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+                                         // Determine file type
+                                         const audioExts = ['mp3', 'wav', 'ogg', 'm4a'];
+                                         const videoExts = ['mp4', 'webm', 'avi', 'mov', 'mkv'];
+                                         const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp',
+                                             'webp'
+                                         ];
 
-                                     let fileContent = '';
+                                         let fileContent = '';
 
-                                     if (audioExts.includes(fileExt)) {
-                                         fileContent = `
+                                         if (audioExts.includes(fileExt)) {
+                                             fileContent = `
                                 <div class="file-item">
                                     <audio controls style="width: 100%;">
                                         <source src="${fileUrl}" type="audio/${fileExt}">
@@ -379,8 +398,8 @@
 
                                 </div>
                             `;
-                                     } else if (videoExts.includes(fileExt)) {
-                                         fileContent = `
+                                         } else if (videoExts.includes(fileExt)) {
+                                             fileContent = `
                                 <div class="file-item">
                                     <video controls style="width: 100%; max-height: 150px;">
                                         <source src="${fileUrl}" type="video/${fileExt}">
@@ -388,50 +407,51 @@
                                     </video>
                                 </div>
                             `;
-                                     } else if (imageExts.includes(fileExt)) {
-                                         fileContent = `
+                                         } else if (imageExts.includes(fileExt)) {
+                                             fileContent = `
                                 <div class="file-item">
                                     <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 150px;">
 
 
                                 </div>
                             `;
-                                     } else {
-                                         fileContent = `
+                                         } else {
+                                             fileContent = `
                                 <div class="file-item">
                                     <i data-feather="file" style="width: 50px; height: 50px;"></i>
 
                                 </div>
                             `;
-                                     }
+                                         }
 
-                                     htmlContent += fileContent;
-                                 });
+                                         htmlContent += fileContent;
+                                     });
 
-                                 htmlContent += '</div>';
-                                 filesContainer.innerHTML = htmlContent;
-                             } else {
-                                 filesContainer.innerHTML = '<span>No files attached</span>';
+                                     htmlContent += '</div>';
+                                     filesContainer.innerHTML = htmlContent;
+                                 } else {
+                                     filesContainer.innerHTML = '<span>No files attached</span>';
+                                 }
+
+                             } catch (error) {
+                                 console.error('Error processing files:', error);
+                                 filesContainer.innerHTML = '<span>Error loading files</span>';
                              }
 
-                         } catch (error) {
-                             console.error('Error processing files:', error);
-                             filesContainer.innerHTML = '<span>Error loading files</span>';
-                         }
-
-                         viewModal.style.display = "block";
-                         feather.replace();
+                             viewModal.style.display = "block";
+                             feather.replace();
+                         });
                      });
+
+                     // Close modal buttons
+                     document.querySelector("#viewModal .close").onclick = () => viewModal.style.display = "none";
+                     document.querySelector(".viewCloseBtn").onclick = () => viewModal.style.display = "none";
+
+                     // Close modal when clicking outside
+                     window.onclick = function(event) {
+                         if (event.target === viewModal) viewModal.style.display = "none";
+                     };
                  });
-
-                 // Close modal buttons
-                 document.querySelector("#viewModal .close").onclick = () => viewModal.style.display = "none";
-                 document.querySelector(".viewCloseBtn").onclick = () => viewModal.style.display = "none";
-
-                 // Close modal when clicking outside
-                 window.onclick = function(event) {
-                     if (event.target === viewModal) viewModal.style.display = "none";
-                 };
              </script>
              <script src="assets/bundles/jquery/jquery.min.js"></script>
              <script src="assets/bundles/bootstrap/js/bootstrap.bundle.min.js"></script>

@@ -143,7 +143,7 @@
                             <div class="card-body">
                                 @include('components.date-range-filter')
                                 <div class="table-responsive">
-                                    <table class="table table-striped" id="table-1">
+                                    <table class="table table-striped" id="table">
                                         <thead>
                                             <tr>
                                                 <th class="text-center">#</th>
@@ -244,29 +244,38 @@
 
     @section('js')
         <script>
-            const modal = document.getElementById("myModal");
-            const closeBtn = document.querySelector(".close");
-            const providerIdInput = document.getElementById("providerIdInput");
-
-            // Open modal and set provider ID
-            document.querySelectorAll(".openModalBtn").forEach(btn => {
-                btn.addEventListener("click", function() {
-                    const providerId = this.getAttribute("data-provider-id");
-                    providerIdInput.value = providerId; // dynamically set ID
-                    modal.style.display = "block";
+            $(document).ready(function() {
+                $('#table').DataTable({
+                    "pageLength": 100,
+                    "lengthMenu": [
+                        [100, 300, 500, 1000],
+                        [100, 300, 500, 1000]
+                    ]
                 });
-            });
+                const modal = document.getElementById("myModal");
+                const closeBtn = document.querySelector(".close");
+                const providerIdInput = document.getElementById("providerIdInput");
 
-            // Close modal
-            closeBtn.onclick = function() {
-                modal.style.display = "none";
-            }
+                // Open modal and set provider ID
+                document.querySelectorAll(".openModalBtn").forEach(btn => {
+                    btn.addEventListener("click", function() {
+                        const providerId = this.getAttribute("data-provider-id");
+                        providerIdInput.value = providerId; // dynamically set ID
+                        modal.style.display = "block";
+                    });
+                });
 
-            window.onclick = function(event) {
-                if (event.target == modal) {
+                // Close modal
+                closeBtn.onclick = function() {
                     modal.style.display = "none";
                 }
-            }
+
+                window.onclick = function(event) {
+                    if (event.target == modal) {
+                        modal.style.display = "none";
+                    }
+                }
+            });
         </script>
 
         <script src="assets/bundles/jquery/jquery.min.js"></script>

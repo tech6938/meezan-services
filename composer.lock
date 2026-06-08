@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "57339b13e4ef30434474259424279f62",
+    "content-hash": "6fc33ab3af590863aa2c097b3895d2fa",
     "packages": [
         {
             "name": "beste/clock",
@@ -2402,23 +2402,23 @@
         },
         {
             "name": "laravel-notification-channels/fcm",
-            "version": "6.0.0",
+            "version": "6.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel-notification-channels/fcm.git",
-                "reference": "4e0593833c250937d0329d8c5838db71395d1cf9"
+                "reference": "c901ced4d47a511f874a695dd9fb95c4a3dd51a9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel-notification-channels/fcm/zipball/4e0593833c250937d0329d8c5838db71395d1cf9",
-                "reference": "4e0593833c250937d0329d8c5838db71395d1cf9",
+                "url": "https://api.github.com/repos/laravel-notification-channels/fcm/zipball/c901ced4d47a511f874a695dd9fb95c4a3dd51a9",
+                "reference": "c901ced4d47a511f874a695dd9fb95c4a3dd51a9",
                 "shasum": ""
             },
             "require": {
                 "guzzlehttp/guzzle": "^7.0",
-                "illuminate/notifications": "^12.0",
-                "illuminate/support": "^12.0",
-                "kreait/laravel-firebase": "^6.0",
+                "illuminate/notifications": "^12.0 || ^13.0",
+                "illuminate/support": "^12.0 || ^13.0",
+                "kreait/laravel-firebase": "^6.0 || ^7.0",
                 "php": "^8.3"
             },
             "require-dev": {
@@ -2448,9 +2448,9 @@
             "homepage": "https://github.com/laravel-notification-channels/fcm",
             "support": {
                 "issues": "https://github.com/laravel-notification-channels/fcm/issues",
-                "source": "https://github.com/laravel-notification-channels/fcm/tree/6.0.0"
+                "source": "https://github.com/laravel-notification-channels/fcm/tree/6.1.0"
             },
-            "time": "2025-11-16T11:13:08+00:00"
+            "time": "2026-02-20T21:49:09+00:00"
         },
         {
             "name": "laravel/framework",

@@ -6,13 +6,27 @@ use App\Models\Commission;
 use App\Models\MainCategory;
 use App\Models\SubCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 
 class CommissionController extends Controller
 {
     public function index()
     {
-        $commissions = Commission::paginate(10);
+        $commissionLogCount = DB::table('commission_logs')
+            ->selectRaw('COUNT(*)')
+            ->whereColumn('commission_logs.sub_category_id', 'commissions.sub_category_id');
+
+        $commissionLogSum = DB::table('commission_logs')
+            ->selectRaw('COALESCE(SUM(commission_deducted), 0)')
+            ->whereColumn('commission_logs.sub_category_id', 'commissions.sub_category_id');
+
+        $commissions = Commission::with(['mainCategory', 'subCategory'])
+            ->select('commissions.*')
+            ->selectSub($commissionLogCount, 'total_completed_bookings')
+            ->selectSub($commissionLogSum, 'total_commission_earned')
+            ->paginate(10);
+
         $categories = MainCategory::all();
 
         return view('commission.index', compact('commissions', 'categories'));

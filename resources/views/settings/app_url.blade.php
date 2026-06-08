@@ -216,7 +216,8 @@
             // Initialize DataTable
             if ($('#settingsTable tbody tr').length > 0) {
                 $('#settingsTable').DataTable({
-                    "pageLength": 10,
+                    "pageLength": 100,
+                    "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]],
                     "ordering": true,
                     "responsive": true
                 });

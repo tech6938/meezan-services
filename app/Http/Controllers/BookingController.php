@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\BookingsExport;
+use App\Exports\BookingsMultiSheetExport;
 use App\Models\BookingRequest;
 use App\Models\Chat;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\BookingsExport;
+
 class BookingController extends Controller
 {
     public function pendingBooking(Request $request)
@@ -167,5 +169,26 @@ class BookingController extends Controller
             BookingsExport::fromRequest($request),
             'bookings_export_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
         );
+    }
+
+    /**
+     * Export bookings with multi-sheet (Summary + Details)
+     */
+    public function exportBookingsMultiSheet(Request $request)
+    {
+        try {
+            return Excel::download(
+                BookingsMultiSheetExport::fromRequest($request),
+                'bookings_complete_report_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            Log::error('Bookings export failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            abort(500, 'Bookings export failed: ' . $e->getMessage());
+        }
     }
 }

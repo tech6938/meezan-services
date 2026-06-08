@@ -47,7 +47,7 @@ To add an export button to any list page:
 #### Bookings with Date Range
 ```php
 @include('components.export-button', [
-    'apiUrl' => route('bookings.export'),
+    'apiUrl' => route('bookings.exportMulti'),
     'fileName' => 'bookings',
     'queryParams' => [
         'status' => request('status'),
@@ -64,7 +64,7 @@ To add an export button to any list page:
 |--------|----------|-----------|
 | Users | `/users/export` | `users.export` |
 | Providers | `/providers/export` | `providers.export` |
-| Bookings | `/bookings/export` | `bookings.export` |
+| Bookings | `/bookings/export` | `bookings.exportMulti` |
 | Requests | `/requests/export` | `requests.export` |
 
 ## Query Parameters

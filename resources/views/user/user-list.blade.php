@@ -120,9 +120,10 @@
         }
 
         /* WhatsApp Icon Specific Styling */
-        .btn-whatsapp{
+        .btn-whatsapp {
             background-color: #25D366 !important;
         }
+
         .btn-whatsapp .fab.fa-whatsapp {
             font-size: 18px;
             color: white;
@@ -152,16 +153,22 @@
                                 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                 <h4>Users List</h4>
                                 @include('components.export-button', [
-                                    'apiUrl' => route('users.export'),
+                                    'apiUrl' => route('users.exportMulti'),
                                     'fileName' => 'users',
                                     'queryParams' => request()->all(),
                                     'buttonLabel' => 'Export',
                                 ])
+                                {{-- @include('components.export-button', [
+                                    'apiUrl' => route('users.export'),
+                                    'fileName' => 'users',
+                                    'queryParams' => request()->all(),
+                                    'buttonLabel' => 'Export',
+                                ]) --}}
                             </div>
                             <div class="card-body">
                                 @include('components.date-range-filter')
                                 <div class="table-responsive">
-                                    <table class="table table-striped" id="table-1">
+                                    <table class="table table-striped" id="table">
                                         <thead>
                                             <tr>
                                                 <th class="text-center">#</th>
@@ -261,29 +268,38 @@
 
 @section('js')
     <script>
-        const modal = document.getElementById("userModal");
-        const closeBtn = document.querySelector(".close");
-        const userIdInput = document.getElementById("userIdInput");
-
-        // Open modal and set user ID
-        document.querySelectorAll(".openModalBtn").forEach(btn => {
-            btn.addEventListener("click", function() {
-                const userId = this.getAttribute("data-user-id");
-                userIdInput.value = userId;
-                modal.style.display = "block";
+        $(document).ready(function() {
+            $('#table').DataTable({
+                "pageLength": 100,
+                "lengthMenu": [
+                    [100, 300, 500, 1000],
+                    [100, 300, 500, 1000]
+                ]
             });
-        });
+            const modal = document.getElementById("userModal");
+            const closeBtn = document.querySelector(".close");
+            const userIdInput = document.getElementById("userIdInput");
 
-        // Close modal
-        closeBtn.onclick = function() {
-            modal.style.display = "none";
-        }
+            // Open modal and set user ID
+            document.querySelectorAll(".openModalBtn").forEach(btn => {
+                btn.addEventListener("click", function() {
+                    const userId = this.getAttribute("data-user-id");
+                    userIdInput.value = userId;
+                    modal.style.display = "block";
+                });
+            });
 
-        window.onclick = function(event) {
-            if (event.target == modal) {
+            // Close modal
+            closeBtn.onclick = function() {
                 modal.style.display = "none";
             }
-        }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+        });
     </script>
     <script src="assets/bundles/jquery/jquery.min.js"></script>
     <script src="assets/bundles/bootstrap/js/bootstrap.bundle.min.js"></script>

@@ -68,7 +68,7 @@
                                 style="display: flex; justify-content: space-between; align-items: center; padding-top: 0;">
                                 <h4>Start Bookings</h4>
                                 @include('components.export-button', [
-                                    'apiUrl' => route('bookings.export'),
+                                    'apiUrl' => route('bookings.exportMultiMulti'),
                                     'fileName' => 'inprogress_bookings',
                                     'queryParams' => array_merge(request()->all(), ['status' => 'in_progress']),
                                     'buttonLabel' => 'Export',
@@ -181,7 +181,10 @@
 
     <script>
         $(document).ready(function() {
-            $('#table-accepted').DataTable();
+            $('#table-accepted').DataTable({
+                "pageLength": 100,
+                "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]]
+            });
             feather.replace();
 
             const modal = document.getElementById("myModal");

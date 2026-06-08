@@ -90,4 +90,30 @@ class Provider extends Authenticatable
     {
         return $this->hasMany(Previous::class, 'provider_id', 'id');
     }
+
+    /**
+     * Get total earnings from completed bookings
+     */
+    public function getTotalEarningsAttribute()
+    {
+        return $this->bookingRequests()
+            ->whereIn('status', ['complete_booking', 'completed'])
+            ->sum('price');
+    }
+
+    /**
+     * Get wallet balance
+     */
+    public function getWalletBalanceAttribute()
+    {
+        return $this->wallet->amount ?? 0;
+    }
+
+    /**
+     * Get total earnings from wallet (if you track via wallet)
+     */
+    public function getTotalWalletEarningsAttribute()
+    {
+        return $this->wallet->total_earned ?? $this->getTotalEarningsAttribute();
+    }
 }

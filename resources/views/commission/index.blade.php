@@ -1,67 +1,71 @@
 @extends('layout.dashboard-layout')
 
 @section('content')
-<div class="main-content">
-    <section class="section">
-        <div class="section-header">
-            <h1>Commission</h1>
-        </div>
+    <div class="main-content">
+        <section class="section">
+            <div class="section-header">
+                <h1>Commission</h1>
+            </div>
 
-        <div class="section-body">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h4>Commission List</h4>
-                            <a href="{{ route('commission.create') }}" class="btn btn-primary">
-                                + Add Commission
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Type</th>
-                                        <th>Amount</th>
-                                        <th>Main Category</th>
-                                        <th>Sub Category</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($commissions as $commission)
+            <div class="section-body">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h4>Commission List</h4>
+                                <a href="{{ route('commission.create') }}" class="btn btn-primary">
+                                    + Add Commission
+                                </a>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-bordered">
+                                    <thead>
                                         <tr>
-                                            <td>{{ $loop->iteration }}</td>
-                                            <td>{{ ucfirst($commission->type) }}</td>
-                                            <td>{{ $commission->amount }}</td>
-                                            <td>{{ $commission->mainCategory->name ?? 'N/A' }}</td>
-                                            <td>{{ $commission->subCategory->name ?? 'N/A' }}</td>
-                                            <td>
-                                                <a href="{{ route('commission.edit', $commission->id) }}"
-                                                   class="btn btn-info btn-sm">
-                                                    Edit
-                                                </a>
-                                                <form action="{{ route('commission.destroy', $commission->id) }}"
-                                                      method="POST" style="display:inline;">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button class="btn btn-danger btn-sm"
-                                                        onclick="return confirm('Delete this?')">
-                                                        Delete
-                                                    </button>
-                                                </form>
-                                            </td>
+                                            <th>#</th>
+                                            <th>Type</th>
+                                            <th>Amount</th>
+                                            <th>Main Category</th>
+                                            <th>Sub Category</th>
+                                            <th>Total Completed Bookings</th>
+                                            <th>Total Commission Earned</th>
+                                            <th>Action</th>
                                         </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                            {{ $commissions->links() }}
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($commissions as $commission)
+                                            <tr>
+                                                <td>{{ $loop->iteration }}</td>
+                                                <td>{{ ucfirst($commission->type) }}</td>
+                                                <td>{{ $commission->amount }}</td>
+                                                <td>{{ $commission->mainCategory->name ?? 'N/A' }}</td>
+                                                <td>{{ $commission->subCategory->name ?? 'N/A' }}</td>
+                                                <td>{{ $commission->total_completed_bookings ?? 0 }}</td>
+                                                <td>{{ $commission->total_commission_earned ?? 0 }}</td>
+                                                <td>
+                                                    <a href="{{ route('commission.edit', $commission->id) }}"
+                                                        class="btn btn-info btn-sm">
+                                                        Edit
+                                                    </a>
+                                                    <form action="{{ route('commission.destroy', $commission->id) }}"
+                                                        method="POST" style="display:inline;">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button class="btn btn-danger btn-sm"
+                                                            onclick="return confirm('Delete this?')">
+                                                            Delete
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                                {{ $commissions->links() }}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
-</div>
+        </section>
+    </div>
 @endsection

@@ -83,6 +83,8 @@ Route::controller(AuthController::class)->group(function () {
         Route::post('/statusUpdate', 'statusUpdate')->name('statusUpdate');
         Route::delete('/provider/{id}', 'destroy')->name('provider.destroy');
         Route::get('/providers/export', 'exportProviders')->name('providers.export');
+        Route::get('/export-providers-multi', 'exportProvidersMultiSheet')->name('providers.exportMultiSheet');
+        Route::get('/users/export-multi', 'exportUsersMultiSheet')->name('users.exportMulti');
     });
 
     /*
@@ -99,6 +101,7 @@ Route::controller(AuthController::class)->group(function () {
         Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
         Route::get('/service-requests/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
         Route::get('/requests/export', 'exportRequests')->name('requests.export');
+        Route::get('/requests/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
     });
 
     /*
@@ -120,6 +123,7 @@ Route::controller(AuthController::class)->group(function () {
         // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');
         Route::get('/bookings/export', 'exportBookings')->name('bookings.export');
+        Route::get('/bookings/export-multi', 'exportBookingsMultiSheet')->name('bookings.exportMultiMulti');
     });
 
     /*

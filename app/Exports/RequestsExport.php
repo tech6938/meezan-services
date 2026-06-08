@@ -69,10 +69,11 @@ class RequestsExport implements FromCollection, WithHeadings, WithStyles, WithCo
         return [
             'ID',
             'User',
-            'Title',
+            // 'Title',
             'Category',
+            'SubCategory',
             'Status',
-            'Budget',
+            // 'Budget',
             'Created At',
             'Updated At',
         ];
@@ -83,10 +84,11 @@ class RequestsExport implements FromCollection, WithHeadings, WithStyles, WithCo
         return [
             $serviceRequest->id,
             $serviceRequest->user->name ?? 'N/A',
-            $serviceRequest->title ?? 'N/A',
+            // $serviceRequest->title ?? 'N/A',
+            $serviceRequest->category->name ?? 'N/A',
             $serviceRequest->subCategory->name ?? 'N/A',
             ucfirst($serviceRequest->status),
-            $serviceRequest->budget ?? 'N/A',
+            // $serviceRequest->budget ?? 'N/A',
             $serviceRequest->created_at->format('Y-m-d H:i:s'),
             $serviceRequest->updated_at->format('Y-m-d H:i:s'),
         ];

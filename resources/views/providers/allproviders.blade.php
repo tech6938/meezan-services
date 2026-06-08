@@ -38,6 +38,12 @@
                                     <div class="card-header"
                                         style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                         <h4>All Providers List</h4>
+                                        {{-- @include('components.export-button', [
+                                            'apiUrl' => route('providers.exportMultiSheet'),
+                                            'fileName' => 'all_providers',
+                                            'queryParams' => request()->all(),
+                                            'buttonLabel' => 'Details Export',
+                                        ]) --}}
                                         @include('components.export-button', [
                                             'apiUrl' => route('providers.export'),
                                             'fileName' => 'all_providers',
@@ -49,7 +55,7 @@
                                     <div class="card-body">
                                         @include('components.date-range-filter')
                                         <div class="table-responsive">
-                                            <table class="table table-striped" id="table-1">
+                                            <table class="table table-striped" id="table">
                                                 <thead>
                                                     <tr>
                                                         <th class="text-center">#</th>
@@ -90,7 +96,8 @@
                                                                     @endif
                                                                 </td>
                                                                 <td>
-                                                                    <div class="d-flex align-items-center gap-2 justify-content-between" style="display: inline-block;">
+                                                                    <div class="d-flex align-items-center gap-2 justify-content-between"
+                                                                        style="display: inline-block;">
 
                                                                         <button class=" p-2 btn btn-primary openModalBtn"
                                                                             data-provider-id="{{ $provider->id }}">
@@ -169,142 +176,156 @@
 
             @section('js')
                 <script>
-                    const statusModal = document.getElementById("myModal");
-                    const viewModal = document.getElementById("viewModal");
-                    const providerIdInput = document.getElementById("providerIdInput");
-
-                    // Close buttons
-                    const statusCloseBtn = document.querySelector("#myModal .close");
-                    const viewCloseBtn = document.querySelector("#viewModal .close");
-                    const viewCloseBtnBottom = document.querySelector(".viewCloseBtn");
-
-                    // Open Update Status modal
-                    document.querySelectorAll(".openModalBtn").forEach(btn => {
-                        btn.addEventListener("click", function() {
-                            providerIdInput.value = this.dataset.providerId;
-                            statusModal.style.display = "block";
+                    $(document).ready(function() {
+                        $('#table').DataTable({
+                            "pageLength": 100,
+                            "lengthMenu": [
+                                [100, 300, 500, 1000],
+                                [100, 300, 500, 1000]
+                            ]
                         });
-                    });
-                    document.querySelectorAll('.delete-btn').forEach(button => {
-                        button.addEventListener('click', function(e) {
-                            e.preventDefault();
+                        const statusModal = document.getElementById("myModal");
+                        const viewModal = document.getElementById("viewModal");
+                        const providerIdInput = document.getElementById("providerIdInput");
 
-                            const providerName = this.dataset.providerName;
-                            const providerId = this.dataset.providerId;
-                            const form = this.closest('.delete-form');
+                        // Close buttons
+                        const statusCloseBtn = document.querySelector("#myModal .close");
+                        const viewCloseBtn = document.querySelector("#viewModal .close");
+                        const viewCloseBtnBottom = document.querySelector(".viewCloseBtn");
 
-                            Swal.fire({
-                                title: 'Are you sure?',
-                                text: `You are about to delete provider "${providerName}". This action cannot be undone!`,
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonColor: '#d33',
-                                cancelButtonColor: '#3085d6',
-                                confirmButtonText: 'Yes, delete it!',
-                                cancelButtonText: 'Cancel',
-                                showLoaderOnConfirm: true,
-                                preConfirm: async () => {
-                                    try {
-                                        const formData = new FormData(form);
-                                        formData.append('_method', 'DELETE');
-
-                                        const response = await fetch(form.action, {
-                                            method: 'POST',
-                                            headers: {
-                                                'X-CSRF-TOKEN': document.querySelector(
-                                                    'input[name="_token"]').value,
-                                                'Accept': 'application/json',
-                                                'X-Requested-With': 'XMLHttpRequest'
-                                            },
-                                            body: formData
-                                        });
-
-                                        const text = await response.text(); // Get raw response
-                                        console.log('Raw response:',
-                                            text); // Debug: see what's being returned
-
-                                        let data;
-                                        try {
-                                            data = JSON.parse(text);
-                                        } catch (e) {
-                                            console.error('Failed to parse JSON:', e);
-                                            throw new Error(
-                                                'Server returned invalid response. Please check the server logs.'
-                                            );
-                                        }
-
-                                        if (!response.ok) {
-                                            throw new Error(data.message || data.error ||
-                                                'Something went wrong');
-                                        }
-
-                                        return data;
-                                    } catch (error) {
-                                        Swal.showValidationMessage(`Request failed: ${error.message}`);
-                                        throw error;
-                                    }
-                                },
-                                allowOutsideClick: () => !Swal.isLoading()
-                            }).then((result) => {
-                                if (result.isConfirmed && result.value) {
-                                    Swal.fire({
-                                        title: 'Deleted!',
-                                        text: `Provider "${providerName}" has been deleted successfully.`,
-                                        icon: 'success',
-                                        timer: 2000,
-                                        showConfirmButton: false
-                                    }).then(() => {
-                                        window.location.reload();
-                                    });
-                                }
-                            }).catch(error => {
-                                console.error('SweetAlert error:', error);
+                        // Open Update Status modal
+                        document.querySelectorAll(".openModalBtn").forEach(btn => {
+                            btn.addEventListener("click", function() {
+                                providerIdInput.value = this.dataset.providerId;
+                                statusModal.style.display = "block";
                             });
                         });
-                    });
+                        document.querySelectorAll('.delete-btn').forEach(button => {
+                            button.addEventListener('click', function(e) {
+                                e.preventDefault();
 
-                    // Open View Provider modal
-                    document.querySelectorAll(".viewBtn").forEach(btn => {
-                        btn.addEventListener("click", function() {
-                            // Fill basic info
-                            document.getElementById("viewName").textContent = this.dataset.name;
-                            document.getElementById("viewPhone").textContent = this.dataset.phone;
-                            document.getElementById("viewEmail").textContent = this.dataset.email;
+                                const providerName = this.dataset.providerName;
+                                const providerId = this.dataset.providerId;
+                                const form = this.closest('.delete-form');
 
-                            // Status badge
-                            const statusEl = document.getElementById("viewStatus");
-                            statusEl.textContent = this.dataset.status;
-                            statusEl.className = "status-badge " + this.dataset.status;
+                                Swal.fire({
+                                    title: 'Are you sure?',
+                                    text: `You are about to delete provider "${providerName}". This action cannot be undone!`,
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#d33',
+                                    cancelButtonColor: '#3085d6',
+                                    confirmButtonText: 'Yes, delete it!',
+                                    cancelButtonText: 'Cancel',
+                                    showLoaderOnConfirm: true,
+                                    preConfirm: async () => {
+                                        try {
+                                            const formData = new FormData(form);
+                                            formData.append('_method', 'DELETE');
 
-                            // Services
-                            const servicesEl = document.getElementById("viewServices");
-                            const services = JSON.parse(this.dataset.services || '[]');
-                            if (services.length > 0) {
-                                // Render each service as badge
-                                let badges = services.map(s => {
-                                    const subs = (s.sub_services || []).join(', ');
-                                    return `<span class="badge">${subs}</span>`;
-                                }).join(' ');
-                                servicesEl.innerHTML = badges;
-                            } else {
-                                servicesEl.textContent = 'N/A';
-                            }
+                                            const response = await fetch(form.action, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'X-CSRF-TOKEN': document
+                                                        .querySelector(
+                                                            'input[name="_token"]')
+                                                        .value,
+                                                    'Accept': 'application/json',
+                                                    'X-Requested-With': 'XMLHttpRequest'
+                                                },
+                                                body: formData
+                                            });
 
-                            viewModal.style.display = "block";
-                            feather.replace(); // refresh feather icons
+                                            const text = await response
+                                                .text(); // Get raw response
+                                            console.log('Raw response:',
+                                                text); // Debug: see what's being returned
+
+                                            let data;
+                                            try {
+                                                data = JSON.parse(text);
+                                            } catch (e) {
+                                                console.error('Failed to parse JSON:', e);
+                                                throw new Error(
+                                                    'Server returned invalid response. Please check the server logs.'
+                                                );
+                                            }
+
+                                            if (!response.ok) {
+                                                throw new Error(data.message || data
+                                                    .error ||
+                                                    'Something went wrong');
+                                            }
+
+                                            return data;
+                                        } catch (error) {
+                                            Swal.showValidationMessage(
+                                                `Request failed: ${error.message}`);
+                                            throw error;
+                                        }
+                                    },
+                                    allowOutsideClick: () => !Swal.isLoading()
+                                }).then((result) => {
+                                    if (result.isConfirmed && result.value) {
+                                        Swal.fire({
+                                            title: 'Deleted!',
+                                            text: `Provider "${providerName}" has been deleted successfully.`,
+                                            icon: 'success',
+                                            timer: 2000,
+                                            showConfirmButton: false
+                                        }).then(() => {
+                                            window.location.reload();
+                                        });
+                                    }
+                                }).catch(error => {
+                                    console.error('SweetAlert error:', error);
+                                });
+                            });
                         });
+
+                        // Open View Provider modal
+                        document.querySelectorAll(".viewBtn").forEach(btn => {
+                            btn.addEventListener("click", function() {
+                                // Fill basic info
+                                document.getElementById("viewName").textContent = this.dataset.name;
+                                document.getElementById("viewPhone").textContent = this.dataset.phone;
+                                document.getElementById("viewEmail").textContent = this.dataset.email;
+
+                                // Status badge
+                                const statusEl = document.getElementById("viewStatus");
+                                statusEl.textContent = this.dataset.status;
+                                statusEl.className = "status-badge " + this.dataset.status;
+
+                                // Services
+                                const servicesEl = document.getElementById("viewServices");
+                                const services = JSON.parse(this.dataset.services || '[]');
+                                if (services.length > 0) {
+                                    // Render each service as badge
+                                    let badges = services.map(s => {
+                                        const subs = (s.sub_services || []).join(', ');
+                                        return `<span class="badge">${subs}</span>`;
+                                    }).join(' ');
+                                    servicesEl.innerHTML = badges;
+                                } else {
+                                    servicesEl.textContent = 'N/A';
+                                }
+
+                                viewModal.style.display = "block";
+                                feather.replace(); // refresh feather icons
+                            });
+                        });
+
+                        // Close modals
+                        statusCloseBtn.onclick = () => statusModal.style.display = "none";
+                        viewCloseBtn.onclick = () => viewModal.style.display = "none";
+                        viewCloseBtnBottom.onclick = () => viewModal.style.display = "none";
+
+                        // Close modals when clicking outside
+                        window.onclick = function(event) {
+                            if (event.target === statusModal) statusModal.style.display = "none";
+                            if (event.target === viewModal) viewModal.style.display = "none";
+                        };
                     });
-
-                    // Close modals
-                    statusCloseBtn.onclick = () => statusModal.style.display = "none";
-                    viewCloseBtn.onclick = () => viewModal.style.display = "none";
-                    viewCloseBtnBottom.onclick = () => viewModal.style.display = "none";
-
-                    // Close modals when clicking outside
-                    window.onclick = function(event) {
-                        if (event.target === statusModal) statusModal.style.display = "none";
-                        if (event.target === viewModal) viewModal.style.display = "none";
-                    };
                 </script>
 
 
