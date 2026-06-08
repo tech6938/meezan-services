@@ -151,11 +151,11 @@ class AuthController extends Controller
         // Send notification to the logged-in user
         $result = $this->fcmService->sendNotification($fcmToken, $title, $body, $data);
 
-        if ($result['success']) {
-            Log::info('Welcome notification sent to user: ' . $user->id);
-        } else {
-            Log::warning('Failed to send welcome notification: ' . ($result['error'] ?? 'Unknown error'));
-        }
+        // if ($result['success']) {
+        //     Log::info('Welcome notification sent to user: ' . $user->id);
+        // } else {
+        //     Log::warning('Failed to send welcome notification: ' . ($result['error'] ?? 'Unknown error'));
+        // }
     }
 
 

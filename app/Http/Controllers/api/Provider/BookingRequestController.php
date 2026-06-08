@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BookingRequest;
 use App\Models\Chat;
 use App\Models\Commission;
+use App\Models\Provider;
 use App\Models\ProviderRequestSeen;
 use App\Models\ServiceRequest;
 use App\Models\SubCategory;
@@ -30,6 +31,7 @@ class BookingRequestController extends Controller
     }
 
     //provider accept request
+
     // public function providerAcceptRequest(Request $request)
     // {
     //     try {
@@ -38,56 +40,75 @@ class BookingRequestController extends Controller
     //             'request_id'  => 'required|integer|exists:service_requests,id',
     //         ]);
 
-    //         // Check wallet balance for the provider before accepting request
-    //         $wallet = Wallet::where('provider_id', $validated['provider_id'])->first();
+    //         $providerId = $validated['provider_id'];
+    //         $requestId = $validated['request_id'];
+
+    //         // Check 1: Negative balance
+    //         $wallet = Wallet::where('provider_id', $providerId)->first();
     //         $walletBalance = $wallet ? (float) $wallet->amount : 0.00;
 
     //         if ($walletBalance < 0) {
     //             return response()->json([
-    //                 'status'  => false,
-    //                 'message' => 'Please add your wallet balance!',
+    //                 'status' => false,
+    //                 'message' => 'You cannot accept bookings because your balance is negative.'
     //             ], 400);
     //         }
 
-    //         // Check maximum 3 bookings in 'in_progress' status
-    //         $inProgressCount = BookingRequest::where('provider_id', $validated['provider_id'])
+    //         // Check 2: Maximum 3 in-progress bookings
+    //         $inProgressCount = BookingRequest::where('provider_id', $providerId)
     //             ->where('status', 'in_progress')
     //             ->count();
 
-    //         $maxInProgress = 3;
-
-    //         if ($inProgressCount >= $maxInProgress) {
+    //         if ($inProgressCount >= 3) {
     //             return response()->json([
-    //                 'status'  => false,
-    //                 'message' => "You cannot accept more requests. You already have {$inProgressCount} booking(s) in progress. Maximum limit is {$maxInProgress}.",
+    //                 'status' => false,
+    //                 'message' => 'You already have 3 bookings in progress.'
     //             ], 400);
     //         }
 
+    //         // Check 3: Pending bookings
+    //         $hasPendingBookings = BookingRequest::where('provider_id', $providerId)
+    //             ->where('status', 'pending')
+    //             ->exists();
 
+    //         if ($hasPendingBookings) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'You have pending bookings that must be completed first.'
+    //             ], 400);
+    //         }
+
+    //         // All checks passed - create booking
     //         $orderNo = now()->format('YmdHis') . random_int(10, 99);
+    //         $serviceRequest = ServiceRequest::findOrFail($requestId);
 
-    //         $serviceRequest = ServiceRequest::findOrFail($validated['request_id']);
-
-    //         // Create booking request
-    //         BookingRequest::create([
-    //             'provider_id'   => $validated['provider_id'],
-    //             'request_id'    => $validated['request_id'],
+    //         $booking = BookingRequest::create([
+    //             'provider_id'   => $providerId,
+    //             'request_id'    => $requestId,
     //             'user_id'       => $serviceRequest->user_id,
     //             'status'        => 'pending',
     //             'req_status'    => 'accept',
-    //             'order_no'    => $orderNo,
+    //             'order_no'      => $orderNo,
     //             'cancel_reason' => null,
     //         ]);
 
     //         return response()->json([
     //             'status'  => true,
     //             'message' => 'Request accepted successfully',
+    //             'data'    => [
+    //                 'booking_id' => $booking->id,
+    //                 'order_no'   => $orderNo
+    //             ]
     //         ], 200);
+    //     } catch (\Illuminate\Validation\ValidationException $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Invalid data provided'
+    //         ], 422);
     //     } catch (\Exception $e) {
     //         return response()->json([
-    //             'status'  => false,
-    //             'message' => 'Something went wrong',
-    //             'error'   => $e->getMessage()
+    //             'status' => false,
+    //             'message' => 'Something went wrong. Please try again.'
     //         ], 500);
     //     }
     // }
@@ -151,6 +172,24 @@ class BookingRequestController extends Controller
                 'order_no'      => $orderNo,
                 'cancel_reason' => null,
             ]);
+
+            // ========== SEND NOTIFICATION TO USER ==========
+            $provider = Provider::find($providerId);
+            $this->sendNotificationToUser(
+                $serviceRequest->user_id,
+                'Request Accepted! ✅',
+                $provider->full_name . ' has accepted your service request',
+                'accept_order',
+                [
+                    'booking_id' => (string)$booking->id,
+                    'request_id' => (string)$requestId,
+                    'provider_id' => (string)$providerId,
+                    'provider_name' => $provider->full_name,
+                    'order_no' => $orderNo,
+                    'action' => 'view_booking'
+                ]
+            );
+            // ==============================================
 
             return response()->json([
                 'status'  => true,
@@ -218,14 +257,13 @@ class BookingRequestController extends Controller
     public function comming(Request $request)
     {
         try {
-
             $validated = $request->validate([
                 'provider_id'   => 'nullable|integer|exists:providers,id',
                 'shopkeeper_id' => 'nullable|integer|exists:shopkeepers,id',
                 'request_id' => 'required|integer|exists:booking_requests,request_id',
             ]);
 
-            //  Must pass at least one
+            // Must pass at least one
             if (!$request->provider_id && !$request->shopkeeper_id) {
                 return response()->json([
                     'status' => false,
@@ -233,7 +271,7 @@ class BookingRequestController extends Controller
                 ], 422);
             }
 
-            //  Check if ANY booking request for this request_id has assigned = 1
+            // Check if ANY booking request for this request_id has assigned = 1
             $alreadyAssigned = BookingRequest::where('request_id', $validated['request_id'])
                 ->where('assigned', 1)
                 ->exists();
@@ -245,7 +283,7 @@ class BookingRequestController extends Controller
                 ], 400);
             }
 
-            //  Find the specific booking request for this provider/shopkeeper
+            // Find the specific booking request for this provider/shopkeeper
             $bookingRequest = BookingRequest::where('request_id', $validated['request_id']);
 
             if ($request->provider_id) {
@@ -268,6 +306,25 @@ class BookingRequestController extends Controller
             $specificBooking->update([
                 'goto' => 1,
             ]);
+
+            // ========== SEND NOTIFICATION TO USER ==========
+            $partnerName = $request->provider_id ?
+                (\App\Models\Provider::find($request->provider_id)->full_name ?? 'Provider') : (\App\Models\ShopKeeper::find($request->shopkeeper_id)->name ?? 'Shopkeeper');
+
+            $this->sendNotificationToUser(
+                $specificBooking->user_id,
+                'Partner Is On The Way! 🚗',
+                $partnerName . ' is coming to your location',
+                'accept_order',
+                [
+                    'booking_id' => (string)$specificBooking->id,
+                    'request_id' => (string)$validated['request_id'],
+                    'status' => 'coming',
+                    'partner_name' => $partnerName,
+                    'action' => 'track_order'
+                ]
+            );
+            // ==============================================
 
             return response()->json([
                 'status'  => true,
@@ -336,6 +393,27 @@ class BookingRequestController extends Controller
                 'is_seen'  => 0,
                 'seen_at'  => null,
             ]);
+
+            // ========== SEND NOTIFICATION TO USER ==========
+            $partnerName = $provider ? $provider->full_name : ($shopkeeper ? $shopkeeper->name : 'Partner');
+            $partnerType = $provider ? 'provider' : 'shopkeeper';
+
+            $this->sendNotificationToUser(
+                $bookingRequest->user_id,
+                'Partner Has Arrived! 🚗',
+                $partnerName . ' has arrived at your location',
+                'accept_order',
+                [
+                    'booking_id' => (string)$bookingRequest->id,
+                    'request_id' => (string)$validated['request_id'],
+                    'partner_id' => (string)($provider ? $provider->id : $shopkeeper->id),
+                    'partner_type' => $partnerType,
+                    'partner_name' => $partnerName,
+                    'status' => 'arrived',
+                    'action' => 'view_booking'
+                ]
+            );
+            // ==============================================
 
             return response()->json([
                 'status'  => true,
@@ -821,7 +899,7 @@ class BookingRequestController extends Controller
             $booking = BookingRequest::findOrFail($validated['booking_id']);
             $authUser = Auth::user();
 
-            //  Block updates if booking already finished
+            // Block updates if booking already finished
             if (in_array($booking->status, ['completed', 'cancel'])) {
                 return response()->json([
                     'status' => false,
@@ -842,15 +920,13 @@ class BookingRequestController extends Controller
                     mkdir($uploadDir, 0777, true);
                 }
 
-                // Move the file
                 $file->move($uploadDir, $fileName);
-
-                // Store relative path (same as upload function)
                 $booking->audio = 'uploads/' . $fileName;
             }
 
-            if ($authUser->id === $booking->provider_id) {
+            $notificationSent = false;
 
+            if ($authUser->id === $booking->provider_id) {
                 if ($booking->status === 'in_progress' && $validated['status'] === 'in_progress') {
                     return response()->json([
                         'status' => false,
@@ -864,9 +940,37 @@ class BookingRequestController extends Controller
                 if ($validated['status'] === 'cancel') {
                     $booking->cancel_by = 'provider';
                     $booking->cancel_reason = $validated['cancel_reason'];
+
+                    // ========== SEND CANCELLATION NOTIFICATION TO USER ==========
+                    $this->sendNotificationToUser(
+                        $booking->user_id,
+                        'Booking Cancelled ❌',
+                        'Your booking has been cancelled by the provider',
+                        'accept_order',
+                        [
+                            'booking_id' => (string)$booking->id,
+                            'status' => 'cancelled',
+                            'reason' => $validated['cancel_reason'] ?? 'No reason provided',
+                            'action' => 'view_booking'
+                        ]
+                    );
+                    $notificationSent = true;
+                } elseif ($validated['status'] === 'in_progress') {
+                    // ========== SEND IN PROGRESS NOTIFICATION TO USER ==========
+                    $this->sendNotificationToUser(
+                        $booking->user_id,
+                        'Service Started! 🔧',
+                        'Your service has started. We\'ll notify you when it\'s complete.',
+                        'accept_order',
+                        [
+                            'booking_id' => (string)$booking->id,
+                            'status' => 'in_progress',
+                            'action' => 'track_order'
+                        ]
+                    );
+                    $notificationSent = true;
                 }
             } elseif ($authUser->id === $booking->user_id) {
-
                 if ($validated['status'] !== 'cancel') {
                     return response()->json([
                         'status' => false,
@@ -877,6 +981,41 @@ class BookingRequestController extends Controller
                 $booking->status = 'cancel';
                 $booking->cancel_by = 'user';
                 $booking->cancel_reason = $validated['cancel_reason'];
+
+                // ========== SEND CANCELLATION NOTIFICATION TO PROVIDER ==========
+                if ($booking->provider_id) {
+                    $this->sendNotificationToPartner(
+                        $booking->provider_id,
+                        'provider',
+                        'Booking Cancelled ❌',
+                        'The user has cancelled the booking',
+                        'accept_order',
+                        [
+                            'booking_id' => (string)$booking->id,
+                            'status' => 'cancelled',
+                            'reason' => $validated['cancel_reason'] ?? 'No reason provided',
+                            'action' => 'view_booking'
+                        ]
+                    );
+                    $notificationSent = true;
+                }
+
+                if ($booking->shopkeeper_id) {
+                    $this->sendNotificationToPartner(
+                        $booking->shopkeeper_id,
+                        'shopkeeper',
+                        'Booking Cancelled ❌',
+                        'The user has cancelled the booking',
+                        'accept_order',
+                        [
+                            'booking_id' => (string)$booking->id,
+                            'status' => 'cancelled',
+                            'reason' => $validated['cancel_reason'] ?? 'No reason provided',
+                            'action' => 'view_booking'
+                        ]
+                    );
+                    $notificationSent = true;
+                }
             } else {
                 return response()->json([
                     'status' => false,
@@ -899,6 +1038,7 @@ class BookingRequestController extends Controller
                     'audio_path'    => $booking->getRawOriginal('audio'),
                     'cancel_by'     => $booking->cancel_by,
                     'cancel_reason' => $booking->cancel_reason,
+                    'notification_sent' => $notificationSent
                 ]
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -980,6 +1120,22 @@ class BookingRequestController extends Controller
                     ]
                 ], 500);
             }
+
+            // ========== SEND COMPLETION NOTIFICATION TO USER ==========
+            $this->sendNotificationToUser(
+                $booking->user_id,
+                'Service Completed! ✅',
+                'Your service has been completed successfully. Thank you for choosing us!',
+                'accept_order',
+                [
+                    'booking_id' => (string)$booking->id,
+                    'status' => 'completed',
+                    'price' => (string)$validated['price'],
+                    'payment_type' => $validated['payment_type'],
+                    'action' => 'rate_service'
+                ]
+            );
+            // =========================================================
 
             DB::commit();
 
@@ -1437,6 +1593,83 @@ class BookingRequestController extends Controller
                 'message' => 'Something went wrong',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Send notification to user about booking status
+     */
+    private function sendNotificationToUser($userId, $title, $body, $type, $additionalData = [])
+    {
+        try {
+            $fcmService = app(\App\Services\FcmTokenService::class);
+
+            // Get user's FCM token
+            $fcmToken = \App\Models\FCMToken::where('entity_type', 'user')
+                ->where('entity_id', $userId)
+                ->first();
+
+            if (!$fcmToken || empty($fcmToken->fcm_token)) {
+                Log::info("No FCM token found for user: {$userId}");
+                return false;
+            }
+
+            $data = array_merge([
+                'type' => $type,
+                'user_id' => (string)$userId,
+                'timestamp' => now()->toDateTimeString(),
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
+            ], $additionalData);
+
+            $result = $fcmService->sendNotification($fcmToken->fcm_token, $title, $body, $data);
+
+            if ($result['success']) {
+                Log::info("Notification sent to user {$userId} - Type: {$type}");
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            Log::error("Failed to send notification to user {$userId}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Send notification to provider/shopkeeper about user action
+     */
+    private function sendNotificationToPartner($entityId, $entityType, $title, $body, $type, $additionalData = [])
+    {
+        try {
+            $fcmService = app(\App\Services\FcmTokenService::class);
+
+            // Get partner's FCM token
+            $fcmToken = \App\Models\FCMToken::where('entity_type', $entityType)
+                ->where('entity_id', $entityId)
+                ->first();
+
+            if (!$fcmToken || empty($fcmToken->fcm_token)) {
+                Log::info("No FCM token found for {$entityType}: {$entityId}");
+                return false;
+            }
+
+            $data = array_merge([
+                'type' => $type,
+                'entity_id' => (string)$entityId,
+                'entity_type' => $entityType,
+                'timestamp' => now()->toDateTimeString(),
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
+            ], $additionalData);
+
+            $result = $fcmService->sendNotification($fcmToken->fcm_token, $title, $body, $data);
+
+            if ($result['success']) {
+                Log::info("Notification sent to {$entityType} {$entityId} - Type: {$type}");
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            Log::error("Failed to send notification to {$entityType} {$entityId}: " . $e->getMessage());
+            return false;
         }
     }
 }

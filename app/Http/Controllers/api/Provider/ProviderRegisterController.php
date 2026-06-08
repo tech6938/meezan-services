@@ -2,21 +2,30 @@
 
 namespace App\Http\Controllers\api\Provider;
 
-use App\Models\Wallet;
+use App\Http\Controllers\Controller;
 use App\Models\FCMToken;
 use App\Models\Provider;
-
+use App\Models\Wallet;
+use App\Services\FcmTokenService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 
 class ProviderRegisterController extends Controller
 {
+
+    protected FcmTokenService $fcmService;
+
+    public function __construct(FcmTokenService $fcmService)
+    {
+        $this->fcmService = $fcmService;
+    }
+    
     public function register(Request $request)
     {
         // Validate input
@@ -218,6 +227,7 @@ class ProviderRegisterController extends Controller
                         'fcm_token' => $request->fcm_token,
                     ]
                 );
+                $this->sendWelcomeNotification($provider, $request->fcm_token);
                 // Login existing Provider
                 $token = $provider->createToken('auth_token')->plainTextToken;
 
@@ -242,6 +252,33 @@ class ProviderRegisterController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Send welcome notification to user on login
+     */
+    private function sendWelcomeNotification($user, $fcmToken)
+    {
+        $title = 'Welcome Back! 👋';
+        $body = 'Hello ' . ($user->full_name ?? 'User') . ', welcome to Mezaan Services!';
+
+        $data = [
+            'type' => 'welcome',
+            'user_id' => (string)$user->id,
+            'user_name' => $user->full_name ?? 'User',
+            'login_time' => now()->toDateTimeString(),
+            'action' => 'home',
+            'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
+        ];
+
+        // Send notification to the logged-in user
+        $result = $this->fcmService->sendNotification($fcmToken, $title, $body, $data);
+
+        // if ($result['success']) {
+        //     Log::info('Welcome notification sent to user: ' . $user->id);
+        // } else {
+        //     Log::warning('Failed to send welcome notification: ' . ($result['error'] ?? 'Unknown error'));
+        // }
     }
 
 
