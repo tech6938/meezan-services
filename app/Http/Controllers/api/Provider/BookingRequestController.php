@@ -150,6 +150,8 @@ class BookingRequestController extends Controller
             // Check 3: Pending bookings
             $hasPendingBookings = BookingRequest::where('provider_id', $providerId)
                 ->where('status', 'pending')
+                ->where('assigned', 1)
+                ->where('goto', 2)
                 ->exists();
 
             if ($hasPendingBookings) {
@@ -221,7 +223,7 @@ class BookingRequestController extends Controller
             'request_id'  => 'required|integer|exists:service_requests,id',
         ]);
 
-        $hasActiveBooking = ServiceRequest::where('request_id', $validated['request_id'])
+        $hasActiveBooking = ServiceRequest::where('id', $validated['request_id'])
             ->whereIn('status', ['complete_booking', 'in_progress'])
             ->exists();
 
@@ -241,10 +243,49 @@ class BookingRequestController extends Controller
             ], 400);
         }
 
-        //  Update service request status
+        // Update service request status
         $serviceRequest->update([
             'status' => 'cancel',
         ]);
+
+        // ========== SEND CANCELLATION NOTIFICATION TO PROVIDERS (cancel_booking type) ==========
+        // Get all booking requests for this service request
+        $bookingRequests = BookingRequest::where('request_id', $validated['request_id'])->get();
+
+        foreach ($bookingRequests as $booking) {
+            if ($booking->provider_id) {
+                $this->sendNotificationToPartner(
+                    $booking->provider_id,
+                    'provider',
+                    'Service Request Cancelled ❌',
+                    'The customer has cancelled the service request',
+                    'cancel_booking',  // Type: cancel_booking
+                    [
+                        'request_id' => (string)$validated['request_id'],
+                        'status' => 'cancelled',
+                        'cancelled_by' => 'user',
+                        'action' => 'view_requests'
+                    ]
+                );
+            }
+
+            if ($booking->shopkeeper_id) {
+                $this->sendNotificationToPartner(
+                    $booking->shopkeeper_id,
+                    'shopkeeper',
+                    'Service Request Cancelled ❌',
+                    'The customer has cancelled the service request',
+                    'cancel_booking',  // Type: cancel_booking
+                    [
+                        'request_id' => (string)$validated['request_id'],
+                        'status' => 'cancelled',
+                        'cancelled_by' => 'user',
+                        'action' => 'view_requests'
+                    ]
+                );
+            }
+        }
+        // ===================================================
 
         return response()->json([
             'status'  => true,
@@ -254,6 +295,100 @@ class BookingRequestController extends Controller
 
 
     // customer calling for service
+    // public function comming(Request $request)
+    // {
+    //     try {
+    //         $validated = $request->validate([
+    //             'provider_id'   => 'nullable|integer|exists:providers,id',
+    //             'shopkeeper_id' => 'nullable|integer|exists:shopkeepers,id',
+    //             'request_id' => 'required|integer|exists:booking_requests,request_id',
+    //         ]);
+
+    //         // Must pass at least one
+    //         if (!$request->provider_id && !$request->shopkeeper_id) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Provider or Shopkeeper ID is required'
+    //             ], 422);
+    //         }
+
+    //         // Check if ANY booking request for this request_id has assigned = 1
+    //         $alreadyAssigned = BookingRequest::where('request_id', $validated['request_id'])
+    //             ->where('assigned', 1)
+    //             ->exists();
+
+    //         if ($alreadyAssigned) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'This request has already been assigned.'
+    //             ], 400);
+    //         }
+
+    //         // Find the specific booking request for this provider/shopkeeper
+    //         $bookingRequest = BookingRequest::where('request_id', $validated['request_id']);
+
+    //         if ($request->provider_id) {
+    //             $bookingRequest->where('provider_id', $request->provider_id);
+    //         }
+
+    //         if ($request->shopkeeper_id) {
+    //             $bookingRequest->where('shopkeeper_id', $request->shopkeeper_id);
+    //         }
+
+    //         $specificBooking = $bookingRequest->first();
+
+    //         if (!$specificBooking) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Booking request not found for this provider/shopkeeper'
+    //             ], 404);
+    //         }
+
+    //         $specificBooking->update([
+    //             'goto' => 1,
+    //             'assigned' => 1,
+    //         ]);
+
+    //         // ========== SEND NOTIFICATION TO USER ==========
+    //         $partnerName = $request->provider_id ?
+    //             (\App\Models\Provider::find($request->provider_id)->full_name ?? 'Provider') : (\App\Models\ShopKeeper::find($request->shopkeeper_id)->name ?? 'Shopkeeper');
+
+    //         $this->sendNotificationToUser(
+    //             $specificBooking->user_id,
+    //             'Partner Is On The Way! 🚗',
+    //             $partnerName . ' is coming to your location',
+    //             'accept_order',
+    //             [
+    //                 'booking_id' => (string)$specificBooking->id,
+    //                 'request_id' => (string)$validated['request_id'],
+    //                 'status' => 'coming',
+    //                 'partner_name' => $partnerName,
+    //                 'action' => 'track_order'
+    //             ]
+    //         );
+    //         // ==============================================
+
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Request marked as goto successfully',
+    //             'data'    => [
+    //                 'booking_id' => $specificBooking->id,
+    //                 'request_id' => $specificBooking->request_id,
+    //                 'provider_id' => $specificBooking->provider_id,
+    //                 'shopkeeper_id' => $specificBooking->shopkeeper_id,
+    //                 'assigned' => $specificBooking->assigned,
+    //                 'goto' => $specificBooking->goto
+    //             ]
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Something went wrong',
+    //             'error'   => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function comming(Request $request)
     {
         try {
@@ -279,7 +414,7 @@ class BookingRequestController extends Controller
             if ($alreadyAssigned) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'This request has already been assigned.'
+                    'message' => 'This request has already been assigned to someone.'
                 ], 400);
             }
 
@@ -303,18 +438,34 @@ class BookingRequestController extends Controller
                 ], 404);
             }
 
+            // Update the specific booking (who is coming)
             $specificBooking->update([
                 'goto' => 1,
+                'assigned' => 1,
             ]);
 
-            // ========== SEND NOTIFICATION TO USER ==========
+            // Update ALL bookings for this request_id to assigned = 1
+            BookingRequest::where('request_id', $validated['request_id'])
+                ->where('id', '!=', $specificBooking->id)
+                ->update(['assigned' => 1]);
+
+            // Get service request details
+            $serviceRequest = ServiceRequest::find($validated['request_id']);
+            $subCategory = $serviceRequest->subCategory;
+
+            // Get both names for display
+            $urduName = $subCategory->name ?? 'Service';
+            $englishName = $subCategory->urdu_name ?? 'Service';
+            $displayName = $urduName . ' (' . $englishName . ')';
+
             $partnerName = $request->provider_id ?
                 (\App\Models\Provider::find($request->provider_id)->full_name ?? 'Provider') : (\App\Models\ShopKeeper::find($request->shopkeeper_id)->name ?? 'Shopkeeper');
 
+            // ========== SEND NOTIFICATION TO USER (CUSTOMER) ==========
             $this->sendNotificationToUser(
                 $specificBooking->user_id,
                 'Partner Is On The Way! 🚗',
-                $partnerName . ' is coming to your location',
+                $partnerName . ' is coming to your location for ' . $displayName,
                 'accept_order',
                 [
                     'booking_id' => (string)$specificBooking->id,
@@ -324,18 +475,59 @@ class BookingRequestController extends Controller
                     'action' => 'track_order'
                 ]
             );
-            // ==============================================
+
+            // ========== SEND NOTIFICATION TO THE SPECIFIC PROVIDER ==========
+            if ($request->provider_id) {
+                $this->sendNotificationToPartner(
+                    $request->provider_id,
+                    'provider',
+                    'You Are On The Way! 🚗',
+                    'Customer has confirmed your arrival for ' . $displayName,
+                    'confirm_coming',
+                    [
+                        'booking_id' => (string)$specificBooking->id,
+                        'request_id' => (string)$validated['request_id'],
+                        'status' => 'confirmed',
+                        'customer_name' => $serviceRequest->user->name ?? 'Customer',
+                        'action' => 'track_order'
+                    ]
+                );
+            }
+
+            // ========== OPTIONAL: NOTIFY OTHER PROVIDERS THAT REQUEST IS ASSIGNED ==========
+            // Get all other providers who bid on this request
+            $otherBookings = BookingRequest::where('request_id', $validated['request_id'])
+                ->where('id', '!=', $specificBooking->id)
+                ->get();
+
+            foreach ($otherBookings as $otherBooking) {
+                if ($otherBooking->provider_id) {
+                    $this->sendNotificationToPartner(
+                        $otherBooking->provider_id,
+                        'provider',
+                        'Request Already Assigned',
+                        'This service request has been assigned to another provider',
+                        'request_assigned',
+                        [
+                            'request_id' => (string)$validated['request_id'],
+                            'status' => 'assigned',
+                            'action' => 'view_requests'
+                        ]
+                    );
+                }
+            }
 
             return response()->json([
                 'status'  => true,
-                'message' => 'Request marked as goto successfully',
+                'message' => 'Request marked as goto successfully. All partners have been notified.',
                 'data'    => [
                     'booking_id' => $specificBooking->id,
                     'request_id' => $specificBooking->request_id,
                     'provider_id' => $specificBooking->provider_id,
                     'shopkeeper_id' => $specificBooking->shopkeeper_id,
                     'assigned' => $specificBooking->assigned,
-                    'goto' => $specificBooking->goto
+                    'goto' => $specificBooking->goto,
+                    'total_assigned' => BookingRequest::where('request_id', $validated['request_id'])->where('assigned', 1)->count()
                 ]
             ]);
         } catch (\Exception $e) {
@@ -346,7 +538,6 @@ class BookingRequestController extends Controller
             ], 500);
         }
     }
-
     // Provider/Shopkeeper create booking
     public function goto(Request $request)
     {
@@ -926,7 +1117,9 @@ class BookingRequestController extends Controller
 
             $notificationSent = false;
 
-            if ($authUser->id === $booking->provider_id) {
+            // Partner Side Cancel (Provider/Shopkeeper cancels)
+            if ($authUser->id === $booking->provider_id || $authUser->id === $booking->shopkeeper_id) {
+
                 if ($booking->status === 'in_progress' && $validated['status'] === 'in_progress') {
                     return response()->json([
                         'status' => false,
@@ -938,25 +1131,29 @@ class BookingRequestController extends Controller
                 $booking->price  = $validated['amount'] ?? $booking->price;
 
                 if ($validated['status'] === 'cancel') {
-                    $booking->cancel_by = 'provider';
+                    $booking->cancel_by = $authUser->id === $booking->provider_id ? 'provider' : 'shopkeeper';
                     $booking->cancel_reason = $validated['cancel_reason'];
 
-                    // ========== SEND CANCELLATION NOTIFICATION TO USER ==========
+                    // ========== SEND CANCELLATION NOTIFICATION TO USER (cancel_booking type) ==========
+                    $partnerName = $authUser->id === $booking->provider_id ?
+                        ($booking->provider->full_name ?? 'Provider') : ($booking->shopkeeper->name ?? 'Shopkeeper');
+
                     $this->sendNotificationToUser(
                         $booking->user_id,
                         'Booking Cancelled ❌',
-                        'Your booking has been cancelled by the provider',
-                        'accept_order',
+                        $partnerName . ' has cancelled your booking. Reason: ' . ($validated['cancel_reason'] ?? 'Not specified'),
+                        'cancel_booking',  // Type: cancel_booking
                         [
                             'booking_id' => (string)$booking->id,
                             'status' => 'cancelled',
+                            'cancelled_by' => $booking->cancel_by,
                             'reason' => $validated['cancel_reason'] ?? 'No reason provided',
                             'action' => 'view_booking'
                         ]
                     );
                     $notificationSent = true;
                 } elseif ($validated['status'] === 'in_progress') {
-                    // ========== SEND IN PROGRESS NOTIFICATION TO USER ==========
+                    // Send in progress notification
                     $this->sendNotificationToUser(
                         $booking->user_id,
                         'Service Started! 🔧',
@@ -970,7 +1167,9 @@ class BookingRequestController extends Controller
                     );
                     $notificationSent = true;
                 }
-            } elseif ($authUser->id === $booking->user_id) {
+            }
+            // Customer Side Cancel (User cancels)
+            elseif ($authUser->id === $booking->user_id) {
                 if ($validated['status'] !== 'cancel') {
                     return response()->json([
                         'status' => false,
@@ -982,17 +1181,18 @@ class BookingRequestController extends Controller
                 $booking->cancel_by = 'user';
                 $booking->cancel_reason = $validated['cancel_reason'];
 
-                // ========== SEND CANCELLATION NOTIFICATION TO PROVIDER ==========
+                // ========== SEND CANCELLATION NOTIFICATION TO PROVIDER (cancel_booking type) ==========
                 if ($booking->provider_id) {
                     $this->sendNotificationToPartner(
                         $booking->provider_id,
                         'provider',
-                        'Booking Cancelled ❌',
-                        'The user has cancelled the booking',
-                        'accept_order',
+                        'Booking Cancelled by Customer ❌',
+                        'The customer has cancelled the booking. Reason: ' . ($validated['cancel_reason'] ?? 'Not specified'),
+                        'cancel_booking',  // Type: cancel_booking
                         [
                             'booking_id' => (string)$booking->id,
                             'status' => 'cancelled',
+                            'cancelled_by' => 'user',
                             'reason' => $validated['cancel_reason'] ?? 'No reason provided',
                             'action' => 'view_booking'
                         ]
@@ -1000,16 +1200,18 @@ class BookingRequestController extends Controller
                     $notificationSent = true;
                 }
 
+                // ========== SEND CANCELLATION NOTIFICATION TO SHOPKEEPER (cancel_booking type) ==========
                 if ($booking->shopkeeper_id) {
                     $this->sendNotificationToPartner(
                         $booking->shopkeeper_id,
                         'shopkeeper',
-                        'Booking Cancelled ❌',
-                        'The user has cancelled the booking',
-                        'accept_order',
+                        'Booking Cancelled by Customer ❌',
+                        'The customer has cancelled the booking. Reason: ' . ($validated['cancel_reason'] ?? 'Not specified'),
+                        'cancel_booking',  // Type: cancel_booking
                         [
                             'booking_id' => (string)$booking->id,
                             'status' => 'cancelled',
+                            'cancelled_by' => 'user',
                             'reason' => $validated['cancel_reason'] ?? 'No reason provided',
                             'action' => 'view_booking'
                         ]
@@ -1101,7 +1303,7 @@ class BookingRequestController extends Controller
 
             // Update booking status
             $booking->status = $validated['status'];
-            $booking->req_status = $validated['status'];
+            $booking->req_status = 'complete';
             $booking->payment_type = $validated['payment_type'];
             $booking->price = $validated['price'];
             $booking->save();
@@ -1452,16 +1654,12 @@ class BookingRequestController extends Controller
         try {
             $provider = Auth::guard('provider-api')->user();
 
+            // Load service request with relationships
             $serviceRequest = ServiceRequest::with([
                 'user:id,name,image',
                 'category:id,name',
                 'subCategory:id,name',
                 'address:id,name,street,city,PostalCode',
-                'providerSeens' => function ($q) use ($provider) {
-                    if ($provider) {
-                        $q->where('provider_id', $provider->id);
-                    }
-                },
                 'bookingRequests' => function ($q) use ($provider) {
                     if ($provider) {
                         $q->where('provider_id', $provider->id);
@@ -1469,8 +1667,7 @@ class BookingRequestController extends Controller
                 },
                 'bookingRequests.provider.ratings',
                 'shop:id,shop_name,category'
-            ])
-                ->find($id);
+            ])->find($id);
 
             if (!$serviceRequest) {
                 return response()->json([
@@ -1479,6 +1676,20 @@ class BookingRequestController extends Controller
                 ], 404);
             }
 
+            // Get current provider's booking
+            $specificBooking = null;
+            if ($provider) {
+                $specificBooking = $serviceRequest->bookingRequests
+                    ->where('provider_id', $provider->id)
+                    ->first();
+            }
+
+            // 🔥 FIX: Check ALL bookings for assigned status (separate query to avoid filter)
+            $isAnyProviderAssigned = BookingRequest::where('request_id', $id)
+                ->where('assigned', 1)
+                ->exists();
+
+            // Format address
             $address = null;
             if ($serviceRequest->address) {
                 $address = collect([
@@ -1489,19 +1700,11 @@ class BookingRequestController extends Controller
                 ])->filter()->implode(', ');
             }
 
-            $specificBooking = null;
-            if ($provider) {
-                $specificBooking = $serviceRequest->bookingRequests
-                    ->where('provider_id', $provider->id)
-                    ->first();
-            }
-
             // Get unread counts
             $providerUnreadCount = 0;
             $userUnreadCount = 0;
 
             if ($specificBooking) {
-                // Provider's unread messages
                 $providerUnreadCount = Chat::where('booking_id', $specificBooking->id)
                     ->where('receiver_id', $provider->id)
                     ->where('receiver_type', 'App\Models\Provider')
@@ -1509,7 +1712,6 @@ class BookingRequestController extends Controller
                     ->whereNull('deleted_at')
                     ->count();
 
-                // User's unread messages
                 $userUnreadCount = Chat::where('booking_id', $specificBooking->id)
                     ->where('receiver_id', $serviceRequest->user_id)
                     ->where('receiver_type', 'App\Models\User')
@@ -1518,32 +1720,35 @@ class BookingRequestController extends Controller
                     ->count();
             }
 
+            // Provider data
             $providerData = null;
             if ($specificBooking && $specificBooking->provider) {
-                $providerDataProvider = $specificBooking->provider;
-
-                $totalCompletedBookings = $providerDataProvider->bookingRequests()
+                $providerModel = $specificBooking->provider;
+                $totalCompletedBookings = $providerModel->bookingRequests()
                     ->where('req_status', 'complete_booking')
                     ->count();
-
-                $averageRating = $providerDataProvider->ratings()->avg('rating');
+                $averageRating = $providerModel->ratings()->avg('rating');
 
                 $providerData = [
-                    'id' => $providerDataProvider->id,
-                    'name' => $providerDataProvider->full_name,
-                    'profile_image' => $providerDataProvider->profile_image
-                        ? url('profiles/' . $providerDataProvider->profile_image)
+                    'id' => $providerModel->id,
+                    'name' => $providerModel->full_name,
+                    'profile_image' => $providerModel->profile_image
+                        ? url('profiles/' . $providerModel->profile_image)
                         : null,
                     'total_completed_bookings' => $totalCompletedBookings,
                     'average_rating' => $averageRating ? round($averageRating, 1) : 0,
-                    'unread_count' => $providerUnreadCount, // Add unread count
+                    'unread_count' => $providerUnreadCount,
                 ];
             }
 
+            // Get status and seen info
             $status = $specificBooking ? $specificBooking->req_status : $serviceRequest->status;
             $providerSeen = $provider
                 ? $serviceRequest->providerSeens->firstWhere('provider_id', $provider->id)
                 : null;
+
+            // Goto value only for current provider
+            $gotoValue = ($specificBooking && $specificBooking->goto == 1) ? 1 : 0;
 
             return response()->json([
                 'status' => true,
@@ -1552,8 +1757,8 @@ class BookingRequestController extends Controller
                     'id' => $serviceRequest->id,
                     'user_id' => $serviceRequest->user_id,
                     'is_seen' => $providerSeen ? (int) $providerSeen->is_seen : 0,
-                    'goto' => $specificBooking ? ($specificBooking->goto ?? 0) : 0,
-                    'assigned' => $specificBooking ? ($specificBooking->assigned ?? 0) : 0,
+                    'goto' => $gotoValue,
+                    'assigned' => $isAnyProviderAssigned ? 1 : 0,
                     'cat_name' => optional($serviceRequest->category)->name,
                     'subcat_name' => optional($serviceRequest->subCategory)->name,
                     'shop_name' => optional($serviceRequest->shop)->shop_name,
@@ -1567,21 +1772,18 @@ class BookingRequestController extends Controller
                     'file_type' => $serviceRequest->file_type,
                     'status' => $status,
                     'created_at' => $serviceRequest->created_at,
-
-                    // Unread message counts
                     'unread_counts' => [
                         'provider' => $providerUnreadCount,
                         'user' => $userUnreadCount,
                         'total' => $providerUnreadCount + $userUnreadCount
                     ],
-
                     'user' => [
                         'id'    => optional($serviceRequest->user)->id,
                         'name'  => optional($serviceRequest->user)->name,
                         'image' => optional($serviceRequest->user)->image
                             ? url('profiles/' . $serviceRequest->user->image)
                             : null,
-                        'unread_count' => $userUnreadCount, // User's unread messages
+                        'unread_count' => $userUnreadCount,
                     ],
                     'provider' => $providerData,
                     'booking_id' => $specificBooking ? $specificBooking->id : null,

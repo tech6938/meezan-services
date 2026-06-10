@@ -20,7 +20,10 @@ class ProviderDashController extends Controller
         try {
             $provider_id = auth('provider-api')->id();
             $totalbookings = BookingRequest::where('provider_id', $provider_id)->get();
-            $pending = BookingRequest::where('provider_id', $provider_id)->where('status', 'pending')->get();
+            $pending = BookingRequest::where('provider_id', $provider_id)->where('status', 'pending')
+            ->where('assigned', 1)
+            ->where('goto', 2)
+            ->get();
             $cancel = BookingRequest::where('provider_id', $provider_id)->where('status', 'cancel')->get();
             $completed = BookingRequest::where('provider_id', $provider_id)->where('status', 'complete_booking')->get();
 

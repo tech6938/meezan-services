@@ -10,6 +10,7 @@ use App\Models\BookingRequest;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
@@ -147,28 +148,61 @@ class UserProviderController extends Controller
     public function destroy($id)
     {
         try {
+            DB::beginTransaction();
+
             $provider = Provider::findOrFail($id);
             $providerName = $provider->full_name;
-            $provider->delete();
 
-            if (request()->wantsJson() || request()->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => "Provider \"{$providerName}\" has been deleted successfully."
-                ]);
-            }
+            // Delete all related records in correct order
+            DB::table('deposits')->where('provider_id', $id)->delete();
+            DB::table('ratings')->where('provider_id', $id)->delete();
+            DB::table('provider_request_seens')->where('provider_id', $id)->delete();
+            DB::table('previouses')->where('provider_id', $id)->delete();
+            DB::table('wallets')->where('provider_id', $id)->delete();
+            DB::table('booking_requests')->where('provider_id', $id)->delete();
 
-            return redirect()->back()->with('success', "Provider \"{$providerName}\" has been deleted successfully.");
+            // // Delete pivot table records
+
+            // // Delete files
+            // if ($provider->profile_image) {
+            //     Storage::disk('public')->delete('profiles/' . $provider->profile_image);
+            // }
+            // if ($provider->id_front) {
+            //     Storage::disk('public')->delete('documents/' . $provider->id_front);
+            // }
+            // if ($provider->id_back) {
+            //     Storage::disk('public')->delete('documents/' . $provider->id_back);
+            // }
+
+            // Delete provider
+            $provider->delete(); // or forceDelete()
+
+            DB::commit();
+
+            $response = [
+                'success' => true,
+                'message' => "Provider \"{$providerName}\" and all associated data have been permanently deleted."
+            ];
         } catch (\Exception $e) {
-            if (request()->wantsJson() || request()->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to delete provider: ' . $e->getMessage()
-                ], 500);
+            DB::rollBack();
+
+            $response = [
+                'success' => false,
+                'message' => 'Failed to delete provider: ' . $e->getMessage()
+            ];
+
+            if (!(request()->wantsJson() || request()->ajax())) {
+                return redirect()->back()->with('error', $response['message']);
             }
 
-            return redirect()->back()->with('error', 'Failed to delete provider: ' . $e->getMessage());
+            return response()->json($response, 500);
         }
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json($response);
+        }
+
+        return redirect()->back()->with('success', $response['message']);
     }
     /**
      * Export users to Excel
