@@ -12,6 +12,7 @@ use App\Models\ServiceRequest;
 use App\Models\SubCategory;
 use App\Models\Wallet;
 use App\Services\CommissionService;
+use App\Services\ReferralService;
 use App\Traits\HasUnreadMessages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,95 +25,15 @@ class BookingRequestController extends Controller
 {
 
     protected $commissionService;
+    protected $referralService;
 
-    public function __construct(CommissionService $commissionService)
+    public function __construct(CommissionService $commissionService, ReferralService $referralService)
     {
         $this->commissionService = $commissionService;
+        $this->referralService = $referralService;
     }
 
     //provider accept request
-
-    // public function providerAcceptRequest(Request $request)
-    // {
-    //     try {
-    //         $validated = $request->validate([
-    //             'provider_id' => 'required|integer|exists:providers,id',
-    //             'request_id'  => 'required|integer|exists:service_requests,id',
-    //         ]);
-
-    //         $providerId = $validated['provider_id'];
-    //         $requestId = $validated['request_id'];
-
-    //         // Check 1: Negative balance
-    //         $wallet = Wallet::where('provider_id', $providerId)->first();
-    //         $walletBalance = $wallet ? (float) $wallet->amount : 0.00;
-
-    //         if ($walletBalance < 0) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'You cannot accept bookings because your balance is negative.'
-    //             ], 400);
-    //         }
-
-    //         // Check 2: Maximum 3 in-progress bookings
-    //         $inProgressCount = BookingRequest::where('provider_id', $providerId)
-    //             ->where('status', 'in_progress')
-    //             ->count();
-
-    //         if ($inProgressCount >= 3) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'You already have 3 bookings in progress.'
-    //             ], 400);
-    //         }
-
-    //         // Check 3: Pending bookings
-    //         $hasPendingBookings = BookingRequest::where('provider_id', $providerId)
-    //             ->where('status', 'pending')
-    //             ->exists();
-
-    //         if ($hasPendingBookings) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'You have pending bookings that must be completed first.'
-    //             ], 400);
-    //         }
-
-    //         // All checks passed - create booking
-    //         $orderNo = now()->format('YmdHis') . random_int(10, 99);
-    //         $serviceRequest = ServiceRequest::findOrFail($requestId);
-
-    //         $booking = BookingRequest::create([
-    //             'provider_id'   => $providerId,
-    //             'request_id'    => $requestId,
-    //             'user_id'       => $serviceRequest->user_id,
-    //             'status'        => 'pending',
-    //             'req_status'    => 'accept',
-    //             'order_no'      => $orderNo,
-    //             'cancel_reason' => null,
-    //         ]);
-
-    //         return response()->json([
-    //             'status'  => true,
-    //             'message' => 'Request accepted successfully',
-    //             'data'    => [
-    //                 'booking_id' => $booking->id,
-    //                 'order_no'   => $orderNo
-    //             ]
-    //         ], 200);
-    //     } catch (\Illuminate\Validation\ValidationException $e) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Invalid data provided'
-    //         ], 422);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Something went wrong. Please try again.'
-    //         ], 500);
-    //     }
-    // }
-
     public function providerAcceptRequest(Request $request)
     {
         try {
@@ -295,100 +216,6 @@ class BookingRequestController extends Controller
 
 
     // customer calling for service
-    // public function comming(Request $request)
-    // {
-    //     try {
-    //         $validated = $request->validate([
-    //             'provider_id'   => 'nullable|integer|exists:providers,id',
-    //             'shopkeeper_id' => 'nullable|integer|exists:shopkeepers,id',
-    //             'request_id' => 'required|integer|exists:booking_requests,request_id',
-    //         ]);
-
-    //         // Must pass at least one
-    //         if (!$request->provider_id && !$request->shopkeeper_id) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'Provider or Shopkeeper ID is required'
-    //             ], 422);
-    //         }
-
-    //         // Check if ANY booking request for this request_id has assigned = 1
-    //         $alreadyAssigned = BookingRequest::where('request_id', $validated['request_id'])
-    //             ->where('assigned', 1)
-    //             ->exists();
-
-    //         if ($alreadyAssigned) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'This request has already been assigned.'
-    //             ], 400);
-    //         }
-
-    //         // Find the specific booking request for this provider/shopkeeper
-    //         $bookingRequest = BookingRequest::where('request_id', $validated['request_id']);
-
-    //         if ($request->provider_id) {
-    //             $bookingRequest->where('provider_id', $request->provider_id);
-    //         }
-
-    //         if ($request->shopkeeper_id) {
-    //             $bookingRequest->where('shopkeeper_id', $request->shopkeeper_id);
-    //         }
-
-    //         $specificBooking = $bookingRequest->first();
-
-    //         if (!$specificBooking) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'Booking request not found for this provider/shopkeeper'
-    //             ], 404);
-    //         }
-
-    //         $specificBooking->update([
-    //             'goto' => 1,
-    //             'assigned' => 1,
-    //         ]);
-
-    //         // ========== SEND NOTIFICATION TO USER ==========
-    //         $partnerName = $request->provider_id ?
-    //             (\App\Models\Provider::find($request->provider_id)->full_name ?? 'Provider') : (\App\Models\ShopKeeper::find($request->shopkeeper_id)->name ?? 'Shopkeeper');
-
-    //         $this->sendNotificationToUser(
-    //             $specificBooking->user_id,
-    //             'Partner Is On The Way! 🚗',
-    //             $partnerName . ' is coming to your location',
-    //             'accept_order',
-    //             [
-    //                 'booking_id' => (string)$specificBooking->id,
-    //                 'request_id' => (string)$validated['request_id'],
-    //                 'status' => 'coming',
-    //                 'partner_name' => $partnerName,
-    //                 'action' => 'track_order'
-    //             ]
-    //         );
-    //         // ==============================================
-
-    //         return response()->json([
-    //             'status'  => true,
-    //             'message' => 'Request marked as goto successfully',
-    //             'data'    => [
-    //                 'booking_id' => $specificBooking->id,
-    //                 'request_id' => $specificBooking->request_id,
-    //                 'provider_id' => $specificBooking->provider_id,
-    //                 'shopkeeper_id' => $specificBooking->shopkeeper_id,
-    //                 'assigned' => $specificBooking->assigned,
-    //                 'goto' => $specificBooking->goto
-    //             ]
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'status'  => false,
-    //             'message' => 'Something went wrong',
-    //             'error'   => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     public function comming(Request $request)
     {
         try {
@@ -900,6 +727,7 @@ class BookingRequestController extends Controller
             'status'       => $booking->status,
             'details'      => $booking->details ?? null,
             'audio'        => $booking->audio ?? null,
+            'image'        => $booking->file ?? null,
             'cancelled_by' => $booking->cancel_by ?? null,
             'cancel_reason' => $booking->cancel_reason ?? null,
             'file_url'     => $booking->serviceRequest->file ?? null,
@@ -1025,6 +853,7 @@ class BookingRequestController extends Controller
             'status'        => $booking->status,
             'details'       => $booking->details,
             'audio'         => $booking->audio,
+            'image'         => $booking->file,
             'file_url'      => $booking->serviceRequest->file ?? null,
             'address'       => $booking->serviceRequest->address->name ?? null,
             'address_id'    => $booking->serviceRequest->address_id ?? null,
@@ -1085,6 +914,8 @@ class BookingRequestController extends Controller
                 'cancel_reason'  => 'nullable|string',
                 'details'        => 'nullable|string',
                 'audio'          => $this->audioUploadRule(),
+                'file' => 'nullable|array',
+                'file.*' => 'file|max:102400',
             ]);
 
             $booking = BookingRequest::findOrFail($validated['booking_id']);
@@ -1113,6 +944,22 @@ class BookingRequestController extends Controller
 
                 $file->move($uploadDir, $fileName);
                 $booking->audio = 'uploads/' . $fileName;
+            }
+            $filePaths = [];
+            if ($request->hasFile('file')) {
+                foreach ($request->file('file') as $file) {
+                    $fileName = time() . '_' . $file->getClientOriginalName();
+                    $uploadDir = public_path('uploads');
+
+                    if (!file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0777, true);
+                    }
+
+                    $file->move($uploadDir, $fileName);
+                    $filePaths[] = 'uploads/' . $fileName;
+                }
+
+                $booking->file = json_encode($filePaths);
             }
 
             $notificationSent = false;
@@ -1236,6 +1083,7 @@ class BookingRequestController extends Controller
                     'booking_id'    => $booking->id,
                     'status'        => $booking->status,
                     'details'       => $booking->details,
+                    'file'         => $booking->file,
                     'audio'         => $booking->audio,
                     'audio_path'    => $booking->getRawOriginal('audio'),
                     'cancel_by'     => $booking->cancel_by,
@@ -1323,6 +1171,8 @@ class BookingRequestController extends Controller
                 ], 500);
             }
 
+            $referralResult = $this->referralService->processBookingReferralEarnings($booking);
+
             // ========== SEND COMPLETION NOTIFICATION TO USER ==========
             $this->sendNotificationToUser(
                 $booking->user_id,
@@ -1354,6 +1204,7 @@ class BookingRequestController extends Controller
                 'commission_deducted' => $commissionResult['commission_deducted'] ?? 0,
                 'wallet_balance' => $commissionResult['new_balance'],
                 'commission_message' => $commissionResult['message'] ?? null,
+                'referral_processed' => $referralResult['processed'] ?? 0,
             ];
 
             return response()->json([

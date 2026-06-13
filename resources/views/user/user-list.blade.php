@@ -174,6 +174,8 @@
                                                 <th class="text-center">#</th>
                                                 <th>User Name</th>
                                                 <th>Phone</th>
+                                                <th>Referral Code</th>
+                                                <th>Direct Referrals</th>
                                                 <th>Status</th>
                                                 <th>Action</th>
                                             </tr>
@@ -195,6 +197,14 @@
                                                         </td>
                                                         <td>
                                                             {{ $user->phone ?? 'N/A' }}
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge badge-light">
+                                                                {{ $user->referral_code ?? 'N/A' }}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <strong>{{ $user->referrals_count ?? 0 }}</strong>
                                                         </td>
                                                         <td>
                                                             <div class="badge badge-primary ">{{ $user->status }}</div>
@@ -229,7 +239,7 @@
                                                 @endforeach
                                             @else
                                                 <tr>
-                                                    <td colspan="4" class="text-center">
+                                                    <td colspan="7" class="text-center">
                                                         No Users Found
                                                     </td>
                                                 </tr>

@@ -16,10 +16,16 @@ class User extends Authenticatable
 
     protected $fillable = [
         'phone',
+        'email',
         'name',
         'image',
         'password',
-        'device_id'
+        'device_id',
+        'referral_code',
+        'referred_by_user_id',
+        'referral_total_referrals',
+        'referral_total_earned',
+        'referral_balance',
     ];
 
     protected $hidden = [
@@ -35,6 +41,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'referral_total_referrals' => 'integer',
+            'referral_total_earned' => 'decimal:2',
+            'referral_balance' => 'decimal:2',
         ];
     }
 
@@ -99,5 +108,25 @@ class User extends Authenticatable
     {
         // Since booking_requests table has user_id column directly
         return $this->hasMany(BookingRequest::class, 'user_id');
+    }
+
+    public function referrer()
+    {
+        return $this->belongsTo(self::class, 'referred_by_user_id');
+    }
+
+    public function referrals()
+    {
+        return $this->hasMany(self::class, 'referred_by_user_id');
+    }
+
+    public function referralLogs()
+    {
+        return $this->hasMany(ReferralLog::class, 'referrer_user_id');
+    }
+
+    public function referredByReferralLogs()
+    {
+        return $this->hasMany(ReferralLog::class, 'referred_user_id');
     }
 }

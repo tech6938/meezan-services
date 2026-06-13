@@ -24,13 +24,19 @@ class UserProviderController extends Controller
     */
     public function userList(Request $request)
     {
-        $data = $this->applyDateRangeFilter(User::query(), $request)->get();
+        $data = $this->applyDateRangeFilter(User::withCount('referrals'), $request)->get();
         return view('user.user-list', compact('data'));
     }
 
     public function viewUserDetail($id)
     {
-        $user = User::with(['serviceRequests', 'bookings.provider'])->findOrFail($id);
+        $user = User::with([
+            'serviceRequests',
+            'bookings.provider',
+            'referrer',
+            'referrals',
+            'referralLogs.booking',
+        ])->withCount('referrals')->findOrFail($id);
         return view('user.viewUserDetail', compact('user'));
     }
 

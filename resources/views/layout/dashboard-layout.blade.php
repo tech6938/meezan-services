@@ -206,6 +206,42 @@
                             </ul>
                         </li>
 
+                        <li
+                            class="dropdown {{ request()->routeIs('referrals.*') ? 'active' : '' }}">
+                            <a href="#" class="menu-toggle nav-link has-dropdown">
+                                <i data-feather="git-branch"></i>
+                                <span>Referral Management</span>
+                            </a>
+
+                            <ul class="dropdown-menu">
+                                <li class="{{ request()->routeIs('referrals.settings') ? 'active' : '' }}">
+                                    <a class="nav-link" href="{{ route('referrals.settings') }}">
+                                        Settings
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('referrals.tree') ? 'active' : '' }}">
+                                    <a class="nav-link" href="{{ route('referrals.tree') }}">
+                                        Referral Tree
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('referrals.customerEarnings') ? 'active' : '' }}">
+                                    <a class="nav-link" href="{{ route('referrals.customerEarnings') }}">
+                                        Customer Earnings
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('referrals.commissionLogs') ? 'active' : '' }}">
+                                    <a class="nav-link" href="{{ route('referrals.commissionLogs') }}">
+                                        Commission Logs
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('referrals.reports') ? 'active' : '' }}">
+                                    <a class="nav-link" href="{{ route('referrals.reports') }}">
+                                        Reports
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
                         <li class="menu-header">OFF LOAD</li>
                         <form id="logout-form" action="{{ route('logout') }}" method="POST"
                             style="display: none;">

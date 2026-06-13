@@ -165,102 +165,6 @@ class ServiceRequestController extends Controller
 
 
     // update status
-    // public function updateStatus(Request $request, $id)
-    // {
-    //     try {
-    //         // Validate the request
-    //         $validatedData = $request->validate([
-    //             'status' => 'required|string',
-    //         ]);
-
-    //         // Find the service request
-    //         $serviceRequest = ServiceRequest::find($id);
-
-    //         if (!$serviceRequest) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'Service request not found',
-    //             ], 404);
-    //         }
-
-    //         // Get ALL bookings for this request
-    //         $allBookings = BookingRequest::where('request_id', $id)->get();
-
-    //         if ($allBookings->isEmpty()) {
-    //             return response()->json([
-    //                 'status' => false,
-    //                 'message' => 'No booking requests found',
-    //             ], 404);
-    //         }
-
-    //         $newStatus = $validatedData['status'];
-
-    //         // Update service request status
-    //         $serviceRequest->status = $newStatus;
-    //         $serviceRequest->save();
-
-    //         // Update ALL bookings status
-    //         foreach ($allBookings as $booking) {
-    //             $booking->req_status = $newStatus;
-    //             $booking->save();
-
-    //             // ========== SEND NOTIFICATIONS ==========
-
-    //             // If status is cancelled, notify ALL providers
-    //             if ($newStatus == 'cancel') {
-    //                 // Notify User (Customer)
-    //                 $this->sendNotificationToUser(
-    //                     $serviceRequest->user_id,
-    //                     'Service Request Cancelled ❌',
-    //                     'Your service request has been cancelled',
-    //                     'cancel_request',
-    //                     [
-    //                         'request_id' => (string)$id,
-    //                         'status' => 'cancelled'
-    //                     ]
-    //                 );
-
-    //                 // Notify Provider (if exists)
-    //                 if ($booking->provider_id) {
-    //                     $this->sendNotificationToPartner(
-    //                         $booking->provider_id,
-    //                         'provider',
-    //                         'Service Request Cancelled ❌',
-    //                         'The service request has been cancelled',
-    //                         'cancel_booking',
-    //                         [
-    //                             'booking_id' => (string)$booking->id,
-    //                             'request_id' => (string)$id,
-    //                             'status' => 'cancelled'
-    //                         ]
-    //                     );
-    //                 }
-    //             }
-    //         }
-
-    //         // ✅ SAME RESPONSE AS OLD COMMENTED CODE
-    //         return response()->json([
-    //             'status' => true,
-    //             'message' => 'Status updated successfully',
-    //             'data' => [
-    //                 'status' => $newStatus,
-    //             ],
-    //         ], 200);
-    //     } catch (\Illuminate\Validation\ValidationException $ve) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Validation error',
-    //             'errors' => $ve->errors()
-    //         ], 422);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'status' => false,
-    //             'message' => 'Something went wrong',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     public function updateStatus(Request $request, $id)
     {
         try {
@@ -366,6 +270,176 @@ class ServiceRequestController extends Controller
     }
 
     // request details for users
+    // public function serviceRequestDetails($id)
+    // {
+    //     try {
+    //         $user_id = Auth::id();
+
+    //         $serviceRequest = ServiceRequest::with([
+    //             'category:id,name',
+    //             'subCategory:id,name',
+    //             'shop:id,shop_name,category',
+    //             'address:id,name,street,city,PostalCode',
+    //             'bookingRequests.provider.ratings',
+    //             'bookingRequests.shopkeeper.ratings',
+    //         ])
+    //             ->where('user_id', $user_id)
+    //             ->find($id);
+
+    //         if (!$serviceRequest) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Service request not found'
+    //             ], 404);
+    //         }
+
+    //         $address = null;
+    //         if ($serviceRequest->address) {
+    //             $address = collect([
+    //                 $serviceRequest->address->name,
+    //                 $serviceRequest->address->street,
+    //                 $serviceRequest->address->city,
+    //                 $serviceRequest->address->PostalCode,
+    //             ])->filter()->implode(', ');
+    //         }
+
+    //         $providersList = [];
+    //         $shopkeepersList = [];
+
+    //         // Show ALL booking requests
+    //         foreach ($serviceRequest->bookingRequests as $bookingRequest) {
+    //             // Provider data
+    //             if ($bookingRequest->provider) {
+    //                 $provider = $bookingRequest->provider;
+
+    //                 $providerUnreadCount = Chat::where('booking_id', $bookingRequest->id)
+    //                     ->where('receiver_id', $provider->id)
+    //                     ->where('receiver_type', 'App\Models\Provider')
+    //                     ->where('is_seen', false)
+    //                     ->whereNull('deleted_at')
+    //                     ->count();
+
+    //                 $totalCompletedBookings = $provider->bookingRequests()
+    //                     ->where('req_status', 'complete')
+    //                     ->count();
+
+    //                 $averageRating = $provider->ratings()->avg('rating');
+
+    //                 $providersList[] = [
+    //                     'id' => $provider->id,
+    //                     'goto' => $bookingRequest->goto,
+    //                     'name' => $provider->full_name,
+    //                     'profile_image' => $provider->profile_image
+    //                         ? url('profiles/' . $provider->profile_image)
+    //                         : null,
+    //                     'total_completed_bookings' => $totalCompletedBookings,
+    //                     'average_rating' => $averageRating ? round($averageRating, 1) : 0,
+    //                     'status' => $this->normalizeStatus($bookingRequest->req_status), // Use req_status
+    //                     'unread_count' => $providerUnreadCount,
+    //                     'booking_id' => $bookingRequest->id,
+    //                     'assigned' => $bookingRequest->assigned,
+    //                     'price' => $bookingRequest->price,
+    //                     'payment_type' => $bookingRequest->payment_type,
+    //                     'created_at' => $bookingRequest->created_at,
+    //                 ];
+    //             }
+
+    //             // Shopkeeper data
+    //             if ($bookingRequest->shopkeeper) {
+    //                 $shopkeeper = $bookingRequest->shopkeeper;
+
+    //                 $shopkeeperUnreadCount = Chat::where('booking_id', $bookingRequest->id)
+    //                     ->where('receiver_id', $shopkeeper->id)
+    //                     ->where('receiver_type', 'App\Models\ShopKeeper')
+    //                     ->where('is_seen', false)
+    //                     ->whereNull('deleted_at')
+    //                     ->count();
+
+    //                 $totalCompletedBookings = $shopkeeper->bookingRequests()
+    //                     ->where('req_status', 'complete')
+    //                     ->count();
+
+    //                 $averageRating = $shopkeeper->ratings()->avg('rating');
+
+    //                 $shopkeepersList[] = [
+    //                     'id' => $shopkeeper->id,
+    //                     'name' => $shopkeeper->name,
+    //                     'profile_image' => $shopkeeper->profile_image ?? null,
+    //                     'total_completed_bookings' => $totalCompletedBookings,
+    //                     'average_rating' => $averageRating ? round($averageRating, 1) : 0,
+    //                     'status' => $this->normalizeStatus($bookingRequest->req_status), // Use req_status
+    //                     'unread_count' => $shopkeeperUnreadCount,
+    //                     'booking_id' => $bookingRequest->id,
+    //                     'assigned' => $bookingRequest->assigned,
+    //                     'price' => $bookingRequest->price,
+    //                     'payment_type' => $bookingRequest->payment_type,
+    //                     'created_at' => $bookingRequest->created_at,
+    //                 ];
+    //             }
+    //         }
+
+    //         // For the main status - show the highest priority based on req_status
+    //         $statusPriority = [
+    //             'complete' => 5,
+    //             'in_progress' => 4,
+    //             'accept' => 3,
+    //             'pending' => 2,
+    //             'reject' => 1,
+    //             'cancelled' => 0,
+    //         ];
+
+    //         $highestPriorityStatus = 'pending';
+    //         $highestPriority = 0;
+
+    //         foreach ($serviceRequest->bookingRequests as $booking) {
+    //             // Use req_status instead of status column
+    //             $bookingStatus = $booking->req_status;
+    //             $priority = $statusPriority[$bookingStatus] ?? 0;
+    //             if ($priority > $highestPriority) {
+    //                 $highestPriority = $priority;
+    //                 $highestPriorityStatus = $bookingStatus;
+    //             }
+    //         }
+
+    //         $mainStatus = $highestPriority > 0 ? $highestPriorityStatus : $serviceRequest->status;
+
+    //         // Normalize main status for API response
+    //         $mainStatus = $this->normalizeStatus($mainStatus);
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Service request details retrieved successfully',
+    //             'data' => [
+    //                 'id' => $serviceRequest->id,
+    //                 'user_id' => $serviceRequest->user_id,
+    //                 'cat_name' => optional($serviceRequest->category)->name,
+    //                 'subcat_name' => optional($serviceRequest->subCategory)->name,
+    //                 'shop_name' => optional($serviceRequest->shop)->shop_name,
+    //                 'shop_cat' => optional($serviceRequest->shop)->category,
+    //                 'address' => $address,
+    //                 'address_id' => $serviceRequest->address_id,
+    //                 'lang' => $serviceRequest->lang,
+    //                 'lat' => $serviceRequest->lat,
+    //                 'desc' => $serviceRequest->desc,
+    //                 'file' => $serviceRequest->file,
+    //                 'file_type' => $serviceRequest->file_type,
+    //                 'status' => $mainStatus,
+    //                 'created_at' => $serviceRequest->created_at,
+    //                 'total_providers_bid' => count($providersList),
+    //                 'total_shopkeepers_bid' => count($shopkeepersList),
+    //                 'providers' => $providersList,
+    //                 'shopkeepers' => $shopkeepersList,
+    //             ]
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Something went wrong',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function serviceRequestDetails($id)
     {
         try {
@@ -402,18 +476,34 @@ class ServiceRequestController extends Controller
             $providersList = [];
             $shopkeepersList = [];
 
+            // Initialize unread counts
+            $totalUserUnreadCount = 0;
+            $totalProviderUnreadCount = 0;
+            $totalShopkeeperUnreadCount = 0;
+
             // Show ALL booking requests
             foreach ($serviceRequest->bookingRequests as $bookingRequest) {
                 // Provider data
                 if ($bookingRequest->provider) {
                     $provider = $bookingRequest->provider;
 
+                    // Calculate unread counts
                     $providerUnreadCount = Chat::where('booking_id', $bookingRequest->id)
                         ->where('receiver_id', $provider->id)
                         ->where('receiver_type', 'App\Models\Provider')
                         ->where('is_seen', false)
                         ->whereNull('deleted_at')
                         ->count();
+
+                    $userUnreadCount = Chat::where('booking_id', $bookingRequest->id)
+                        ->where('receiver_id', $user_id)
+                        ->where('receiver_type', 'App\Models\User')
+                        ->where('is_seen', false)
+                        ->whereNull('deleted_at')
+                        ->count();
+
+                    $totalProviderUnreadCount += $providerUnreadCount;
+                    $totalUserUnreadCount += $userUnreadCount;
 
                     $totalCompletedBookings = $provider->bookingRequests()
                         ->where('req_status', 'complete')
@@ -430,7 +520,7 @@ class ServiceRequestController extends Controller
                             : null,
                         'total_completed_bookings' => $totalCompletedBookings,
                         'average_rating' => $averageRating ? round($averageRating, 1) : 0,
-                        'status' => $this->normalizeStatus($bookingRequest->req_status), // Use req_status
+                        'status' => $this->normalizeStatus($bookingRequest->req_status),
                         'unread_count' => $providerUnreadCount,
                         'booking_id' => $bookingRequest->id,
                         'assigned' => $bookingRequest->assigned,
@@ -444,12 +534,26 @@ class ServiceRequestController extends Controller
                 if ($bookingRequest->shopkeeper) {
                     $shopkeeper = $bookingRequest->shopkeeper;
 
+                    // Calculate unread counts
                     $shopkeeperUnreadCount = Chat::where('booking_id', $bookingRequest->id)
                         ->where('receiver_id', $shopkeeper->id)
                         ->where('receiver_type', 'App\Models\ShopKeeper')
                         ->where('is_seen', false)
                         ->whereNull('deleted_at')
                         ->count();
+
+                    // Only add user unread count if not already added by provider
+                    if (!$bookingRequest->provider) {
+                        $userUnreadCount = Chat::where('booking_id', $bookingRequest->id)
+                            ->where('receiver_id', $user_id)
+                            ->where('receiver_type', 'App\Models\User')
+                            ->where('is_seen', false)
+                            ->whereNull('deleted_at')
+                            ->count();
+                        $totalUserUnreadCount += $userUnreadCount;
+                    }
+
+                    $totalShopkeeperUnreadCount += $shopkeeperUnreadCount;
 
                     $totalCompletedBookings = $shopkeeper->bookingRequests()
                         ->where('req_status', 'complete')
@@ -463,7 +567,7 @@ class ServiceRequestController extends Controller
                         'profile_image' => $shopkeeper->profile_image ?? null,
                         'total_completed_bookings' => $totalCompletedBookings,
                         'average_rating' => $averageRating ? round($averageRating, 1) : 0,
-                        'status' => $this->normalizeStatus($bookingRequest->req_status), // Use req_status
+                        'status' => $this->normalizeStatus($bookingRequest->req_status),
                         'unread_count' => $shopkeeperUnreadCount,
                         'booking_id' => $bookingRequest->id,
                         'assigned' => $bookingRequest->assigned,
@@ -488,7 +592,6 @@ class ServiceRequestController extends Controller
             $highestPriority = 0;
 
             foreach ($serviceRequest->bookingRequests as $booking) {
-                // Use req_status instead of status column
                 $bookingStatus = $booking->req_status;
                 $priority = $statusPriority[$bookingStatus] ?? 0;
                 if ($priority > $highestPriority) {
@@ -498,8 +601,6 @@ class ServiceRequestController extends Controller
             }
 
             $mainStatus = $highestPriority > 0 ? $highestPriorityStatus : $serviceRequest->status;
-
-            // Normalize main status for API response
             $mainStatus = $this->normalizeStatus($mainStatus);
 
             return response()->json([
@@ -525,6 +626,13 @@ class ServiceRequestController extends Controller
                     'total_shopkeepers_bid' => count($shopkeepersList),
                     'providers' => $providersList,
                     'shopkeepers' => $shopkeepersList,
+                    // Add unread_counts array here
+                    'unread_counts' => [
+                        'user' => $totalUserUnreadCount,
+                        'provider' => $totalProviderUnreadCount,
+                        'shopkeeper' => $totalShopkeeperUnreadCount,
+                        'total' => $totalUserUnreadCount + $totalProviderUnreadCount + $totalShopkeeperUnreadCount
+                    ],
                 ]
             ], 200);
         } catch (\Exception $e) {

@@ -27,5 +27,12 @@ class Setting extends Model
         'appIsOn',
         'userAppIsOn',
         'providerAppIsOn',
+        'referral_enabled',
+        'referral_type',
+        'referral_level_1',
+        'referral_level_2',
+        'referral_level_3',
+        'referral_min_amount',
+        'referral_max_amount',
     ];
 }

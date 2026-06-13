@@ -28,6 +28,13 @@ class SettingController extends Controller
         'appIsOn',
         'userAppIsOn',
         'providerAppIsOn',
+        'referral_enabled',
+        'referral_type',
+        'referral_level_1',
+        'referral_level_2',
+        'referral_level_3',
+        'referral_min_amount',
+        'referral_max_amount',
 
         // Legal Pages - Partner
         'partner_agreement',
@@ -87,6 +94,13 @@ class SettingController extends Controller
             $setting->appIsOn = 0;
             $setting->userAppIsOn = 0;
             $setting->providerAppIsOn = 0;
+            $setting->referral_enabled = 0;
+            $setting->referral_type = 'percentage';
+            $setting->referral_level_1 = 0;
+            $setting->referral_level_2 = 0;
+            $setting->referral_level_3 = 0;
+            $setting->referral_min_amount = 0;
+            $setting->referral_max_amount = 0;
             $setting->partner_agreement = null;
             $setting->privacy_policy_partner = null;
             $setting->termsConditions_partner = null;

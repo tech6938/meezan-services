@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\api\{AddressController, AuthController, ChatController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
+use App\Http\Controllers\api\{AddressController, AuthController, ChatController, ReferralController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
 use App\Http\Controllers\api\{ShopKeeperAuthController, NearbyShopController, WalletController};
 use App\Http\Controllers\api\Provider\BookingRequestController;
 use App\Http\Controllers\api\Provider\ProviderRegisterController;
@@ -110,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Profile Management
     Route::controller(AuthController::class)->group(function () {
+        Route::get('/profile', 'profile');
         Route::post('/profileUpdate/{id}', 'ProfileUpdate');
         Route::post('/updateAuth/{id}', 'updateAuth');
     });
@@ -137,6 +138,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('chat/{receiverType}/{receiverId}', 'chatWithUser');
         Route::post('/chat/send', 'sendMessage');
         Route::post('/mark-as-read', 'markAsSeen');
+    });
+
+    Route::controller(ReferralController::class)->group(function () {
+        Route::get('/my-referral-code', 'myReferralCode');
+        Route::get('/my-referral-tree', 'myReferralTree');
+        Route::get('/my-referral-earnings', 'myReferralEarnings');
+        Route::get('/my-referral-history', 'myReferralHistory');
     });
 
     // Upload Routes

@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\FCMToken;
 use App\Models\User;
 use App\Services\FcmTokenService;
+use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -18,10 +20,12 @@ class AuthController extends Controller
 {
 
     protected FcmTokenService $fcmService;
+    protected ReferralService $referralService;
 
-    public function __construct(FcmTokenService $fcmService)
+    public function __construct(FcmTokenService $fcmService, ReferralService $referralService)
     {
         $this->fcmService = $fcmService;
+        $this->referralService = $referralService;
     }
 
     // register
@@ -31,28 +35,38 @@ class AuthController extends Controller
             $request->validate([
                 'name'      => 'required|string|max:255',
                 'phone'     => 'required|string|unique:users,phone',
+                'email'     => 'required|string|unique:users,email',
                 'password'  => 'required|string|min:6',
                 'device_id' => 'required|string|unique:users,device_id',
                 'fcm_token' => 'required',
+                'referral_code' => 'nullable|string|exists:users,referral_code',
             ]);
 
-            $user = User::create([
-                'name'      => $request->name,
-                'phone'     => $request->phone,
-                'password'  => Hash::make($request->password),
-                'device_id' => $request->device_id,
-            ]);
+            $user = DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'name'      => $request->name,
+                    'phone'     => $request->phone,
+                    'email'     => $request->email,
+                    'password'  => Hash::make($request->password),
+                    'device_id' => $request->device_id,
+                    'referral_code' => $this->referralService->generateUniqueReferralCode(),
+                ]);
 
-            // Save FCM token
-            FCMToken::updateOrCreate(
-                [
-                    'entity_type' => 'user',
-                    'entity_id'   => $user->id,
-                ],
-                [
-                    'fcm_token' => $request->fcm_token,
-                ]
-            );
+                $this->referralService->assignReferrer($user, $request->input('referral_code'));
+
+                // Save FCM token
+                FCMToken::updateOrCreate(
+                    [
+                        'entity_type' => 'user',
+                        'entity_id'   => $user->id,
+                    ],
+                    [
+                        'fcm_token' => $request->fcm_token,
+                    ]
+                );
+
+                return $user;
+            });
 
             // Create Sanctum token
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -215,6 +229,33 @@ class AuthController extends Controller
             return response()->json([
                 'status' => false,
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function profile()
+    {
+        try {
+            $user = Auth::guard('api')->user();
+
+            if (!$user instanceof User) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthorized',
+                ], 401);
+            }
+
+            $user->loadCount('referrals');
+            $user->load('referrer');
+
+            return response()->json([
+                'status' => true,
+                'data' => $user,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
             ], 500);
         }
     }

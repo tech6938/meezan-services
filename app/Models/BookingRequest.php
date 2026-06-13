@@ -25,6 +25,7 @@ class BookingRequest extends Model
         'goto',
         'details',
         'audio',
+        'file',
         'is_seen',
         'seen_at',
     ];
@@ -36,6 +37,69 @@ class BookingRequest extends Model
         'goto' => 'integer',
         'is_seen' => 'integer',
     ];
+
+    protected $appends = ['file_type'];
+
+    /**
+     * Mutator for 'file' attribute - converts array to JSON before saving
+     */
+    public function setFileAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['file'] = json_encode($value);
+        } else {
+            $this->attributes['file'] = $value;
+        }
+    }
+
+    /**
+     * Accessor for 'file' attribute - converts JSON back to array with full URLs
+     */
+    public function getFileAttribute($value)
+    {
+        if (!$value) {
+            return [];
+        }
+
+        // Decode JSON
+        $files = json_decode($value, true);
+
+        if (!is_array($files)) {
+            $files = [$value];
+        }
+
+        // Generate full URLs
+        return array_map(function ($file) {
+            $file = trim($file);
+            $file = str_replace('\/', '/', $file);
+            return url($file);
+        }, $files);
+    }
+
+    /**
+     * File type accessor for first file
+     */
+    public function getFileTypeAttribute()
+    {
+        $files = $this->file;
+        if (empty($files)) {
+            return null;
+        }
+
+        $firstFile = $files[0];
+        $extension = pathinfo($firstFile, PATHINFO_EXTENSION);
+        $extension = strtolower($extension);
+
+        $audio = ['mp3', 'wav', 'ogg', 'm4a', 'aac'];
+        $video = ['mp4', 'webm', 'avi', 'mov', 'mkv'];
+        $image = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+
+        if (in_array($extension, $audio)) return 'audio';
+        if (in_array($extension, $video)) return 'video';
+        if (in_array($extension, $image)) return 'image';
+
+        return 'other';
+    }
 
     public function serviceRequest()
     {

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\{AuthController, BookingController, MainCategoryController, SettingController, SubCategoryController, TaxController, VolunteerController, PageController};
+use App\Http\Controllers\{AuthController, BookingController, MainCategoryController, ReferralController, SettingController, SubCategoryController, TaxController, VolunteerController, PageController};
 use App\Http\Controllers\api\RatingController;
 use App\Http\Controllers\ChatsController;
 use App\Http\Controllers\CommissionController;
@@ -173,6 +173,20 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/partner/agreement', 'partnerAgreement')->name('partnerAgreement');
         Route::get('/about_us', 'aboutUs')->name('aboutUs');
         Route::get('/contact_us', 'contactUs')->name('contactUs');
+    });
+
+    /*
+|--------------------------------------------------------------------------
+| Referral Management
+|--------------------------------------------------------------------------
+*/
+    Route::prefix('referral')->name('referrals.')->controller(ReferralController::class)->group(function () {
+        Route::get('/settings', 'settings')->name('settings');
+        Route::post('/settings', 'updateSettings')->name('settings.update');
+        Route::get('/tree', 'tree')->name('tree');
+        Route::get('/customer-earnings', 'customerEarnings')->name('customerEarnings');
+        Route::get('/commission-logs', 'commissionLogs')->name('commissionLogs');
+        Route::get('/reports', 'reports')->name('reports');
     });
 
     /*

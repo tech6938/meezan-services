@@ -101,6 +101,12 @@
                         <i class="fas fa-list-alt mr-1"></i> Requests & Bookings
                     </a>
                 </li>
+                <li class="nav-item mx-2">
+                    <a class="nav-link" id="referrals-tab" data-toggle="tab" href="#referrals" role="tab"
+                        aria-controls="referrals" aria-selected="false">
+                        <i class="fas fa-share-alt mr-1"></i> Referrals
+                    </a>
+                </li>
             </ul>
 
             {{-- Tabs Content --}}
@@ -114,10 +120,13 @@
                             $approvedCount = $user->serviceRequests->where('status', 'approved')->count();
                             $pendingCount = $user->serviceRequests->where('status', 'pending')->count();
                             $totalBookings = $user->bookings->count();
+                            $referralTotalEarned = (float) ($user->referral_total_earned ?? 0);
+                            $referralBalance = (float) ($user->referral_balance ?? 0);
+                            $directReferrals = (int) ($user->referrals_count ?? $user->referrals->count());
                         @endphp
 
                         {{-- Card Template --}}
-                        @foreach ([['title' => 'Total Spent', 'value' => "$totalSpent R.s", 'icon' => 'fas fa-wallet text-primary'], ['title' => 'Approved Requests', 'value' => $approvedCount, 'icon' => 'fas fa-check-circle text-success'], ['title' => 'Pending Requests', 'value' => $pendingCount, 'icon' => 'fas fa-hourglass-half text-warning'], ['title' => 'Total Bookings', 'value' => $totalBookings, 'icon' => 'fas fa-book text-info']] as $card)
+                        @foreach ([['title' => 'Total Spent', 'value' => "$totalSpent R.s", 'icon' => 'fas fa-wallet text-primary'], ['title' => 'Approved Requests', 'value' => $approvedCount, 'icon' => 'fas fa-check-circle text-success'], ['title' => 'Pending Requests', 'value' => $pendingCount, 'icon' => 'fas fa-hourglass-half text-warning'], ['title' => 'Total Bookings', 'value' => $totalBookings, 'icon' => 'fas fa-book text-info'], ['title' => 'Referral Earnings', 'value' => number_format($referralTotalEarned, 2) . ' R.s', 'icon' => 'fas fa-coins text-warning']] as $card)
                             <div class="col-lg-3 col-md-6 mb-4 d-flex">
                                 <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
                                     <div class="mb-2">
@@ -188,6 +197,12 @@
                                         {{ $user->phone ?? 'N/A' }}</p>
                                     <p><strong><i class="fas fa-map-marker-alt mr-1"></i>Address:</strong>
                                         {{ $user->address ?? 'N/A' }}</p>
+                                    <p><strong><i class="fas fa-share-alt mr-1"></i>Referral Code:</strong>
+                                        {{ $user->referral_code ?? 'N/A' }}</p>
+                                    <p><strong><i class="fas fa-user-friends mr-1"></i>Referred By:</strong>
+                                        {{ $user->referrer->name ?? 'N/A' }}</p>
+                                    <p><strong><i class="fas fa-coins mr-1"></i>Referral Balance:</strong>
+                                        {{ number_format($referralBalance, 2) }} R.s</p>
                                     <p><strong><i class="fas fa-calendar-alt mr-1"></i>Joined:</strong>
                                         {{ $user->created_at->format('d M, Y') }}</p>
                                 </div>
@@ -372,6 +387,68 @@
                                         </div>
                                     @endif
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="referrals" role="tabpanel" aria-labelledby="referrals-tab">
+                    <div class="row">
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card summary-card shadow-sm border-0 p-3 text-center">
+                                <i class="fas fa-share-alt fa-2x text-primary mb-2"></i>
+                                <h5 class="font-weight-bold">Direct Referrals</h5>
+                                <h3 class="mt-2">{{ $directReferrals }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card summary-card shadow-sm border-0 p-3 text-center">
+                                <i class="fas fa-coins fa-2x text-warning mb-2"></i>
+                                <h5 class="font-weight-bold">Total Earned</h5>
+                                <h3 class="mt-2">{{ number_format($referralTotalEarned, 2) }} R.s</h3>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card summary-card shadow-sm border-0 p-3 text-center">
+                                <i class="fas fa-wallet fa-2x text-success mb-2"></i>
+                                <h5 class="font-weight-bold">Balance</h5>
+                                <h3 class="mt-2">{{ number_format($referralBalance, 2) }} R.s</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-light">
+                            <h4 class="mb-0">Direct Referral List</h4>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Name</th>
+                                            <th>Phone</th>
+                                            <th>Referral Code</th>
+                                            <th>Joined</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($user->referrals as $referral)
+                                            <tr>
+                                                <td>{{ $loop->iteration }}</td>
+                                                <td>{{ $referral->name }}</td>
+                                                <td>{{ $referral->phone }}</td>
+                                                <td>{{ $referral->referral_code ?? 'N/A' }}</td>
+                                                <td>{{ optional($referral->created_at)->format('d M, Y') }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center">No referrals found</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api;
 
+use App\Events\ChatMessageSent;
 use App\Http\Controllers\Controller;
 use App\Models\Chat;
 use App\Models\Provider;
@@ -452,6 +453,13 @@ class ChatController extends Controller
             /* -------- Auth Info -------- */
             $auth = $this->authInfo();
 
+            if ((int) $request->receiver_id === (int) $auth['id'] && $request->receiver_type === $auth['type']) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'You cannot send a chat message to yourself.'
+                ], 422);
+            }
+
             $filePath = null;
             $fileName = null;
             $fileType = null;
@@ -487,6 +495,9 @@ class ChatController extends Controller
                 'is_seen'       => false,
                 'seen_at'       => null,
             ]);
+
+            $chat->load('sender');
+            event(new ChatMessageSent($chat));
 
             return response()->json([
                 'status' => true,
