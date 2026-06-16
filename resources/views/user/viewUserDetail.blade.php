@@ -36,12 +36,38 @@
 
         /* Summary cards */
         .summary-card {
-            transition: transform 0.3s, box-shadow 0.3s;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            border-radius: 15px !important;
         }
 
         .summary-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .summary-card h3 {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .summary-card h5 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .summary-card .fa-2x {
+            font-size: 2.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .summary-card h3 {
+                font-size: 22px;
+            }
+
+            .summary-card h5 {
+                font-size: 14px;
+            }
         }
 
         /* Rounded badge colors */
@@ -116,27 +142,88 @@
                 <div class="tab-pane fade show active" id="summary" role="tabpanel" aria-labelledby="summary-tab">
                     <div class="row">
                         @php
-                            $totalSpent = $user->bookings->sum('price');
-                            $approvedCount = $user->serviceRequests->where('status', 'approved')->count();
-                            $pendingCount = $user->serviceRequests->where('status', 'pending')->count();
-                            $totalBookings = $user->bookings->count();
+                            // Calculate statistics based on user relationships
+                            $totalSpent = $user->bookings->where('status', 'complete_booking')->sum('price') ?? 0;
+                            $acceptedOrders = $user->serviceRequests->where('status', 'accept')->count() ?? 0;
+                            $pendingCount = $user->serviceRequests->where('status', 'pending')->count() ?? 0;
+                            $totalBookings = $user->bookings->where('goto', '2')->count() ?? 0;
+                            $completedBookings = $user->bookings->where('status', 'complete_booking')->count() ?? 0;
                             $referralTotalEarned = (float) ($user->referral_total_earned ?? 0);
                             $referralBalance = (float) ($user->referral_balance ?? 0);
                             $directReferrals = (int) ($user->referrals_count ?? $user->referrals->count());
                         @endphp
 
-                        {{-- Card Template --}}
-                        @foreach ([['title' => 'Total Spent', 'value' => "$totalSpent R.s", 'icon' => 'fas fa-wallet text-primary'], ['title' => 'Approved Requests', 'value' => $approvedCount, 'icon' => 'fas fa-check-circle text-success'], ['title' => 'Pending Requests', 'value' => $pendingCount, 'icon' => 'fas fa-hourglass-half text-warning'], ['title' => 'Total Bookings', 'value' => $totalBookings, 'icon' => 'fas fa-book text-info'], ['title' => 'Referral Earnings', 'value' => number_format($referralTotalEarned, 2) . ' R.s', 'icon' => 'fas fa-coins text-warning']] as $card)
-                            <div class="col-lg-3 col-md-6 mb-4 d-flex">
-                                <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
-                                    <div class="mb-2">
-                                        <i class="{{ $card['icon'] }} fa-2x"></i>
-                                    </div>
-                                    <h5 class="font-weight-bold">{{ $card['title'] }}</h5>
-                                    <h3 class="mt-2">{{ $card['value'] }}</h3>
+                        {{-- Card 1: Total Spent --}}
+                        <div class="col-lg-3 col-md-6 mb-4 d-flex">
+                            <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-wallet text-dark fa-2x"></i>
                                 </div>
+                                <h5 class="font-weight-bold">Total Spent</h5>
+                                <h3 class="mt-2 text-dark">{{ number_format($totalSpent, 2) }} R.s</h3>
+                                <small class="text-muted">Total amount spent on completed bookings</small>
                             </div>
-                        @endforeach
+                        </div>
+
+                        {{-- Card 2: Accepted Orders --}}
+                        <div class="col-lg-3 col-md-6 mb-4 d-flex">
+                            <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-check-circle text-success fa-2x"></i>
+                                </div>
+                                <h5 class="font-weight-bold">Accepted Orders</h5>
+                                <h3 class="mt-2 text-success">{{ $acceptedOrders }}</h3>
+                                <small class="text-muted">Service requests that are approved</small>
+                            </div>
+                        </div>
+
+                        {{-- Card 3: Pending Requests --}}
+                        <div class="col-lg-3 col-md-6 mb-4 d-flex">
+                            <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-hourglass-half text-warning fa-2x"></i>
+                                </div>
+                                <h5 class="font-weight-bold">Pending Requests</h5>
+                                <h3 class="mt-2 text-warning">{{ $pendingCount }}</h3>
+                                <small class="text-muted">Requests waiting for acceptance</small>
+                            </div>
+                        </div>
+
+                        {{-- Card 4: Total Bookings --}}
+                        <div class="col-lg-3 col-md-6 mb-4 d-flex">
+                            <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-book text-info fa-2x"></i>
+                                </div>
+                                <h5 class="font-weight-bold">Total Bookings</h5>
+                                <h3 class="mt-2 text-info">{{ $totalBookings }}</h3>
+                                <small class="text-muted">Total orders converted to bookings</small>
+                            </div>
+                        </div>
+
+                        {{-- Card 5: Completed Bookings (New Card) --}}
+                        <div class="col-lg-3 col-md-6 mb-4 d-flex">
+                            <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-check-double text-success fa-2x"></i>
+                                </div>
+                                <h5 class="font-weight-bold">Completed Bookings</h5>
+                                <h3 class="mt-2 text-success">{{ $completedBookings }}</h3>
+                                <small class="text-muted">Successfully completed bookings</small>
+                            </div>
+                        </div>
+
+                        {{-- Card 6: Referral Earnings --}}
+                        <div class="col-lg-3 col-md-6 mb-4 d-flex">
+                            <div class="card summary-card flex-fill shadow-sm border-0 p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-coins text-warning fa-2x"></i>
+                                </div>
+                                <h5 class="font-weight-bold">Referral Earnings</h5>
+                                <h3 class="mt-2 text-warning">{{ number_format($referralTotalEarned, 2) }} R.s</h3>
+                                <small class="text-muted">Earnings from referrals</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -150,9 +237,10 @@
                                     style="background: linear-gradient(135deg, #007bff, #00c6ff); border-radius: .25rem .25rem 0 0;">
                                     <div class="d-flex align-items-center">
                                         <div class="mr-3">
-                                            @if ($user->image)
-                                                <img src="{{ $user->image }}" class="rounded-circle shadow" width="100"
-                                                    height="100" style="object-fit: cover; border: 3px solid #fff;">
+                                            @if ($user->image_url)
+                                                <img src="{{ $user->image_url }}" class="rounded-circle shadow"
+                                                    width="100" height="100"
+                                                    style="object-fit: cover; border: 3px solid #fff;">
                                             @else
                                                 <div class="rounded-circle bg-light text-primary d-flex align-items-center justify-content-center shadow"
                                                     style="width:100px; height:100px; font-size: 36px;">
@@ -161,14 +249,16 @@
                                             @endif
                                         </div>
                                         <div>
+                                            <h3 class="mb-1">User # {{ $user->id }}</h3>
                                             <h3 class="mb-1">{{ $user->name }}</h3>
-                                            <p class="mb-0"><i class="fas fa-phone-alt mr-1"></i> {{ $user->phone }}</p>
+                                            <p class="mb-0"><i class="fas fa-phone-alt mr-1"></i> {{ $user->phone }}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {{-- User Stats --}}
-                                <div class="card-body text-center py-4">
+                                {{-- <div class="card-body text-center py-4">
                                     <div class="row">
                                         <div class="col-4">
                                             <div class="p-3 bg-light rounded shadow-sm">
@@ -189,7 +279,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </div> --}}
 
                                 {{-- Additional Details --}}
                                 <div class="card-body border-top">
@@ -202,7 +292,7 @@
                                     <p><strong><i class="fas fa-user-friends mr-1"></i>Referred By:</strong>
                                         {{ $user->referrer->name ?? 'N/A' }}</p>
                                     <p><strong><i class="fas fa-coins mr-1"></i>Referral Balance:</strong>
-                                        {{ number_format($referralBalance, 2) }} R.s</p>
+                                        {{ number_format($referralTotalEarned, 2) }} R.s</p>
                                     <p><strong><i class="fas fa-calendar-alt mr-1"></i>Joined:</strong>
                                         {{ $user->created_at->format('d M, Y') }}</p>
                                 </div>
@@ -226,6 +316,7 @@
                                             <thead class="thead-light">
                                                 <tr>
                                                     <th>#</th>
+                                                    <th>Order ID</th>
                                                     <th>Description</th>
                                                     <th>Status</th>
                                                     <th>Date</th>
@@ -245,6 +336,7 @@
                                                 @foreach ($paginatedRequests as $index => $req)
                                                     <tr>
                                                         <td>{{ $offset + $loop->index + 1 }}</td>
+                                                        <td>{{ 'MS-ORD-' . $req->id }}</td>
                                                         <td>{{ $req->desc }}</td>
                                                         <td>
                                                             <span
@@ -307,6 +399,7 @@
                                             <thead class="thead-light">
                                                 <tr>
                                                     <th>#</th>
+                                                    <th>Booking ID</th>
                                                     <th>Provider</th>
                                                     <th>Price</th>
                                                     <th>Payment Method</th>
@@ -330,6 +423,7 @@
                                                 @foreach ($paginatedBookings as $index => $booking)
                                                     <tr>
                                                         <td>{{ $bookingsOffset + $loop->index + 1 }}</td>
+                                                        <td>{{ 'MS-BKG-' . $booking->id }}</td>
                                                         <td>{{ $booking->provider->full_name ?? 'N/A' }}</td>
                                                         <td>{{ $booking->price }}</td>
                                                         <td>{{ $booking->cash_on_delivery ? 'Cash' : 'Online' }}</td>

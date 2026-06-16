@@ -66,6 +66,23 @@ class Provider extends Authenticatable
     {
         return $this->hasMany(BookingRequest::class);
     }
+
+    /**
+     * Get service requests directly through booking requests
+     * This will give you access to service_requests data
+     */
+    public function serviceRequests()
+    {
+        return $this->hasManyThrough(
+            ServiceRequest::class,
+            BookingRequest::class,
+            'provider_id',     // Foreign key on booking_requests table
+            'id',              // Foreign key on service_requests table
+            'id',              // Local key on providers table
+            'request_id' // Local key on booking_requests table
+        );
+    }
+
     public function ratings()
     {
         return $this->hasMany(Rating::class, 'provider_id', 'id');

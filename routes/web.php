@@ -73,6 +73,7 @@ Route::controller(AuthController::class)->group(function () {
 
         // Export routes
         Route::get('/users/export', 'exportUsers')->name('users.export');
+        Route::get('/users/preview', 'previewUsers')->name('users.preview');
         // for providers list
         Route::get('/approved-providers', 'approvedProviders')->name('approvedProviders');
         Route::get('/blocked-providers', 'blockedProviders')->name('blockedProviders');
@@ -83,6 +84,7 @@ Route::controller(AuthController::class)->group(function () {
         Route::post('/statusUpdate', 'statusUpdate')->name('statusUpdate');
         Route::delete('/provider/{id}', 'destroy')->name('provider.destroy');
         Route::get('/providers/export', 'exportProviders')->name('providers.export');
+        Route::get('/providers/preview', 'previewProviders')->name('providers.preview');
         Route::get('/export-providers-multi', 'exportProvidersMultiSheet')->name('providers.exportMultiSheet');
         Route::get('/users/export-multi', 'exportUsersMultiSheet')->name('users.exportMulti');
     });
@@ -123,6 +125,7 @@ Route::controller(AuthController::class)->group(function () {
         // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');
         Route::get('/bookings/export', 'exportBookings')->name('bookings.export');
+        Route::get('/bookings/preview', 'previewBookings')->name('bookings.preview');
         Route::get('/bookings/export-multi', 'exportBookingsMultiSheet')->name('bookings.exportMultiMulti');
     });
 

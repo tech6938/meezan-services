@@ -152,12 +152,21 @@
                             <div class="card-header"
                                 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                 <h4>Users List</h4>
-                                @include('components.export-button', [
-                                    'apiUrl' => route('users.exportMulti'),
-                                    'fileName' => 'users',
-                                    'queryParams' => request()->all(),
-                                    'buttonLabel' => 'Export',
-                                ])
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    {{-- <a href="{{ route('users.preview') }}" class="btn btn-sm btn-primary p-0 m-0">Preview</a> --}}
+                                    @include('components.preview-button', [
+                                        'apiUrl' => route('users.preview'),
+                                        'previewTitle' => 'Users Data Preview',
+                                        'queryParams' => request()->all(),
+                                        'buttonLabel' => 'Preview',
+                                    ])
+                                    @include('components.export-button', [
+                                        'apiUrl' => route('users.exportMulti'),
+                                        'fileName' => 'users',
+                                        'queryParams' => request()->all(),
+                                        'buttonLabel' => 'Export',
+                                    ])
+                                </div>
                                 {{-- @include('components.export-button', [
                                     'apiUrl' => route('users.export'),
                                     'fileName' => 'users',
@@ -191,7 +200,7 @@
                                                             {{ $loop->iteration }}
                                                         </td>
                                                         <td>
-                                                            <img src="{{ $user->image }}" style="width:80px; height:70px;"
+                                                            <img src="{{ $user->image_url ?? asset('public\assets\img\users\user-8.png') }}" style="width:80px; height:70px;"
                                                                 alt="user image">
                                                             {{ $user->name }}
                                                         </td>

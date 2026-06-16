@@ -84,12 +84,20 @@
                             <div class="card-header"
                             style="display: flex; justify-content: space-between; align-items: center;">
                             <h4>All Bookings</h4>
-                                @include('components.export-button', [
-                                    'apiUrl' => route('bookings.exportMultiMulti'),
-                                    'fileName' => 'all_bookings',
-                                    'queryParams' => request()->all(),
-                                    'buttonLabel' => 'Export',
-                                ])
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    @include('components.preview-button', [
+                                        'apiUrl' => route('bookings.preview'),
+                                        'previewTitle' => 'Bookings Data Preview',
+                                        'queryParams' => request()->all(),
+                                        'buttonLabel' => 'Preview',
+                                    ])
+                                    @include('components.export-button', [
+                                        'apiUrl' => route('bookings.exportMultiMulti'),
+                                        'fileName' => 'all_bookings',
+                                        'queryParams' => request()->all(),
+                                        'buttonLabel' => 'Export',
+                                    ])
+                                </div>
                                 {{-- @include('components.export-button', [
                                     'apiUrl' => route('bookings.export'),
                                     'fileName' => 'all_bookings',

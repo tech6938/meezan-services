@@ -85,6 +85,7 @@ class BookingRequestController extends Controller
             // All checks passed - create booking
             $orderNo = now()->format('YmdHis') . random_int(10, 99);
             $serviceRequest = ServiceRequest::findOrFail($requestId);
+            $serviceRequest->update(['status' => 'accept']);
 
             $booking = BookingRequest::create([
                 'provider_id'   => $providerId,
@@ -1123,6 +1124,8 @@ class BookingRequestController extends Controller
             DB::beginTransaction();
 
             $booking = BookingRequest::find($validated['booking_id']);
+
+            ServiceRequest::where('id', $booking['request_id'])->update(['status' => 'complete']);
 
             // Check if booking is already completed
             if ($booking->status === 'complete_booking') {
