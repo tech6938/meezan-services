@@ -1,15 +1,16 @@
 @extends('layout.dashboard-layout')
+
 @section('content')
     <div class="main-content">
         <section class="section">
 
             <!-- Existing Stats Cards -->
-            <div class="row ">
+            <div class="row">
                 <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
                     <div class="card">
                         <div class="card-statistic-4">
                             <div class="align-items-center justify-content-between">
-                                <div class="row ">
+                                <div class="row">
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
                                         <div class="card-content">
                                             <h5 class="font-15">New Booking</h5>
@@ -30,11 +31,11 @@
                     <div class="card">
                         <div class="card-statistic-4">
                             <div class="align-items-center justify-content-between">
-                                <div class="row ">
+                                <div class="row">
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
                                         <div class="card-content">
-                                            <h5 class="font-15"> Customers</h5>
-                                            <h2 class="mb-3 font-18"> {{ $customers }} </h2>
+                                            <h5 class="font-15">Customers</h5>
+                                            <h2 class="mb-3 font-18">{{ $customers }}</h2>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pl-0">
@@ -51,11 +52,11 @@
                     <div class="card">
                         <div class="card-statistic-4">
                             <div class="align-items-center justify-content-between">
-                                <div class="row ">
+                                <div class="row">
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
                                         <div class="card-content">
                                             <h5 class="font-15">Total Requests</h5>
-                                            <h2 class="mb-3 font-18">{{ $totalRequests }} </h2>
+                                            <h2 class="mb-3 font-18">{{ $totalRequests }}</h2>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pl-0">
@@ -72,57 +73,11 @@
                     <div class="card">
                         <div class="card-statistic-4">
                             <div class="align-items-center justify-content-between">
-                                <div class="row ">
+                                <div class="row">
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
                                         <div class="card-content">
                                             <h5 class="font-15">Complete Booking</h5>
                                             <h2 class="mb-3 font-18">{{ $completeBookings ?? 0 }}</h2>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pl-0">
-                                        <div class="banner-img">
-                                            <img src="assets/img/banner/4.png" alt="">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-            <div class="row ">
-                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
-                    <div class="card">
-                        <div class="card-statistic-4">
-                            <div class="align-items-center justify-content-between">
-                                <div class="row ">
-                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
-                                        <div class="card-content">
-                                            <h5 class="font-15">Today Live Providers</h5>
-                                            <h2 class="mb-3 font-18">{{ $NewBookings }}</h2>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pl-0">
-                                        <div class="banner-img">
-                                            <img src="assets/img/banner/1.png" alt="">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
-                    <div class="card">
-                        <div class="card-statistic-4">
-                            <div class="align-items-center justify-content-between">
-                                <div class="row ">
-                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
-                                        <div class="card-content">
-                                            <h5 class="font-15"> Total Revenue</h5>
-                                            <h2 class="mb-3 font-18"> {{ $totalCommission }} </h2>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pl-0">
@@ -184,6 +139,66 @@
                                     <strong>{{ request('end_date') }}</strong>
                                 </div>
                             @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row">
+                <div class="col-12 col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4><i class="fas fa-chart-bar"></i> Monthly Bookings</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="monthlyBookingsChart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4><i class="fas fa-chart-pie"></i> Booking Status Distribution</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="statusDistributionChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12 col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4><i class="fas fa-trophy"></i> Top Categories</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="topCategoriesChart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4><i class="fas fa-line-chart"></i> Daily Bookings</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="dailyBookingsChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4><i class="fas fa-money-bill-wave"></i> Revenue Trend</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="revenueTrendChart"></div>
                         </div>
                     </div>
                 </div>
@@ -345,76 +360,267 @@
                 </div>
             </div>
         </section>
-
-        <div class="row">
-            <div class="col-12 col-sm-12 col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>Chart</h4>
-                    </div>
-                    <div class="card-body">
-                        <div id="chart4" class="chartsh"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-12 col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>Chart</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="summary">
-                            <div class="summary-chart active" data-tab-group="summary-tab" id="summary-chart">
-                                <div id="chart3" class="chartsh"></div>
-                            </div>
-                            <div data-tab-group="summary-tab" id="summary-text">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-12 col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>Chart</h4>
-                    </div>
-                    <div class="card-body">
-                        <div id="chart2" class="chartsh"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- <!-- App Status Card - Added here -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h4><i class="fas fa-mobile-alt"></i> Application Status</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <p class="mb-0">Control your application access from here. When turned OFF, users
-                                    won't be able to access the app.</p>
-                            </div>
-                            <div class="app-status-switch">
-                                <span class="status-label {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }} mr-2">
-                                    <i class="fas {{ $appIsOn == 1 ? 'fa-check-circle' : 'fa-power-off' }}"></i>
-                                </span>
-                                <label class="switch">
-                                    <input type="checkbox" id="appStatusSwitch" {{ $appIsOn == 1 ? 'checked' : '' }}>
-                                    <span class="slider round"></span>
-                                </label>
-                                <span id="appStatusText"
-                                    class="status-text ml-2 {{ $appIsOn == 1 ? 'text-success' : 'text-danger' }}">
-                                    {{ $appIsOn == 1 ? 'App is ON' : 'App is OFF' }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> --}}
     </div>
+@endsection
+
+@section('js')
+    <script src="{{ asset('assets/bundles/apexcharts/apexcharts.min.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Chart data from controller
+            const chartData = @json($chartData);
+
+            // 1. Monthly Bookings Chart
+            if (chartData.monthlyBookings && chartData.monthlyBookings.months.length > 0) {
+                var monthlyOptions = {
+                    series: [{
+                        name: 'Bookings',
+                        data: chartData.monthlyBookings.counts
+                    }],
+                    chart: {
+                        type: 'bar',
+                        height: 300,
+                        toolbar: {
+                            show: true
+                        }
+                    },
+                    plotOptions: {
+                        bar: {
+                            borderRadius: 4,
+                            horizontal: false,
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false
+                    },
+                    xaxis: {
+                        categories: chartData.monthlyBookings.months,
+                    },
+                    colors: ['#4CAF50'],
+                    title: {
+                        text: 'Monthly Bookings',
+                        align: 'center'
+                    },
+                    fill: {
+                        opacity: 1
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return val + " bookings"
+                            }
+                        }
+                    }
+                };
+                var monthlyChart = new ApexCharts(document.querySelector("#monthlyBookingsChart"), monthlyOptions);
+                monthlyChart.render();
+            }
+
+            // 2. Status Distribution Chart (Pie)
+            if (chartData.statusDistribution && chartData.statusDistribution.statuses.length > 0) {
+                var statusOptions = {
+                    series: chartData.statusDistribution.counts,
+                    chart: {
+                        type: 'donut',
+                        height: 300
+                    },
+                    labels: chartData.statusDistribution.statuses,
+                    colors: chartData.statusDistribution.colors,
+                    legend: {
+                        position: 'bottom',
+                        horizontalAlign: 'center'
+                    },
+                    title: {
+                        text: 'Booking Status Distribution',
+                        align: 'center'
+                    },
+                    plotOptions: {
+                        pie: {
+                            donut: {
+                                size: '65%',
+                            }
+                        }
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val, opts) {
+                            return opts.w.globals.labels[opts.seriesIndex] + ': ' + val.toFixed(1) + '%';
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return val + " bookings"
+                            }
+                        }
+                    }
+                };
+                var statusChart = new ApexCharts(document.querySelector("#statusDistributionChart"), statusOptions);
+                statusChart.render();
+            }
+
+            // 3. Top Categories Chart
+            if (chartData.topCategories && chartData.topCategories.categories.length > 0) {
+                var categoriesOptions = {
+                    series: [{
+                        name: 'Bookings',
+                        data: chartData.topCategories.counts
+                    }],
+                    chart: {
+                        type: 'bar',
+                        height: 300,
+                        toolbar: {
+                            show: true
+                        }
+                    },
+                    plotOptions: {
+                        bar: {
+                            borderRadius: 4,
+                            horizontal: true,
+                        }
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val) {
+                            return val + " bookings";
+                        }
+                    },
+                    xaxis: {
+                        categories: chartData.topCategories.categories,
+                    },
+                    colors: chartData.topCategories.colors,
+                    title: {
+                        text: 'Top Categories by Bookings',
+                        align: 'center'
+                    },
+                    fill: {
+                        opacity: 1
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return val + " bookings"
+                            }
+                        }
+                    }
+                };
+                var categoriesChart = new ApexCharts(document.querySelector("#topCategoriesChart"), categoriesOptions);
+                categoriesChart.render();
+            }
+
+            // 4. Daily Bookings Chart
+            if (chartData.dailyBookings && chartData.dailyBookings.dates.length > 0) {
+                var dailyOptions = {
+                    series: [{
+                        name: 'Daily Bookings',
+                        data: chartData.dailyBookings.counts
+                    }],
+                    chart: {
+                        type: 'line',
+                        height: 300,
+                        toolbar: {
+                            show: true
+                        },
+                        zoom: {
+                            enabled: true
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        width: 2
+                    },
+                    xaxis: {
+                        categories: chartData.dailyBookings.dates,
+                        labels: {
+                            rotate: -45,
+                            style: {
+                                fontSize: '10px'
+                            }
+                        }
+                    },
+                    colors: ['#2196F3'],
+                    title: {
+                        text: 'Daily Bookings Trend',
+                        align: 'center'
+                    },
+                    fill: {
+                        type: 'gradient',
+                        gradient: {
+                            shade: 'light',
+                            type: 'vertical',
+                            shadeIntensity: 0.3,
+                            opacityFrom: 0.8,
+                            opacityTo: 0.2
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return val + " bookings"
+                            }
+                        }
+                    }
+                };
+                var dailyChart = new ApexCharts(document.querySelector("#dailyBookingsChart"), dailyOptions);
+                dailyChart.render();
+            }
+
+            // 5. Revenue Trend Chart
+            if (chartData.revenueTrend && chartData.revenueTrend.months.length > 0) {
+                var revenueOptions = {
+                    series: [{
+                        name: 'Revenue (PKR)',
+                        data: chartData.revenueTrend.revenue
+                    }],
+                    chart: {
+                        type: 'area',
+                        height: 300,
+                        toolbar: {
+                            show: true
+                        },
+                        zoom: {
+                            enabled: true
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        width: 3
+                    },
+                    xaxis: {
+                        categories: chartData.revenueTrend.months,
+                    },
+                    colors: ['#FF9800'],
+                    title: {
+                        text: 'Revenue Trend',
+                        align: 'center'
+                    },
+                    fill: {
+                        type: 'gradient',
+                        gradient: {
+                            shade: 'light',
+                            type: 'vertical',
+                            shadeIntensity: 0.3,
+                            opacityFrom: 0.8,
+                            opacityTo: 0.2
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return 'PKR ' + val.toFixed(2)
+                            }
+                        }
+                    }
+                };
+                var revenueChart = new ApexCharts(document.querySelector("#revenueTrendChart"), revenueOptions);
+                revenueChart.render();
+            }
+        });
+    </script>
 @endsection

@@ -12,49 +12,49 @@ use Illuminate\Support\Facades\DB;
 class AuthController extends Controller
 {
 
-    public function dashboard(Request $request)
-    {
-        // Get date range from request
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
+    // public function dashboard(Request $request)
+    // {
+    //     // Get date range from request
+    //     $startDate = $request->input('start_date');
+    //     $endDate = $request->input('end_date');
 
-        // Base queries for stats
-        $completeBookingsQuery = BookingRequest::where('status', 'complete_booking');
-        $NewBookingsQuery = BookingRequest::where('status', 'pending');
-        $customers = User::count() ?? 0;
-        $totalRequests = ServiceRequest::count() ?? 0;
-        $totalCommission = DB::table('commission_logs')->sum('commission_deducted') ?? 0;
-        $setting = Setting::first();
-        $appIsOn = $setting ? $setting->appIsOn : 1;
+    //     // Base queries for stats
+    //     $completeBookingsQuery = BookingRequest::where('status', 'complete_booking');
+    //     $NewBookingsQuery = BookingRequest::where('status', 'pending');
+    //     $customers = User::count() ?? 0;
+    //     $totalRequests = ServiceRequest::count() ?? 0;
+    //     $totalCommission = DB::table('commission_logs')->sum('commission_deducted') ?? 0;
+    //     $setting = Setting::first();
+    //     $appIsOn = $setting ? $setting->appIsOn : 1;
 
-        // Apply date filter to booking counts
-        if ($startDate && $endDate) {
-            $completeBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
-            $NewBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
-        }
+    //     // Apply date filter to booking counts
+    //     if ($startDate && $endDate) {
+    //         $completeBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+    //         $NewBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+    //     }
 
-        $completeBookings = $completeBookingsQuery->count();
-        $NewBookings = $NewBookingsQuery->count();
+    //     $completeBookings = $completeBookingsQuery->count();
+    //     $NewBookings = $NewBookingsQuery->count();
 
-        // Get most booked categories (where assigned = 1)
-        $mostBookedCategories = $this->getMostBookedCategories($startDate, $endDate);
+    //     // Get most booked categories (where assigned = 1)
+    //     $mostBookedCategories = $this->getMostBookedCategories($startDate, $endDate);
 
-        // Get most booked subcategories (where assigned = 1)
-        $mostBookedSubcategories = $this->getMostBookedSubcategories($startDate, $endDate);
+    //     // Get most booked subcategories (where assigned = 1)
+    //     $mostBookedSubcategories = $this->getMostBookedSubcategories($startDate, $endDate);
 
-        return view('dashboard', compact(
-            'completeBookings',
-            'NewBookings',
-            'customers',
-            'totalRequests',
-            'totalCommission',
-            'mostBookedCategories',
-            'mostBookedSubcategories',
-            'startDate',
-            'endDate',
-            'appIsOn',
-        ));
-    }
+    //     return view('dashboard', compact(
+    //         'completeBookings',
+    //         'NewBookings',
+    //         'customers',
+    //         'totalRequests',
+    //         'totalCommission',
+    //         'mostBookedCategories',
+    //         'mostBookedSubcategories',
+    //         'startDate',
+    //         'endDate',
+    //         'appIsOn',
+    //     ));
+    // }
 
     private function getMostBookedCategories($startDate = null, $endDate = null)
     {
@@ -103,6 +103,275 @@ class AuthController extends Controller
 
         return $query->get();
     }
+
+
+    public function dashboard(Request $request)
+    {
+        // Get date range from request
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Base queries for stats
+        $completeBookingsQuery = BookingRequest::where('status', 'complete_booking');
+        $NewBookingsQuery = BookingRequest::where('status', 'pending');
+        $customers = User::count() ?? 0;
+        $totalRequests = ServiceRequest::count() ?? 0;
+        $totalCommission = DB::table('commission_logs')->sum('commission_deducted') ?? 0;
+        $setting = Setting::first();
+        $appIsOn = $setting ? $setting->appIsOn : 1;
+
+        // Apply date filter to booking counts
+        if ($startDate && $endDate) {
+            $completeBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+            $NewBookingsQuery->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+        }
+
+        $completeBookings = $completeBookingsQuery->count();
+        $NewBookings = $NewBookingsQuery->count();
+
+        // Get most booked categories (where assigned = 1)
+        $mostBookedCategories = $this->getMostBookedCategories($startDate, $endDate);
+
+        // Get most booked subcategories (where assigned = 1)
+        $mostBookedSubcategories = $this->getMostBookedSubcategories($startDate, $endDate);
+
+        // Get chart data
+        $chartData = $this->getChartData($startDate, $endDate);
+
+        return view('dashboard', compact(
+            'completeBookings',
+            'NewBookings',
+            'customers',
+            'totalRequests',
+            'totalCommission',
+            'mostBookedCategories',
+            'mostBookedSubcategories',
+            'startDate',
+            'endDate',
+            'appIsOn',
+            'chartData'
+        ));
+    }
+
+    /**
+     * Get data for charts
+     */
+    private function getChartData($startDate = null, $endDate = null)
+    {
+        // 1. Monthly Bookings Chart Data (Last 12 months or filtered range)
+        $monthlyBookings = $this->getMonthlyBookingsData($startDate, $endDate);
+
+        // 2. Booking Status Distribution Chart Data
+        $statusDistribution = $this->getStatusDistributionData($startDate, $endDate);
+
+        // 3. Top Categories Chart Data
+        $topCategories = $this->getTopCategoriesData($startDate, $endDate);
+
+        // 4. Daily Bookings Chart Data (for selected range)
+        $dailyBookings = $this->getDailyBookingsData($startDate, $endDate);
+
+        // 5. Revenue Trend Chart Data
+        $revenueTrend = $this->getRevenueTrendData($startDate, $endDate);
+
+        return [
+            'monthlyBookings' => $monthlyBookings,
+            'statusDistribution' => $statusDistribution,
+            'topCategories' => $topCategories,
+            'dailyBookings' => $dailyBookings,
+            'revenueTrend' => $revenueTrend,
+        ];
+    }
+
+    /**
+     * Get monthly bookings data
+     */
+    private function getMonthlyBookingsData($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::query();
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+        } else {
+            // Last 12 months if no filter
+            $query->where('created_at', '>=', now()->subMonths(12));
+        }
+
+        $data = $query->selectRaw('MONTH(created_at) as month, YEAR(created_at) as year, COUNT(*) as total')
+            ->groupBy('year', 'month')
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        $months = [];
+        $counts = [];
+
+        foreach ($data as $item) {
+            $monthName = date('M Y', mktime(0, 0, 0, $item->month, 1, $item->year));
+            $months[] = $monthName;
+            $counts[] = $item->total;
+        }
+
+        return [
+            'months' => $months,
+            'counts' => $counts,
+        ];
+    }
+
+    /**
+     * Get status distribution data
+     */
+    private function getStatusDistributionData($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::query();
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+        }
+
+        $data = $query->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->get();
+
+        $statuses = [];
+        $counts = [];
+        $colors = [];
+
+        $colorMap = [
+            'pending' => '#FFC107',
+            'accept' => '#4CAF50',
+            'in_progress' => '#2196F3',
+            'complete_booking' => '#8BC34A',
+            'cancel' => '#F44336',
+        ];
+
+        foreach ($data as $item) {
+            $statuses[] = ucfirst(str_replace('_', ' ', $item->status));
+            $counts[] = $item->count;
+            $colors[] = $colorMap[$item->status] ?? '#9E9E9E';
+        }
+
+        return [
+            'statuses' => $statuses,
+            'counts' => $counts,
+            'colors' => $colors,
+        ];
+    }
+
+    /**
+     * Get top categories data
+     */
+    private function getTopCategoriesData($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::join('service_requests', 'booking_requests.request_id', '=', 'service_requests.id')
+            ->join('main_categories', 'service_requests.cat_id', '=', 'main_categories.id')
+            ->selectRaw('main_categories.name, COUNT(booking_requests.id) as total')
+            // ->where('booking_requests.goto', '1')
+            ->groupBy('main_categories.id', 'main_categories.name')
+            ->orderBy('total', 'desc')
+            ->limit(5);
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('booking_requests.created_at', [$startDate, $endDate . ' 23:59:59']);
+        }
+
+        $data = $query->get();
+
+        $categories = [];
+        $counts = [];
+        $colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336'];
+
+        foreach ($data as $index => $item) {
+            $categories[] = $item->name;
+            $counts[] = $item->total;
+        }
+
+        return [
+            'categories' => $categories,
+            'counts' => $counts,
+            'colors' => $colors,
+        ];
+    }
+
+    /**
+     * Get daily bookings data
+     */
+    private function getDailyBookingsData($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::query();
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+        } else {
+            // Last 30 days if no filter
+            $query->where('created_at', '>=', now()->subDays(30));
+            $startDate = now()->subDays(30)->format('Y-m-d');
+            $endDate = now()->format('Y-m-d');
+        }
+
+        $data = $query->selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->get();
+
+        $dates = [];
+        $counts = [];
+
+        // Fill missing dates
+        $period = new \DatePeriod(
+            new \DateTime($startDate),
+            new \DateInterval('P1D'),
+            (new \DateTime($endDate))->modify('+1 day')
+        );
+
+        $dateCounts = $data->pluck('total', 'date')->toArray();
+
+        foreach ($period as $date) {
+            $dateStr = $date->format('Y-m-d');
+            $dates[] = $dateStr;
+            $counts[] = $dateCounts[$dateStr] ?? 0;
+        }
+
+        return [
+            'dates' => $dates,
+            'counts' => $counts,
+        ];
+    }
+
+    /**
+     * Get revenue trend data
+     */
+    private function getRevenueTrendData($startDate = null, $endDate = null)
+    {
+        $query = BookingRequest::query();
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+        } else {
+            $query->where('created_at', '>=', now()->subMonths(6));
+        }
+
+        $data = $query->where('status', 'complete_booking')
+            ->selectRaw('DATE_FORMAT(created_at, "%b %Y") as month, SUM(price) as total')
+            ->groupBy('month')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        $months = [];
+        $revenue = [];
+
+        foreach ($data as $item) {
+            $months[] = $item->month;
+            $revenue[] = $item->total;
+        }
+
+        return [
+            'months' => $months,
+            'revenue' => $revenue,
+        ];
+    }
+
+
+
 
     // signup
     public function signup()
