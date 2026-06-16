@@ -2,9 +2,6 @@
 
 namespace App\Exports;
 
-use App\Exports\UserDetailsSheet;
-use App\Exports\UserStatisticsSheet;
-use App\Exports\UserSummarySheet;
 use App\Models\BookingRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -37,7 +34,7 @@ class UsersMultiSheetExport implements WithMultipleSheets
         $dateFilter = self::createDateFilter($filters);
 
         // Get users with aggregated data
-        $query = User::query();
+        $query = User::with(['addresses', 'bookingRequests']); // Load addresses and bookingRequests
 
         // Apply search filter
         if ($request->has('search') && $request->search) {
@@ -54,16 +51,16 @@ class UsersMultiSheetExport implements WithMultipleSheets
             $query->where('status', $request->status);
         }
 
-        // Add booking counts with date filter
+        // Add booking counts with date filter - using correct status values
         $query->withCount([
             'bookingRequests as total_orders_count' => $dateFilter,
             'bookingRequests as accepted_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['accept', 'accepted']);
+                $q->where('goto', '1');
             },
             'bookingRequests as pending_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->where('status', 'pending');
+                $q->where('status', 'pending')->where('goto', '0');
             },
             'bookingRequests as in_progress_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
@@ -71,11 +68,11 @@ class UsersMultiSheetExport implements WithMultipleSheets
             },
             'bookingRequests as cancelled_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['cancel', 'cancelled']);
+                $q->where('status', 'cancel');
             },
             'bookingRequests as completed_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['complete_booking', 'completed']);
+                $q->where('status', 'complete_booking');
             },
         ]);
 
@@ -83,7 +80,7 @@ class UsersMultiSheetExport implements WithMultipleSheets
         $query->withSum([
             'bookingRequests as total_amount_spent' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['complete_booking', 'completed']);
+                $q->where('status', 'complete_booking');
             }
         ], 'price');
 
@@ -163,7 +160,6 @@ class UsersMultiSheetExport implements WithMultipleSheets
         return [
             '📊 Summary (User-wise)' => new UserSummarySheet($this->users, $this->filters),
             '📋 Details (Booking-wise)' => new UserDetailsSheet($this->bookings, $this->filters),
-            // '📈 Statistics' => new UserStatisticsSheet($this->users, $this->bookings, $this->filters),
         ];
     }
 }

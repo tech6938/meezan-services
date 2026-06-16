@@ -16,6 +16,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 
 class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithMapping, WithColumnFormatting, WithEvents
 {
@@ -69,36 +70,48 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         // Build date filter callback
         $dateFilter = self::createDateFilter($filters);
 
-        // Add counts with date filter
+        // Add counts with date filter - Using correct field values
         $query->withCount([
             'bookingRequests as total_orders_count' => $dateFilter,
             'bookingRequests as accepted_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['accept', 'accepted']);
+                $q->where('goto', '1'); // Accepted Orders
             },
             'bookingRequests as pending_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->where('status', 'pending');
+                $q->where('status', 'pending')->where('goto', '0'); // Pending Orders (not accepted)
             },
-            'bookingRequests as in_progress_orders_count' => function ($q) use ($dateFilter) {
+            'bookingRequests as cancel_orders_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->where('status', 'in_progress');
+                $q->where('status', 'cancel'); // Cancel Orders
             },
-            'bookingRequests as cancelled_orders_count' => function ($q) use ($dateFilter) {
+            'bookingRequests as total_bookings_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['cancel', 'cancelled']);
+                // Total Bookings (all bookings)
             },
-            'bookingRequests as completed_orders_count' => function ($q) use ($dateFilter) {
+            'bookingRequests as pending_bookings_count' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['complete_booking', 'completed']);
+                $q->where('status', 'pending')->where('goto', '2'); // Pending Bookings
+            },
+            'bookingRequests as in_progress_bookings_count' => function ($q) use ($dateFilter) {
+                $dateFilter($q);
+                $q->where('status', 'in_progress'); // In Progress Bookings
+            },
+            'bookingRequests as completed_bookings_count' => function ($q) use ($dateFilter) {
+                $dateFilter($q);
+                $q->where('status', 'complete_booking'); // Completed Bookings
+            },
+            'bookingRequests as cancel_bookings_count' => function ($q) use ($dateFilter) {
+                $dateFilter($q);
+                $q->where('status', 'cancel'); // Cancel Bookings
             },
         ]);
 
-        // Add sum for earnings from completed bookings
+        // Add sum for total earnings from completed bookings
         $query->withSum([
             'bookingRequests as total_amount_earned' => function ($q) use ($dateFilter) {
                 $dateFilter($q);
-                $q->whereIn('status', ['complete_booking', 'completed']);
+                $q->where('status', 'complete_booking');
             }
         ], 'price');
 
@@ -106,7 +119,8 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         $sortable = [
             'id', 'full_name', 'phone', 'created_at',
             'total_orders_count', 'accepted_orders_count', 'pending_orders_count',
-            'in_progress_orders_count', 'cancelled_orders_count', 'completed_orders_count',
+            'cancel_orders_count', 'total_bookings_count', 'pending_bookings_count',
+            'in_progress_bookings_count', 'completed_bookings_count', 'cancel_bookings_count',
             'total_amount_earned'
         ];
 
@@ -233,7 +247,7 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
     public function headings(): array
     {
         return [
-            'Sr. No',  // NEW: Serial number column
+            'Sr. No',
             'Partner ID',
             'Partner Name',
             'Phone Number',
@@ -241,9 +255,12 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
             'Total Orders',
             'Accepted Orders',
             'Pending Orders',
-            'In Progress Orders',
-            'Cancelled Orders',
-            'Completed Orders',
+            'Cancel Orders',
+            'Total Bookings',
+            'Pending Bookings',
+            'In Progress Bookings',
+            'Completed Bookings',
+            'Cancel Bookings',
             'Total Earnings (PKR)',
             'Wallet Balance (PKR)',
         ];
@@ -257,22 +274,39 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         // Format services
         $services = $this->formatServices($provider);
 
-        // Get current index (serial number) - will be set in collection iteration
+        // Get current index (serial number)
         static $serialNumber = 0;
         $serialNumber++;
 
+        // Calculate booking statistics using correct field values
+        $bookingRequests = $provider->bookingRequests;
+
+        $totalOrders = $bookingRequests->count() ?? 0;
+        $acceptedOrders = $bookingRequests->where('goto', '1')->count() ?? 0;
+        $pendingOrders = $bookingRequests->where('status', 'pending')->where('goto', '0')->count() ?? 0;
+        $cancelOrders = $bookingRequests->where('status', 'cancel')->count() ?? 0;
+
+        $totalBookings = $bookingRequests->count() ?? 0;
+        $pendingBookings = $bookingRequests->where('status', 'pending')->where('goto', '2')->count() ?? 0;
+        $inProgressBookings = $bookingRequests->where('status', 'in_progress')->count() ?? 0;
+        $completedBookings = $bookingRequests->where('status', 'complete_booking')->count() ?? 0;
+        $cancelBookings = $bookingRequests->where('status', 'cancel')->count() ?? 0;
+
         return [
-            $serialNumber,  // NEW: Serial number
+            $serialNumber,
             $provider->id,
             $provider->full_name ?? $provider->name ?? 'N/A',
             (string) ($provider->phone ?? 'N/A'),
             $services,
-            (int) ($provider->total_orders_count ?? 0),
-            (int) ($provider->accepted_orders_count ?? 0),
-            (int) ($provider->pending_orders_count ?? 0),
-            (int) ($provider->in_progress_orders_count ?? 0),
-            (int) ($provider->cancelled_orders_count ?? 0),
-            (int) ($provider->completed_orders_count ?? 0),
+            $totalOrders,
+            $acceptedOrders,
+            $pendingOrders,
+            $cancelOrders,
+            $totalBookings,
+            $pendingBookings,
+            $inProgressBookings,
+            $completedBookings,
+            $cancelBookings,
             (float) ($provider->total_amount_earned ?? 0),
             (float) $walletBalance,
         ];
@@ -281,9 +315,9 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
     public function columnFormats(): array
     {
         return [
-            'D' => NumberFormat::FORMAT_TEXT,  // Phone Number (now column D)
-            'L' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Total Earnings (now column L)
-            'M' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Wallet Balance (now column M)
+            'D' => NumberFormat::FORMAT_TEXT,  // Phone Number
+            'O' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Total Earnings
+            'P' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Wallet Balance
         ];
     }
 
@@ -308,14 +342,78 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         ]);
 
         // Style earnings and wallet columns as PKR currency
-        $sheet->getStyle('L:L')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
-        $sheet->getStyle('M:M')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
+        $sheet->getStyle('O:O')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
+        $sheet->getStyle('P:P')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
 
-        // Set services column to wrap text (now column E)
+        // Set services column to wrap text
         $sheet->getStyle('E:E')->getAlignment()->setWrapText(true);
 
         // Center align serial number column
         $sheet->getStyle('A:A')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Add color coding for numeric columns
+        $lastRow = $sheet->getHighestRow();
+        for ($row = 2; $row <= $lastRow; $row++) {
+            // Color for Total Orders (Column F)
+            $value = $sheet->getCell('F' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('F' . $row)->getFont()->getColor()->setRGB('2196F3');
+            }
+
+            // Color for Accepted Orders (Column G)
+            $value = $sheet->getCell('G' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('G' . $row)->getFont()->getColor()->setRGB('4CAF50');
+            }
+
+            // Color for Pending Orders (Column H)
+            $value = $sheet->getCell('H' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('H' . $row)->getFont()->getColor()->setRGB('FFC107');
+            }
+
+            // Color for Cancel Orders (Column I)
+            $value = $sheet->getCell('I' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('I' . $row)->getFont()->getColor()->setRGB('F44336');
+            }
+
+            // Color for Total Bookings (Column J)
+            $value = $sheet->getCell('J' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('J' . $row)->getFont()->getColor()->setRGB('9C27B0');
+            }
+
+            // Color for Pending Bookings (Column K)
+            $value = $sheet->getCell('K' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('K' . $row)->getFont()->getColor()->setRGB('FF9800');
+            }
+
+            // Color for In Progress Bookings (Column L)
+            $value = $sheet->getCell('L' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('L' . $row)->getFont()->getColor()->setRGB('2196F3');
+            }
+
+            // Color for Completed Bookings (Column M)
+            $value = $sheet->getCell('M' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('M' . $row)->getFont()->getColor()->setRGB('8BC34A');
+            }
+
+            // Color for Cancel Bookings (Column N)
+            $value = $sheet->getCell('N' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('N' . $row)->getFont()->getColor()->setRGB('F44336');
+            }
+
+            // Color for Total Earnings (Column O)
+            $value = $sheet->getCell('O' . $row)->getValue();
+            if ($value > 0) {
+                $sheet->getStyle('O' . $row)->getFont()->getColor()->setRGB('4CAF50');
+            }
+        }
 
         return [];
     }
@@ -323,7 +421,7 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
     public function columnWidths(): array
     {
         return [
-            'A' => 8,   // Sr. No (small width)
+            'A' => 8,   // Sr. No
             'B' => 12,  // Partner ID
             'C' => 25,  // Partner Name
             'D' => 18,  // Phone Number
@@ -331,11 +429,14 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
             'F' => 15,  // Total Orders
             'G' => 18,  // Accepted Orders
             'H' => 18,  // Pending Orders
-            'I' => 18,  // In Progress Orders
-            'J' => 18,  // Cancelled Orders
-            'K' => 18,  // Completed Orders
-            'L' => 22,  // Total Earnings
-            'M' => 22,  // Wallet Balance
+            'I' => 15,  // Cancel Orders
+            'J' => 15,  // Total Bookings (NEW)
+            'K' => 18,  // Pending Bookings
+            'L' => 20,  // In Progress Bookings
+            'M' => 18,  // Completed Bookings
+            'N' => 18,  // Cancel Bookings
+            'O' => 22,  // Total Earnings
+            'P' => 22,  // Wallet Balance
         ];
     }
 
@@ -344,14 +445,73 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $lastColumn = 'M';
+                $lastColumn = 'P';
                 $lastRow = $sheet->getHighestRow();
 
                 // Auto-filter
                 $sheet->setAutoFilter("A1:{$lastColumn}{$lastRow}");
 
-                // Freeze header (keep first row visible, first column visible)
+                // Freeze header
                 $sheet->freezePane('B2');
+
+                // Add summary section with colors
+                $summaryCol = 'R';
+                $sheet->setCellValue($summaryCol . '1', '📊 Provider Summary Report');
+                $sheet->setCellValue($summaryCol . '2', 'Generated on: ' . now()->format('Y-m-d H:i:s'));
+                $sheet->setCellValue($summaryCol . '3', '─────────────────────────');
+                $sheet->setCellValue($summaryCol . '4', 'Total Providers: ' . $this->providers->count());
+                $sheet->setCellValue($summaryCol . '5', 'Total Orders: ' . $this->providers->sum('total_orders_count'));
+                $sheet->setCellValue($summaryCol . '6', 'Total Bookings: ' . $this->providers->sum('total_bookings_count'));
+                $sheet->setCellValue($summaryCol . '7', 'Total Earnings: PKR ' . number_format($this->providers->sum('total_amount_earned'), 2));
+                $sheet->setCellValue($summaryCol . '8', '─────────────────────────');
+
+                // Calculate summary breakdown
+                $totalAccepted = $this->providers->sum('accepted_orders_count');
+                $totalPendingOrders = $this->providers->sum('pending_orders_count');
+                $totalCancelOrders = $this->providers->sum('cancel_orders_count');
+                $totalPendingBookings = $this->providers->sum('pending_bookings_count');
+                $totalInProgress = $this->providers->sum('in_progress_bookings_count');
+                $totalCompleted = $this->providers->sum('completed_bookings_count');
+                $totalCancelBookings = $this->providers->sum('cancel_bookings_count');
+
+                $sheet->setCellValue($summaryCol . '10', '📊 Summary Breakdown:');
+                $sheet->setCellValue($summaryCol . '11', '✅ Accepted Orders: ' . $totalAccepted);
+                $sheet->setCellValue($summaryCol . '12', '⏳ Pending Orders: ' . $totalPendingOrders);
+                $sheet->setCellValue($summaryCol . '13', '❌ Cancel Orders: ' . $totalCancelOrders);
+                $sheet->setCellValue($summaryCol . '14', '🔄 Pending Bookings: ' . $totalPendingBookings);
+                $sheet->setCellValue($summaryCol . '15', '▶️ In Progress Bookings: ' . $totalInProgress);
+                $sheet->setCellValue($summaryCol . '16', '✔️ Completed Bookings: ' . $totalCompleted);
+                $sheet->setCellValue($summaryCol . '17', '❌ Cancel Bookings: ' . $totalCancelBookings);
+
+                // Style the summary
+                $sheet->getStyle($summaryCol . '1:' . $summaryCol . '17')->getFont()->setSize(10);
+                $sheet->getStyle($summaryCol . '1')->getFont()->setBold(true);
+                $sheet->getStyle($summaryCol . '3')->getFont()->setBold(true);
+                $sheet->getStyle($summaryCol . '8')->getFont()->setBold(true);
+                $sheet->getStyle($summaryCol . '10')->getFont()->setBold(true);
+
+                // Color code the summary rows
+                $sheet->getStyle($summaryCol . '11')->getFont()->getColor()->setRGB('4CAF50');
+                $sheet->getStyle($summaryCol . '12')->getFont()->getColor()->setRGB('FFC107');
+                $sheet->getStyle($summaryCol . '13')->getFont()->getColor()->setRGB('F44336');
+                $sheet->getStyle($summaryCol . '14')->getFont()->getColor()->setRGB('FF9800');
+                $sheet->getStyle($summaryCol . '15')->getFont()->getColor()->setRGB('2196F3');
+                $sheet->getStyle($summaryCol . '16')->getFont()->getColor()->setRGB('8BC34A');
+                $sheet->getStyle($summaryCol . '17')->getFont()->getColor()->setRGB('F44336');
+
+                $sheet->getColumnDimension($summaryCol)->setWidth(45);
+
+                // Add color legend
+                $legendRow = 19;
+                $sheet->setCellValue($summaryCol . $legendRow, '🎨 Provider Booking Details:');
+                $sheet->setCellValue($summaryCol . ($legendRow + 1), '🟢 Accepted / Completed / Earnings');
+                $sheet->setCellValue($summaryCol . ($legendRow + 2), '🟡 Pending Orders');
+                $sheet->setCellValue($summaryCol . ($legendRow + 3), '🟠 Pending Bookings');
+                $sheet->setCellValue($summaryCol . ($legendRow + 4), '🔵 In Progress / Total Orders');
+                $sheet->setCellValue($summaryCol . ($legendRow + 5), '🟣 Total Bookings');
+                $sheet->setCellValue($summaryCol . ($legendRow + 6), '🔴 Cancelled');
+                $sheet->getStyle($summaryCol . $legendRow . ':' . $summaryCol . ($legendRow + 6))->getFont()->setSize(9);
+                $sheet->getStyle($summaryCol . $legendRow)->getFont()->setBold(true);
             },
         ];
     }
