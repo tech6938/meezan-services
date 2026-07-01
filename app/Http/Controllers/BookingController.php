@@ -201,12 +201,12 @@ class BookingController extends Controller
     /**
      * Preview bookings data (returns JSON for preview modal)
      */
-    public function previewBookings(Request $request)
+    public function previewBooking(Request $request)
     {
         $this->validateExportDateRange($request);
 
         try {
-            $query = BookingRequest::with(['provider', 'user', 'shopkeeper']);
+            $query = BookingRequest::with(['provider', 'user', 'shopkeeper', 'serviceRequest']);
 
             // Apply status filter
             if ($request->has('status') && $request->status) {
@@ -251,7 +251,8 @@ class BookingController extends Controller
                 return [
                     'Sr. No' => $index + 1,
                     'Booking ID' => $booking->id,
-                    'Booking No' => $booking->booking_no ?? 'N/A',
+                    'Order ID' => $booking->serviceRequest->id ?? 'N/A',
+                    'Booking No' => $booking->order_no ?? 'N/A',
                     'Customer' => $booking->user->name ?? 'N/A',
                     'Provider' => $booking->provider->full_name ?? $booking->shopkeeper->name ?? 'N/A',
                     'Price' => 'PKR ' . number_format($booking->price ?? 0, 2),
@@ -260,12 +261,11 @@ class BookingController extends Controller
                     'Booking Date' => $booking->created_at ? $booking->created_at->format('Y-m-d H:i') : 'N/A',
                 ];
             });
+            // dd($previewData);
 
-            return response()->json([
-                'success' => true,
+            return view('booking.preview', [
+                'previewTitle' => 'Bookings Data Preview',
                 'data' => $previewData,
-                'total' => $bookings->count(),
-                'message' => 'Preview showing first 50 records'
             ]);
         } catch (\Throwable $e) {
             Log::error('Booking preview failed', [

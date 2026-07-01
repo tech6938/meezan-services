@@ -188,7 +188,7 @@ class UserProviderController extends Controller
         $orders = ServiceRequest::with(['category', 'subCategory', 'address', 'user'])
             ->whereIn('id', $serviceRequestIds)
             ->get();
-            // return $orders;
+        // return $orders;
 
         return view('providers.viewProviderDetail', compact(
             'provider',
@@ -464,12 +464,22 @@ class UserProviderController extends Controller
     */
 
     /**
-     * Preview users data (returns JSON for preview modal)
+     * Preview users data before export
      */
     public function previewUsers(Request $request)
     {
         try {
-            $query = User::withCount('referrals'); // Add referrals count
+            // Get filters from request
+            $filters = [
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'day' => $request->input('day'),
+                'month' => $request->input('month'),
+                'year' => $request->input('year'),
+            ];
+
+            $query = User::query();
+            $query->with(['addresses', 'bookingRequests']);
 
             // Apply search filter
             if ($request->has('search') && $request->search) {
@@ -486,37 +496,97 @@ class UserProviderController extends Controller
                 $query->where('status', $request->status);
             }
 
-            // Apply date range filter
-            if ($request->has('start_date') && $request->start_date) {
-                $query->whereDate('created_at', '>=', $request->start_date);
-            }
-            if ($request->has('end_date') && $request->end_date) {
-                $query->whereDate('created_at', '<=', $request->end_date);
-            }
+            // Apply date filter
+            $dateFilter = $this->createDateFilter($filters);
 
-            // Use paginate (50 records per page)
-            $users = $query->orderBy('created_at', 'desc')->paginate(50);
+            // Add booking counts with date filter
+            $query->withCount([
+                'bookingRequests as total_orders_count' => $dateFilter,
+                'bookingRequests as accepted_orders_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('goto', '1');
+                },
+                'bookingRequests as pending_orders_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'pending')->where('goto', '0');
+                },
+                'bookingRequests as cancel_orders_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'cancel');
+                },
+                'bookingRequests as total_bookings_count' => $dateFilter,
+                'bookingRequests as pending_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'pending')->where('goto', '2');
+                },
+                'bookingRequests as in_progress_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'in_progress');
+                },
+                'bookingRequests as completed_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'complete_booking');
+                },
+                'bookingRequests as cancel_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'cancel');
+                },
+            ]);
 
-            // Format the data for display
-            $formattedUsers = $users->map(function ($user, $index) use ($users) {
-                $serialNo = ($users->currentPage() - 1) * $users->perPage() + $index + 1;
+            // Add sum for total amount spent
+            $query->withSum([
+                'bookingRequests as total_amount_spent' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'complete_booking');
+                }
+            ], 'price');
+
+            // Apply sorting
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortOrder = $request->get('sort_order', 'desc');
+            $query->orderBy($sortBy, $sortOrder);
+
+            $users = $query->get();
+
+            // Format data for preview
+            $previewData = $users->map(function ($user, $index) {
+                // Get user's address
+                $address = $user->addresses->first();
+                $addressString = 'N/A';
+                if ($address) {
+                    $addressParts = [];
+                    if ($address->address) $addressParts[] = $address->address;
+                    if ($address->city) $addressParts[] = $address->city;
+                    if ($address->state) $addressParts[] = $address->state;
+                    if ($address->country) $addressParts[] = $address->country;
+                    $addressString = implode(', ', $addressParts);
+                }
+
+                // Get booking requests for the user
+                $bookingRequests = $user->bookingRequests;
 
                 return [
-                    'Sr. No' => $serialNo,
+                    'Sr. No' => $index + 1,
+                    'User ID' => $user->id,
                     'User Name' => $user->name ?? 'N/A',
-                    'Image' => $user->image ?? null,
-                    'Phone' => $user->phone ?? 'N/A',
-                    'Referral Code' => $user->referral_code ?? 'N/A',
-                    'Direct Referrals' => $user->referrals_count ?? 0,
+                    'Phone Number' => $user->phone ?? 'N/A',
+                    'Address' => $addressString,
+                    'Total Amount Spent (PKR)' => (float) ($user->total_amount_spent ?? 0),
+                    'Total Orders Request' => $user->total_orders_count ?? 0,
+                    'Accepted Orders Request' => $user->accepted_orders_count ?? 0,
+                    'Pending Orders Request' => $user->pending_orders_count ?? 0,
+                    'Cancel Orders' => $user->cancel_orders_count ?? 0,
+                    'Total Bookings' => $user->total_bookings_count ?? 0,
+                    'In Progress Bookings' => $user->in_progress_bookings_count ?? 0,
+                    'Pending Bookings' => $user->pending_bookings_count ?? 0,
+                    'Completed Bookings' => $user->completed_bookings_count ?? 0,
+                    'Cancel Bookings' => $user->cancel_bookings_count ?? 0,
                     'Status' => ucfirst($user->status ?? 'N/A'),
-                    'Registered Date' => $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : 'N/A',
+                    'Registered Date' => $user->created_at ? $user->created_at->format('Y-m-d') : 'N/A',
                 ];
             });
 
-            return view('user.preview', [
-                'users' => $users,
-                'previewData' => $formattedUsers
-            ]);
+            return view('user.preview', compact('previewData'));
         } catch (\Throwable $e) {
             Log::error('User preview failed', [
                 'message' => $e->getMessage(),
@@ -530,75 +600,8 @@ class UserProviderController extends Controller
         }
     }
 
-    /**
-     * Preview providers data (returns JSON for preview modal)
-     */
-    public function previewProviders(Request $request)
-    {
-        $this->validateExportDateRange($request);
 
-        try {
-            $query = Provider::query();
-
-            // Apply search filter
-            if ($request->has('search') && $request->search) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('full_name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
-                });
-            }
-
-            // Apply status filter
-            if ($request->has('status') && $request->status) {
-                $query->where('status', $request->status);
-            }
-
-            // Apply date range filter
-            if ($request->has('start_date') && $request->start_date) {
-                $query->whereDate('created_at', '>=', $request->start_date);
-            }
-            if ($request->has('end_date') && $request->end_date) {
-                $query->whereDate('created_at', '<=', $request->end_date);
-            }
-
-            // Limit results for preview
-            $providers = $query->orderBy('created_at', 'desc')->limit(50)->get();
-
-            // Format data for preview
-            $previewData = $providers->map(function ($provider, $index) {
-                return [
-                    'Sr. No' => $index + 1,
-                    'Provider ID' => $provider->id,
-                    'Name' => $provider->full_name ?? 'N/A',
-                    'Phone' => $provider->phone ?? 'N/A',
-                    'Email' => $provider->email ?? 'N/A',
-                    'Status' => ucfirst($provider->status ?? 'N/A'),
-                    'Registered Date' => $provider->created_at ? $provider->created_at->format('Y-m-d') : 'N/A',
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $previewData,
-                'total' => $providers->count(),
-                'message' => 'Preview showing first 50 records'
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('Provider preview failed', [
-                'message' => $e->getMessage(),
-                'request' => $request->all(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Preview failed: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
+    /*
      * Helper method to create date filter for preview
      */
     protected function createDateFilterForPreview($filters)
@@ -641,5 +644,202 @@ class UserProviderController extends Controller
                 }
             }
         };
+    }
+
+    /**
+     * Preview providers data (returns JSON for preview modal)
+     */
+    public function previewProviders(Request $request)
+    {
+        try {
+            // Get the same data as export
+            $filters = [
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'day' => $request->input('day'),
+                'month' => $request->input('month'),
+                'year' => $request->input('year'),
+            ];
+
+            $query = Provider::query();
+            $query->with('wallet');
+
+            // Apply filters (same as export)
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->has('status') && $request->status) {
+                $query->where('status', $request->status);
+            }
+
+            $dateFilter = $this->createDateFilter($filters);
+
+            $query->withCount([
+                'bookingRequests as total_orders_count' => $dateFilter,
+                'bookingRequests as accepted_orders_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('goto', '1');
+                },
+                'bookingRequests as pending_orders_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'pending')->where('goto', '0');
+                },
+                'bookingRequests as cancel_orders_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'cancel');
+                },
+                'bookingRequests as total_bookings_count' => $dateFilter,
+                'bookingRequests as pending_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'pending')->where('goto', '2');
+                },
+                'bookingRequests as in_progress_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'in_progress');
+                },
+                'bookingRequests as completed_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'complete_booking');
+                },
+                'bookingRequests as cancel_bookings_count' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'cancel');
+                },
+            ]);
+
+            $query->withSum([
+                'bookingRequests as total_amount_earned' => function ($q) use ($dateFilter) {
+                    $dateFilter($q);
+                    $q->where('status', 'complete_booking');
+                }
+            ], 'price');
+            $totalCommission = DB::table('commission_logs')->sum('commission_deducted') ?? 0;
+
+            $providers = $query->orderBy('created_at', 'desc')->get();
+
+            // Format data for preview
+            $previewData = $providers->map(function ($provider, $index) {
+                $bookingRequests = $provider->bookingRequests;
+
+                // Format services
+                $services = $this->formatServicesForPreview($provider);
+
+                return [
+                    'Sr. No' => $index + 1,
+                    'Partner ID' => $provider->id,
+                    'Partner Name' => $provider->full_name ?? $provider->name ?? 'N/A',
+                    'Phone Number' => $provider->phone ?? 'N/A',
+                    'Services' => $services,
+                    'Total Orders' => $provider->total_orders_count ?? 0,
+                    'Accepted Orders' => $provider->accepted_orders_count ?? 0,
+                    'Pending Orders' => $provider->pending_orders_count ?? 0,
+                    'Cancel Orders' => $provider->cancel_orders_count ?? 0,
+                    'Total Bookings' => $provider->total_bookings_count ?? 0,
+                    'Pending Bookings' => $provider->pending_bookings_count ?? 0,
+                    'In Progress Bookings' => $provider->in_progress_bookings_count ?? 0,
+                    'Completed Bookings' => $provider->completed_bookings_count ?? 0,
+                    'Cancel Bookings' => $provider->cancel_bookings_count ?? 0,
+                    'Total Earnings (PKR)' => $provider->total_amount_earned ?? 0,
+                    'Wallet Balance (PKR)' => $totalCommission ?? 0,
+                ];
+            });
+
+            return view('providers.preview', compact('previewData'));
+        } catch (\Throwable $e) {
+            Log::error('Provider preview failed', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            return redirect()->back()->with('error', 'Preview failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Create date filter callback for queries
+     */
+    protected function createDateFilter($filters)
+    {
+        $startDate = $filters['start_date'] ?? null;
+        $endDate = $filters['end_date'] ?? null;
+        $day = $filters['day'] ?? null;
+        $month = $filters['month'] ?? null;
+        $year = $filters['year'] ?? null;
+
+        return function ($query) use ($startDate, $endDate, $day, $month, $year) {
+            // Date range filter (highest priority)
+            if ($startDate && $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59']);
+                return;
+            }
+
+            if ($startDate) {
+                $query->whereDate('created_at', '>=', $startDate);
+            }
+
+            if ($endDate) {
+                $query->whereDate('created_at', '<=', $endDate . ' 23:59:59');
+            }
+
+            // If no date range, check individual filters
+            if (!$startDate && !$endDate) {
+                if ($day) {
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                        $query->whereDate('created_at', $day);
+                    } elseif (is_numeric($day)) {
+                        $query->whereDay('created_at', intval($day));
+                    }
+                }
+
+                if ($month) {
+                    $query->whereMonth('created_at', intval($month));
+                }
+
+                if ($year) {
+                    $query->whereYear('created_at', intval($year));
+                }
+            }
+        };
+    }
+
+    private function formatServicesForPreview($provider)
+    {
+        $services = $provider->services;
+        if (empty($services)) {
+            return [];
+        }
+
+        if (is_array($services)) {
+            $serviceNames = [];
+            foreach ($services as $service) {
+                if (is_array($service)) {
+                    if (isset($service['name'])) {
+                        $serviceNames[] = $service['name'];
+                    } elseif (isset($service['sub_services']) && is_array($service['sub_services'])) {
+                        foreach ($service['sub_services'] as $subService) {
+                            if (is_string($subService)) {
+                                $serviceNames[] = $subService;
+                            } elseif (is_array($subService) && isset($subService['name'])) {
+                                $serviceNames[] = $subService['name'];
+                            }
+                        }
+                    }
+                } elseif (is_string($service)) {
+                    $serviceNames[] = $service;
+                }
+            }
+            return $serviceNames;
+        }
+
+        return [];
     }
 }

@@ -125,10 +125,68 @@ class ServiceRequest extends Model
         return $this->hasMany(ProviderRequestSeen::class, 'request_id');
     }
 
+ /**
+     * Get all booking requests with their providers
+     */
+    public function bookingsWithProviders()
+    {
+        return $this->hasMany(BookingRequest::class, 'request_id')->with('provider');
+    }
+
+    /**
+     * Get all providers who have bid on this request (pending status)
+     * Using req_status = 'accept' but not assigned yet
+     */
+    public function biddedProviders()
+    {
+        return $this->belongsToMany(Provider::class, 'booking_requests', 'request_id', 'provider_id')
+            ->withPivot('req_status', 'status', 'created_at', 'order_no', 'price', 'goto', 'assigned')
+            ->wherePivot('req_status', 'accept')
+            ->wherePivot('assigned', 0);
+    }
+
+    /**
+     * Get all providers who have been accepted for this request
+     * Using req_status = 'accept' AND assigned = 1 AND goto = 1
+     */
     public function acceptedProviders()
     {
         return $this->belongsToMany(Provider::class, 'booking_requests', 'request_id', 'provider_id')
-            ->withPivot('status', 'created_at')
-            ->wherePivot('status', 'pending');
+            ->withPivot('req_status', 'status', 'created_at', 'order_no', 'price', 'goto', 'assigned')
+            ->wherePivot('req_status', 'accept')
+            ->wherePivot('assigned', 1)
+            ->wherePivot('goto', 1);
+    }
+
+    /**
+     * Get all providers who have completed this request
+     */
+    public function completedProviders()
+    {
+        return $this->belongsToMany(Provider::class, 'booking_requests', 'request_id', 'provider_id')
+            ->withPivot('req_status', 'status', 'created_at', 'order_no', 'price', 'goto', 'assigned')
+            ->wherePivot('req_status', 'accept')
+            ->wherePivot('assigned', 1)
+            ->wherePivot('status', 'complete_booking');
+    }
+
+    /**
+     * Get all providers who have cancelled this request
+     */
+    public function cancelledProviders()
+    {
+        return $this->belongsToMany(Provider::class, 'booking_requests', 'request_id', 'provider_id')
+            ->withPivot('req_status', 'status', 'created_at', 'order_no', 'price', 'goto', 'assigned')
+            ->wherePivot('req_status', 'accept')
+            ->wherePivot('status', 'cancel');
+    }
+
+    /**
+     * Get all providers for this request (any status)
+     */
+    public function allProviders()
+    {
+        return $this->belongsToMany(Provider::class, 'booking_requests', 'request_id', 'provider_id')
+            ->withPivot('req_status', 'status', 'created_at', 'order_no', 'price', 'goto', 'assigned');
     }
 }

@@ -38,18 +38,21 @@
                                     <div class="card-header"
                                         style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                         <h4>All Providers List</h4>
-                                        {{-- @include('components.export-button', [
-                                            'apiUrl' => route('providers.exportMultiSheet'),
-                                            'fileName' => 'all_providers',
-                                            'queryParams' => request()->all(),
-                                            'buttonLabel' => 'Details Export',
-                                        ]) --}}
-                                        @include('components.export-button', [
-                                            'apiUrl' => route('providers.export'),
-                                            'fileName' => 'all_providers',
-                                            'queryParams' => request()->all(),
-                                            'buttonLabel' => 'Export',
-                                        ])
+                                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+
+                                            @include('components.preview-button', [
+                                                'apiUrl' => route('providers.preview'),
+                                                'previewTitle' => 'Providers Data Preview',
+                                                'queryParams' => request()->all(),
+                                                'buttonLabel' => 'Preview',
+                                            ])
+                                            @include('components.export-button', [
+                                                'apiUrl' => route('providers.export'),
+                                                'fileName' => 'all_providers',
+                                                'queryParams' => request()->all(),
+                                                'buttonLabel' => 'Export',
+                                            ])
+                                        </div>
                                     </div>
 
                                     <div class="card-body">
@@ -329,9 +332,9 @@
                 </script>
 
 
-                <script src="assets/bundles/jquery/jquery.min.js"></script>
-                <script src="assets/bundles/bootstrap/js/bootstrap.bundle.min.js"></script>
-                <script src="assets/bundles/datatables/datatables.min.js"></script>
-                <script src="assets/bundles/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js"></script>
-                <script src="assets/js/page/datatables.js"></script>
+                <script src="{{ asset('assets/bundles/jquery/jquery.min.js') }}"></script>
+                <script src="{{ asset('assets/bundles/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+                <script src="{{ asset('assets/bundles/datatables/datatables.min.js') }}"></script>
+                <script src="{{ asset('assets/bundles/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js') }}"></script>
+                <script src="{{ asset('assets/js/page/datatables.js') }}"></script>
             @endsection

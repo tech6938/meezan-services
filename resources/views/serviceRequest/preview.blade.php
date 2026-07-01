@@ -4,11 +4,10 @@
     <link rel="stylesheet" href="{{ asset('assets/bundles/datatables/datatables.min.css') }}">
     <link rel="stylesheet"
         href="{{ asset('assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/modal.css') }}">
 
     <style>
         .preview-badge {
-            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
             color: white;
             padding: 5px 12px;
             border-radius: 20px;
@@ -25,7 +24,7 @@
             margin-bottom: 20px;
             font-size: 13px;
             color: #666;
-            border-left: 3px solid #2196F3;
+            border-left: 3px solid #9C27B0;
         }
 
         .filter-info span {
@@ -44,7 +43,17 @@
         }
 
         /* Status Badges */
-        .badge-status-active {
+        .badge-status-pending {
+            background-color: #ffc107;
+            color: #212529;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .badge-status-accept {
             background-color: #28a745;
             color: white;
             padding: 5px 10px;
@@ -54,7 +63,37 @@
             display: inline-block;
         }
 
-        .badge-status-blocked {
+        .badge-status-accepted {
+            background-color: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .badge-status-complete {
+            background-color: #17a2b8;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .badge-status-completed {
+            background-color: #17a2b8;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .badge-status-cancel {
             background-color: #dc3545;
             color: white;
             padding: 5px 10px;
@@ -64,8 +103,8 @@
             display: inline-block;
         }
 
-        .badge-status-inactive {
-            background-color: #6c757d;
+        .badge-status-cancelled {
+            background-color: #dc3545;
             color: white;
             padding: 5px 10px;
             border-radius: 4px;
@@ -74,18 +113,8 @@
             display: inline-block;
         }
 
-        .badge-status-pending {
-            background-color: #ffc107;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-        }
-
-        .badge-status-unblocked {
-            background-color: #28a745;
+        .badge-status-rejected {
+            background-color: #dc3545;
             color: white;
             padding: 5px 10px;
             border-radius: 4px;
@@ -115,7 +144,7 @@
         .summary-stats .stat-number {
             font-size: 20px;
             font-weight: bold;
-            color: #2196F3;
+            color: #9C27B0;
             display: block;
         }
 
@@ -126,7 +155,7 @@
         }
 
         .export-preview-btn {
-            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
             color: white;
             border: none;
             padding: 8px 20px;
@@ -137,8 +166,28 @@
 
         .export-preview-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
+            box-shadow: 0 6px 15px rgba(156, 39, 176, 0.3);
             color: white;
+        }
+
+        .badge-number {
+            font-size: 13px;
+            padding: 4px 12px;
+        }
+
+        .media-files-wrapper {
+            max-width: 150px;
+            word-break: break-all;
+        }
+
+        .media-file-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 11px;
+        }
+
+        .media-file-link:hover {
+            text-decoration: underline;
         }
 
         @media (max-width: 768px) {
@@ -151,17 +200,12 @@
             }
         }
 
-        /* Amount styling */
-        .amount-positive {
-            color: #28a745;
-            font-weight: 600;
-        }
-        .amount-zero {
-            color: #6c757d;
-        }
-        .badge-number {
-            font-size: 13px;
-            padding: 4px 12px;
+        .description-text {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
         }
     </style>
 @endsection
@@ -176,16 +220,16 @@
                             <div class="card-header"
                                 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                 <div>
-                                    <h4>Users Preview <span class="preview-badge">Preview Mode</span></h4>
+                                    <h4>Service Requests Preview <span class="preview-badge">Preview Mode</span></h4>
                                 </div>
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                    <a href="{{ route('userList') }}" class="btn btn-secondary">
+                                    <a href="{{ route('allRequest') }}" class="btn btn-secondary">
                                         <i data-feather="arrow-left"></i> Back to List
                                     </a>
                                     <button onclick="window.print()" class="btn btn-info">
                                         <i data-feather="printer"></i> Print
                                     </button>
-                                    <a href="{{ route('users.export', request()->all()) }}" class="btn export-preview-btn">
+                                    <a href="{{ route('requests.exportMulti', request()->all()) }}" class="btn export-preview-btn">
                                         <i data-feather="download"></i> Export
                                     </a>
                                 </div>
@@ -219,14 +263,12 @@
                                 <!-- Preview Note -->
                                 <div class="preview-note">
                                     <i data-feather="info"></i>
-                                    <strong>Note:</strong> This is a preview of the users data that will be exported.
-                                    The export will include the following columns in order:
+                                    <strong>Note:</strong> This is a preview of the service requests data that will be exported.
+                                    The export will include the following columns:
                                     <br>
                                     <small class="text-muted">
-                                        Sr. No | User ID | User Name | Phone Number | Address | Total Amount Spent (PKR) |
-                                        Total Orders Request | Accepted Orders Request | Pending Orders Request | Cancel Orders |
-                                        Total Bookings | In Progress Bookings | Pending Bookings | Completed Bookings | Cancel Bookings |
-                                        Status | Registered Date
+                                        Sr. No | Order ID | User Name | User Phone | Category | Sub Category | Description |
+                                        Live Latitude | Live Longitude | Saved Address | Media Files | Total Bids | Status | Created At
                                     </small>
                                 </div>
 
@@ -235,82 +277,87 @@
                                         <thead>
                                             <tr>
                                                 <th class="text-center">#</th>
-                                                <th>User ID</th>
+                                                <th>Order ID</th>
                                                 <th>User Name</th>
-                                                <th>Phone Number</th>
-                                                <th>Address</th>
-                                                <th>Total Amount Spent (PKR)</th>
-                                                <th>Total Orders Request</th>
-                                                <th>Accepted Orders Request</th>
-                                                <th>Pending Orders Request</th>
-                                                <th>Cancel Orders</th>
-                                                <th>Total Bookings</th>
-                                                <th>In Progress Bookings</th>
-                                                <th>Pending Bookings</th>
-                                                <th>Completed Bookings</th>
-                                                <th>Cancel Bookings</th>
-                                                <th>Status</th>
-                                                <th>Registered Date</th>
+                                                <th>User Phone</th>
+                                                <th>Category</th>
+                                                <th>Sub Category</th>
+                                                <th>Description</th>
+                                                <th>Live Latitude</th>
+                                                <th>Live Longitude</th>
+                                                <th>Saved Address</th>
+                                                <th>Media Files</th>
+                                                <th class="text-center">Total Bids</th>
+                                                <th class="text-center">Status</th>
+                                                <th class="text-center">Created At</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @if (isset($previewData) && $previewData->isNotEmpty())
-                                                @foreach ($previewData as $user)
+                                            @if (isset($data) && $data->isNotEmpty())
+                                                @foreach ($data as $request)
                                                     <tr>
-                                                        <td class="text-center">{{ $user['Sr. No'] }}</td>
-                                                        <td>{{ $user['User ID'] }}</td>
+                                                        <td class="text-center">{{ $request['Sr. No'] }}</td>
                                                         <td>
-                                                            <strong>{{ $user['User Name'] }}</strong>
+                                                            <strong>MS-ORD-{{ $request['Order ID'] }}</strong>
                                                         </td>
-                                                        <td>{{ $user['Phone Number'] }}</td>
-                                                        <td>{{ $user['Address'] }}</td>
-                                                        <td class="text-center">
-                                                            <span class="{{ $user['Total Amount Spent (PKR)'] > 0 ? 'amount-positive' : 'amount-zero' }}">
-                                                                PKR {{ number_format($user['Total Amount Spent (PKR)'], 2) }}
+                                                        <td>{{ $request['User Name'] }}</td>
+                                                        <td>{{ $request['User Phone'] }}</td>
+                                                        <td>{{ $request['Category'] }}</td>
+                                                        <td>{{ $request['Sub Category'] }}</td>
+                                                        <td>
+                                                            <span class="description-text" title="{{ $request['Description'] }}">
+                                                                {{ $request['Description'] }}
                                                             </span>
                                                         </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-primary badge-number">{{ $user['Total Orders Request'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-success badge-number">{{ $user['Accepted Orders Request'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-warning badge-number">{{ $user['Pending Orders Request'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-danger badge-number">{{ $user['Cancel Orders'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-info badge-number">{{ $user['Total Bookings'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-primary badge-number">{{ $user['In Progress Bookings'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-warning badge-number">{{ $user['Pending Bookings'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-success badge-number">{{ $user['Completed Bookings'] }}</span>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <span class="badge badge-danger badge-number">{{ $user['Cancel Bookings'] }}</span>
-                                                        </td>
+                                                        <td>{{ $request['Live Latitude'] }}</td>
+                                                        <td>{{ $request['Live Longitude'] }}</td>
+                                                        <td>{{ $request['Saved Address'] }}</td>
                                                         <td>
-                                                            @php
-                                                                $statusLower = strtolower($user['Status']);
-                                                                $statusClass = 'badge-status-' . $statusLower;
-                                                            @endphp
-                                                            <span class="{{ $statusClass }}">{{ $user['Status'] }}</span>
+                                                            <div class="media-files-wrapper">
+                                                                @if($request['Media Files'] != 'N/A')
+                                                                    @php
+                                                                        $files = explode("\n", $request['Media Files']);
+                                                                    @endphp
+                                                                    @foreach($files as $file)
+                                                                        @if(trim($file))
+                                                                            <a href="{{ asset($file) }}" target="_blank" class="media-file-link">
+                                                                                <i data-feather="file"></i> {{ basename($file) }}
+                                                                            </a><br>
+                                                                        @endif
+                                                                    @endforeach
+                                                                @else
+                                                                    {{ $request['Media Files'] }}
+                                                                @endif
+                                                            </div>
                                                         </td>
-                                                        <td>{{ $user['Registered Date'] }}</td>
+                                                        <td class="text-center">
+                                                            <span class="badge badge-primary badge-number">{{ $request['Total Bids'] }}</span>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            @php
+                                                                $statusMap = [
+                                                                    'Pending' => 'pending',
+                                                                    'Accept' => 'accept',
+                                                                    'Accepted' => 'accepted',
+                                                                    'Complete' => 'complete',
+                                                                    'Completed' => 'completed',
+                                                                    'Cancel' => 'cancel',
+                                                                    'Cancelled' => 'cancelled',
+                                                                    'Rejected' => 'rejected',
+                                                                ];
+                                                                $statusKey = $statusMap[$request['Status']] ?? strtolower($request['Status']);
+                                                                $statusClass = 'badge-status-' . $statusKey;
+                                                            @endphp
+                                                            <span class="{{ $statusClass }}">{{ $request['Status'] }}</span>
+                                                        </td>
+                                                        <td class="text-center">{{ $request['Created At'] }}</td>
                                                     </tr>
                                                 @endforeach
                                             @else
                                                 <tr>
-                                                    <td colspan="17" class="text-center">
+                                                    <td colspan="14" class="text-center">
                                                         <div class="alert alert-warning mb-0">
-                                                            No users found matching the applied filters.
+                                                            No service requests found matching the applied filters.
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -320,44 +367,49 @@
                                 </div>
 
                                 <!-- Preview Summary -->
-                                @if (isset($previewData) && $previewData->isNotEmpty())
+                                @if (isset($data) && $data->isNotEmpty())
                                     @php
-                                        $totalUsers = $previewData->count();
-                                        $totalAmount = $previewData->sum('Total Amount Spent (PKR)');
-                                        $totalOrders = $previewData->sum('Total Orders Request');
-                                        $totalAccepted = $previewData->sum('Accepted Orders Request');
-                                        $totalPendingOrders = $previewData->sum('Pending Orders Request');
-                                        $totalCancelOrders = $previewData->sum('Cancel Orders');
-                                        $totalBookings = $previewData->sum('Total Bookings');
-                                        $totalPendingBookings = $previewData->sum('Pending Bookings');
-                                        $totalInProgress = $previewData->sum('In Progress Bookings');
-                                        $totalCompleted = $previewData->sum('Completed Bookings');
-                                        $totalCancelBookings = $previewData->sum('Cancel Bookings');
+                                        $totalRequests = $data->count();
+                                        $totalBids = $data->sum('Total Bids');
+                                        $statusCounts = [];
+                                        $totalWithBids = 0;
+
+                                        foreach ($data as $request) {
+                                            $status = $request['Status'];
+                                            if (!isset($statusCounts[$status])) {
+                                                $statusCounts[$status] = 0;
+                                            }
+                                            $statusCounts[$status]++;
+
+                                            if ($request['Total Bids'] > 0) {
+                                                $totalWithBids++;
+                                            }
+                                        }
                                     @endphp
                                     <div class="summary-stats">
                                         <div class="row">
                                             <div class="col-md-3 col-6">
                                                 <div class="stat-box">
-                                                    <span class="stat-number">{{ $totalUsers }}</span>
-                                                    <span class="stat-label">Total Users</span>
+                                                    <span class="stat-number">{{ $totalRequests }}</span>
+                                                    <span class="stat-label">Total Requests</span>
                                                 </div>
                                             </div>
                                             <div class="col-md-3 col-6">
                                                 <div class="stat-box">
-                                                    <span class="stat-number">PKR {{ number_format($totalAmount, 2) }}</span>
-                                                    <span class="stat-label">Total Amount Spent</span>
+                                                    <span class="stat-number">{{ $totalBids }}</span>
+                                                    <span class="stat-label">Total Bids</span>
                                                 </div>
                                             </div>
                                             <div class="col-md-3 col-6">
                                                 <div class="stat-box">
-                                                    <span class="stat-number">{{ $totalOrders }}</span>
-                                                    <span class="stat-label">Total Orders</span>
+                                                    <span class="stat-number">{{ $totalWithBids }}</span>
+                                                    <span class="stat-label">Requests with Bids</span>
                                                 </div>
                                             </div>
                                             <div class="col-md-3 col-6">
                                                 <div class="stat-box">
-                                                    <span class="stat-number">{{ $totalBookings }}</span>
-                                                    <span class="stat-label">Total Bookings</span>
+                                                    <span class="stat-number">{{ count($statusCounts) }}</span>
+                                                    <span class="stat-label">Status Types</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -368,52 +420,23 @@
                                         <div class="col-12">
                                             <div class="card">
                                                 <div class="card-header py-2">
-                                                    <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Summary Breakdown</h6>
+                                                    <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Status Breakdown</h6>
                                                 </div>
                                                 <div class="card-body py-2">
                                                     <div class="row">
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">Accepted Orders</small>
-                                                                <h5 class="text-success">{{ $totalAccepted }}</h5>
+                                                        @foreach ($statusCounts as $status => $count)
+                                                            <div class="col-md-2 col-4">
+                                                                <div class="text-center">
+                                                                    <small class="text-muted">{{ $status }}</small>
+                                                                    <h5 class="{{
+                                                                        strpos($status, 'Pending') !== false ? 'text-warning' :
+                                                                        (strpos($status, 'Accept') !== false ? 'text-success' :
+                                                                        (strpos($status, 'Complete') !== false ? 'text-info' :
+                                                                        (strpos($status, 'Cancel') !== false ? 'text-danger' : 'text-primary')))
+                                                                    }}">{{ $count }}</h5>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">Pending Orders</small>
-                                                                <h5 class="text-warning">{{ $totalPendingOrders }}</h5>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">Cancel Orders</small>
-                                                                <h5 class="text-danger">{{ $totalCancelOrders }}</h5>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">Pending Bookings</small>
-                                                                <h5 class="text-warning">{{ $totalPendingBookings }}</h5>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">In Progress Bookings</small>
-                                                                <h5 class="text-primary">{{ $totalInProgress }}</h5>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">Completed Bookings</small>
-                                                                <h5 class="text-success">{{ $totalCompleted }}</h5>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-2 col-4">
-                                                            <div class="text-center">
-                                                                <small class="text-muted">Cancel Bookings</small>
-                                                                <h5 class="text-danger">{{ $totalCancelBookings }}</h5>
-                                                            </div>
-                                                        </div>
+                                                        @endforeach
                                                     </div>
                                                 </div>
                                             </div>
@@ -477,31 +500,32 @@
             printWindow.document.write(`
                 <html>
                     <head>
-                        <title>Users Preview Report</title>
+                        <title>Service Requests Preview Report</title>
                         <link rel="stylesheet" href="assets/bundles/bootstrap/css/bootstrap.min.css">
                         <style>
                             body { padding: 20px; font-family: Arial, sans-serif; }
                             table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
                             th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-                            th { background-color: #2196F3; color: white; }
+                            th { background-color: #9C27B0; color: white; }
                             .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; }
-                            .badge-primary { background: #007bff; color: white; }
-                            .badge-success { background: #28a745; color: white; }
-                            .badge-warning { background: #ffc107; color: white; }
-                            .badge-danger { background: #dc3545; color: white; }
-                            .badge-info { background: #17a2b8; color: white; }
+                            .text-center { text-align: center; }
+                            .badge-status-pending { background: #ffc107; color: #212529; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-accept { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-accepted { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-complete { background: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-completed { background: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-cancel { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-cancelled { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-rejected { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
                             .preview-header { margin-bottom: 20px; }
                             .summary-stats { margin-top: 20px; }
                             .text-success { color: #28a745; }
                             .text-warning { color: #ffc107; }
                             .text-danger { color: #dc3545; }
+                            .text-info { color: #17a2b8; }
                             .text-primary { color: #007bff; }
-                            .text-center { text-align: center; }
-                            .amount-positive { color: #28a745; font-weight: 600; }
-                            .badge-status-active { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; }
-                            .badge-status-blocked { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
-                            .badge-status-inactive { background: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; }
-                            .badge-status-pending { background: #ffc107; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .description-text { max-width: 150px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                            .media-files-wrapper { max-width: 120px; word-break: break-all; }
                             @media print {
                                 body { margin: 10px; }
                                 .no-print { display: none; }
@@ -511,7 +535,7 @@
                     </head>
                     <body>
                         <div class="preview-header">
-                            <h3>Users Preview Report</h3>
+                            <h3>Service Requests Preview Report</h3>
                             <p>Generated on: ${new Date().toLocaleString()}</p>
                             ${document.querySelector('.filter-info') ? document.querySelector('.filter-info').outerHTML : ''}
                         </div>

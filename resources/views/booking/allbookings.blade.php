@@ -1,8 +1,9 @@
 @extends('layout.dashboard-layout')
 
 @section('css')
-    <link rel="stylesheet" href="assets/bundles/datatables/datatables.min.css">
-    <link rel="stylesheet" href="assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" href="{{ asset('assets/bundles/datatables/datatables.min.css') }}">
+    <link rel="stylesheet"
+        href="{{ asset('assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}">
 
     <style>
         /* Same modal CSS as before */
@@ -82,9 +83,10 @@
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header"
-                            style="display: flex; justify-content: space-between; align-items: center;">
-                            <h4>All Bookings</h4>
+                                style="display: flex; justify-content: space-between; align-items: center;">
+                                <h4>All Bookings</h4>
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    {{-- <a href="{{ route('bookings.preview') }}" class="btn btn-dark">Refresh</a> --}}
                                     @include('components.preview-button', [
                                         'apiUrl' => route('bookings.preview'),
                                         'previewTitle' => 'Bookings Data Preview',
@@ -112,6 +114,7 @@
                                         <thead>
                                             <tr>
                                                 <th class="text-center">#</th>
+                                                <th>Booking #</th>
                                                 <th>Provider Name</th>
                                                 <th>Price</th>
                                                 <th>Payment Method</th>
@@ -123,6 +126,7 @@
                                             @foreach ($data as $key => $booking)
                                                 <tr>
                                                     <td class="text-center">{{ $key + 1 }}</td>
+                                                    <td>{{ 'MS-BKG-' . $booking->id }}</td>
                                                     <td>{{ $booking->provider->full_name ?? 'No Provider' }}</td>
                                                     <td>
                                                         <div class="badge badge-dark">{{ $booking->price }}</div>
@@ -152,11 +156,11 @@
                                                     </td>
 
                                                     <td>
-                                                        <button class="btn btn-primary openModalBtn"
+                                                        {{-- <button class="btn btn-primary openModalBtn"
                                                             data-booking-id="{{ $booking->id }}"
                                                             data-current-status="{{ $booking->status }}">
                                                             <i data-feather="refresh-cw"></i>
-                                                        </button>
+                                                        </button> --}}
 
                                                         <a href="{{ route('booking.chat', [
                                                             'status' => $booking->status,
@@ -214,7 +218,10 @@
         $(document).ready(function() {
             $('#table-all').DataTable({
                 "pageLength": 100,
-                "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]]
+                "lengthMenu": [
+                    [100, 300, 500, 1000],
+                    [100, 300, 500, 1000]
+                ]
             }); // initialize table
             feather.replace();
 

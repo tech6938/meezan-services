@@ -85,7 +85,7 @@ class BookingRequestController extends Controller
             // All checks passed - create booking
             $orderNo = now()->format('YmdHis') . random_int(10, 99);
             $serviceRequest = ServiceRequest::findOrFail($requestId);
-            $serviceRequest->update(['status' => 'accept']);
+            // $serviceRequest->update(['status' => 'accept']);
 
             $booking = BookingRequest::create([
                 'provider_id'   => $providerId,

@@ -107,12 +107,13 @@
         .view-body { margin: 20px 0; }
         .info-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 10px;
             padding: 10px 0;
             border-bottom: 1px solid #f1f1f1;
         }
-        .info-row i { color: #6777ef; width: 20px; }
+        .info-row i { color: #6777ef; width: 20px; margin-top: 2px; }
+        .info-row .info-content { flex: 1; word-break: break-word; }
         .viewCloseBtn { width: 100%; margin-top: 10px; }
 
         .file-preview-container {
@@ -132,6 +133,16 @@
         .file-item img { max-width: 100%; max-height: 150px; object-fit: contain; }
         .file-item video, .file-item audio { width: 100%; }
         .file-name { margin-top: 5px; font-size: 12px; word-break: break-all; }
+
+        .page-title {
+            margin: 0;
+            padding: 8px 15px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #495057;
+            display: inline-block;
+        }
     </style>
 @endsection
 
@@ -143,7 +154,12 @@
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                                <h4>All Orders</h4>
+                                <div>
+                                    <h4>Orders</h4>
+                                    <span class="page-title">
+                                        <i data-feather="list"></i> {{ $pageTitle ?? 'All Orders' }}
+                                    </span>
+                                </div>
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                     @include('components.preview-button', [
                                         'apiUrl' => route('orders.preview'),
@@ -165,8 +181,8 @@
 
                                 <!-- Status Filter Tabs -->
                                 <div class="filter-tabs">
-                                    <a href="{{ route('allRequest', request()->except('type')) }}"
-                                       class="filter-tab {{ !request()->routeIs('pendingOrders') && !request()->routeIs('acceptedOrders') && !request()->routeIs('cancelledOrders') && !request()->routeIs('pendingBookings') && !request()->routeIs('completedOrders') ? 'active' : '' }}">
+                                    <a href="{{ route('allRequest') }}"
+                                       class="filter-tab {{ request()->routeIs('allRequest') ? 'active' : '' }}">
                                         <i data-feather="list"></i> All Orders
                                         <span class="badge-count">{{ $statusCounts['total'] ?? 0 }}</span>
                                     </a>
@@ -201,11 +217,11 @@
                                     <table class="table table-striped" id="table">
                                         <thead>
                                             <tr>
-                                                <th class="text-center">#</th>
-                                                <th>Order ID</th>
-                                                <th>Name</th>
-                                                <th>Status</th>
-                                                <th>Action</th>
+                                                <th class="text-center" width="5%">#</th>
+                                                <th width="15%">Order ID</th>
+                                                <th width="15%">Name</th>
+                                                <th width="25%">Status</th>
+                                                <th width="40%">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -232,26 +248,33 @@
                                                             @if($provider['has_booking'])
                                                                 <br>
                                                                 <small class="text-muted">
-                                                                    {{-- <span class="badge badge-light">Bid: {{ $provider['req_status'] ?? 'N/A' }}</span>
+                                                                    <span class="badge badge-light">Bid: {{ $provider['req_status'] ?? 'N/A' }}</span>
                                                                     <span class="badge badge-light">Assigned: {{ $provider['assigned'] ?? 0 }}</span>
-                                                                    <span class="badge badge-light">Goto: {{ $provider['goto'] ?? 0 }}</span> --}}
+                                                                    <span class="badge badge-light">Goto: {{ $provider['goto'] ?? 0 }}</span>
                                                                 </small>
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            <button class="btn btn-dark viewBtn"
-                                                                data-name="{{ $provider['user_name'] }}"
-                                                                data-status="{{ $provider['status'] }}"
-                                                                data-lat="{{ $provider['lat'] ?? 'N/A' }}"
-                                                                data-lng="{{ $provider['lang'] ?? 'N/A' }}"
-                                                                data-desc="{{ $provider['desc'] ?? 'N/A' }}"
-                                                                data-file="{{ json_encode($provider['file_urls'] ?? []) }}">
-                                                                <i data-feather="eye"></i>
-                                                            </button>
-                                                            <a href="{{ route('service-request.accepted-providers', $provider['id']) }}"
-                                                                class="btn btn-info" target="_blank">
-                                                                <i data-feather="users"></i> View Providers
-                                                            </a>
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                                <button class="btn btn-dark viewBtn"
+                                                                    data-name="{{ $provider['user_name'] }}"
+                                                                    data-status="{{ $provider['status'] }}"
+                                                                    data-lat="{{ $provider['lat'] ?? 'N/A' }}"
+                                                                    data-lng="{{ $provider['lang'] ?? 'N/A' }}"
+                                                                    data-desc="{{ $provider['desc'] ?? 'N/A' }}"
+                                                                    data-file="{{ json_encode($provider['file_urls'] ?? []) }}">
+                                                                    <i data-feather="eye"></i>
+                                                                </button>
+                                                                <a href="{{ route('service-request.accepted-providers', $provider['id']) }}"
+                                                                    class="btn btn-info" target="_blank">
+                                                                    <i data-feather="users"></i> View Providers
+                                                                </a>
+                                                                <!-- Status Update Button -->
+                                                                <button class="btn btn-primary openModalBtn"
+                                                                    data-provider-id="{{ $provider['id'] }}">
+                                                                    <i data-feather="edit-2"></i>
+                                                                </button>
+                                                                <!-- Delete Button -->                                                            </div>
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -286,18 +309,46 @@
                 <div class="view-body">
                     <div class="info-row">
                         <i data-feather="map-pin"></i>
-                        <span><strong>Location:</strong> <span id="viewLat">Latitude</span>, <span id="viewLng">Longitude</span></span>
+                        <div class="info-content">
+                            <strong>Location:</strong> <span id="viewLat">Latitude</span>, <span id="viewLng">Longitude</span>
+                        </div>
                     </div>
                     <div class="info-row">
                         <i data-feather="file-text"></i>
-                        <span><strong>Description:</strong> <span id="viewDesc"></span></span>
+                        <div class="info-content">
+                            <strong>Description:</strong> <span id="viewDesc"></span>
+                        </div>
                     </div>
                     <div class="info-row">
                         <i data-feather="file"></i>
-                        <div><strong>Files:</strong> <span id="viewFiles"></span></div>
+                        <div class="info-content">
+                            <strong>Files:</strong>
+                            <div id="viewFiles"></div>
+                        </div>
                     </div>
                 </div>
                 <button class="btn btn-secondary viewCloseBtn">Close</button>
+            </div>
+        </div>
+
+        <!-- Status Update Modal -->
+        <div id="statusModal" class="modal">
+            <div class="modal-content">
+                <span class="close statusClose">&times;</span>
+                <h3>Update Order Status</h3>
+                <form action="{{ route('statusUpdates') }}" method="post">
+                    @csrf
+                    <input type="hidden" id="statusProviderId" name="provider_id" value="">
+                    <select id="statusDropdown" name="status" class="form-control" required>
+                        <option value="" selected disabled>Select Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="cancel">Cancel</option>
+                        <option value="complete">Complete</option>
+                    </select>
+                    <br>
+                    <button type="submit" class="btn btn-primary w-100">Save</button>
+                </form>
             </div>
         </div>
     </div>
@@ -312,6 +363,7 @@
 
     <script>
         $(document).ready(function() {
+            // Initialize DataTable
             $('#table').DataTable({
                 "pageLength": 100,
                 "lengthMenu": [
@@ -386,8 +438,90 @@
 
             document.querySelector("#viewModal .close").onclick = () => viewModal.style.display = "none";
             document.querySelector(".viewCloseBtn").onclick = () => viewModal.style.display = "none";
+
+            // Status Update Modal
+            const statusModal = document.getElementById("statusModal");
+            const statusProviderId = document.getElementById("statusProviderId");
+
+            document.querySelectorAll(".openModalBtn").forEach(btn => {
+                btn.addEventListener("click", function() {
+                    statusProviderId.value = this.dataset.providerId;
+                    statusModal.style.display = "block";
+                });
+            });
+
+            document.querySelector(".statusClose").onclick = () => statusModal.style.display = "none";
+
+            // Delete functionality
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const providerName = this.dataset.providerName;
+                    const form = this.closest('.delete-form');
+
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: `You are about to delete order "${providerName}". This action cannot be undone!`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Yes, delete it!',
+                        cancelButtonText: 'Cancel',
+                        showLoaderOnConfirm: true,
+                        preConfirm: async () => {
+                            try {
+                                const formData = new FormData(form);
+                                formData.append('_method', 'DELETE');
+
+                                const response = await fetch(form.action, {
+                                    method: 'POST',
+                                    headers: {
+                                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: formData
+                                });
+
+                                const text = await response.text();
+                                let data;
+                                try {
+                                    data = JSON.parse(text);
+                                } catch (e) {
+                                    throw new Error('Server returned invalid response');
+                                }
+
+                                if (!response.ok) {
+                                    throw new Error(data.message || data.error || 'Something went wrong');
+                                }
+
+                                return data;
+                            } catch (error) {
+                                Swal.showValidationMessage(`Request failed: ${error.message}`);
+                                throw error;
+                            }
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed && result.value) {
+                            Swal.fire({
+                                title: 'Deleted!',
+                                text: `Order "${providerName}" has been deleted successfully.`,
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        }
+                    });
+                });
+            });
+
+            // Close modals when clicking outside
             window.onclick = function(event) {
                 if (event.target === viewModal) viewModal.style.display = "none";
+                if (event.target === statusModal) statusModal.style.display = "none";
             };
         });
     </script>

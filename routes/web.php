@@ -8,6 +8,7 @@ use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\UserProviderController;
 use App\Http\Middleware\AuthMiddleware;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 // dash
 Route::middleware([AuthMiddleware::class])->group(function () {
@@ -94,17 +95,51 @@ Route::controller(AuthController::class)->group(function () {
 | Service Requests Routes
 |--------------------------------------------------------------------------
 */
-    Route::controller(ServiceRequestController::class)->group(function () {
+    // Route::controller(ServiceRequestController::class)->group(function () {
 
-        // all service request service requests
-        Route::get('/service-requests', 'allRequest')->name('allRequest');
+    //     // all service request service requests
+    //     Route::get('/orders', 'allRequest')->name('allRequest');
         Route::get('/pending-request', 'pendingRequest')->name('pendingRequest');
         Route::get('/approved-request', 'approvedRequest')->name('approvedRequest');
-        Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
-        Route::get('/service-requests/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
-        Route::get('/requests/export', 'exportRequests')->name('requests.export');
-        Route::get('/requests/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
-    });
+    //     Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
+    //     // Service Requests Preview Route
+    //     Route::get('/orders/preview', 'previewRequests')->name('orders.preview');
+    //     Route::get('/order/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
+    //     Route::get('/orders/export', 'exportRequests')->name('requests.export');
+    //     Route::get('/orders/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
+    // });
+Route::controller(ServiceRequestController::class)->group(function () {
+    // All service requests
+    Route::get('/orders', 'allRequest')->name('allRequest');
+
+    // Status filter routes - using the same ordersView method
+    Route::get('/orders/pending-orders', function (Request $request) {
+        return app(ServiceRequestController::class)->ordersView($request, 'pending_orders');
+    })->name('pendingOrders');
+
+    Route::get('/orders/accepted-orders', function (Request $request) {
+        return app(ServiceRequestController::class)->ordersView($request, 'accepted_orders');
+    })->name('acceptedOrders');
+
+    Route::get('/orders/cancelled-orders', function (Request $request) {
+        return app(ServiceRequestController::class)->ordersView($request, 'cancelled_orders');
+    })->name('cancelledOrders');
+
+    Route::get('/orders/pending-bookings', function (Request $request) {
+        return app(ServiceRequestController::class)->ordersView($request, 'pending_bookings');
+    })->name('pendingBookings');
+
+    Route::get('/orders/completed-orders', function (Request $request) {
+        return app(ServiceRequestController::class)->ordersView($request, 'completed_orders');
+    })->name('completedOrders');
+
+    // Other routes
+    Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
+    Route::get('/orders/preview', 'previewRequests')->name('orders.preview');
+    Route::get('/order/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
+    Route::get('/orders/export', 'exportRequests')->name('requests.export');
+    Route::get('/orders/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
+});
 
     /*
 |--------------------------------------------------------------------------
@@ -125,8 +160,8 @@ Route::controller(AuthController::class)->group(function () {
         // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');
         Route::get('/bookings/export', 'exportBookings')->name('bookings.export');
-        Route::get('/bookings/preview', 'previewBookings')->name('bookings.preview');
         Route::get('/bookings/export-multi', 'exportBookingsMultiSheet')->name('bookings.exportMultiMulti');
+        Route::get('/bookings/preview', 'previewBooking')->name('bookings.preview');
     });
 
     /*

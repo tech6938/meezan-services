@@ -182,7 +182,7 @@
                                             <tr>
                                                 <th class="text-center">#</th>
                                                 <th>User Name</th>
-                                                <th>Phone</th>
+                                                <th>Contact</th>
                                                 <th>Referral Code</th>
                                                 <th>Direct Referrals</th>
                                                 <th>Status</th>
@@ -202,10 +202,13 @@
                                                         <td>
                                                             <img src="{{ $user->image_url ?? asset('public\assets\img\users\user-8.png') }}" style="width:80px; height:70px;"
                                                                 alt="user image">
-                                                            {{ $user->name }}
+                                                            <br>
+                                                            <span class="font-weight-bold mt-2">{{ $user->name }}</span>
                                                         </td>
                                                         <td>
                                                             {{ $user->phone ?? 'N/A' }}
+                                                            <br>
+                                                            {{ $user->email ?? 'N/A' }}
                                                         </td>
                                                         <td>
                                                             <span class="badge badge-light">

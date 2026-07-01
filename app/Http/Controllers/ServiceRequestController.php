@@ -5,26 +5,64 @@ namespace App\Http\Controllers;
 use App\Exports\RequestsExport;
 use App\Exports\RequestsMultiSheetExport;
 use App\Models\ServiceRequest;
+use App\Models\BookingRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ServiceRequestController extends Controller
 {
-
+    /**
+     * All Requests - Show all service requests with their status
+     */
     public function allRequest(Request $request)
     {
-        $data = $this->applyDateRangeFilter(ServiceRequest::with('user'), $request)->get();
+        $query = ServiceRequest::with('user')->orderBy('created_at', 'desc');
+        $data = $this->applyDateRangeFilter($query, $request)->get();
+
+        // Get status counts for badges
+        $statusCounts = $this->getStatusCounts($request);
 
         $result = $data->map(function ($request) {
-            // Get file URLs (could be string or array)
             $fileUrls = $request->file_url;
-
-            // Ensure it's always an array for consistent handling
             if (is_string($fileUrls)) {
                 $fileUrls = [$fileUrls];
             } elseif (!is_array($fileUrls)) {
                 $fileUrls = [];
+            }
+
+            // Check status from service_requests table
+            $serviceStatus = $request->status;
+
+            // Check booking_requests for this request
+            $booking = $request->bookingRequests()->first();
+
+            // Determine display status
+            $displayStatus = $serviceStatus;
+
+            if ($serviceStatus == 'cancel') {
+                $displayStatus = 'Cancelled';
+            } elseif ($serviceStatus == 'complete') {
+                $displayStatus = 'Completed';
+            } elseif ($serviceStatus == 'pending') {
+                // Check if there's any booking
+                if ($booking) {
+                    // Check req_status
+                    $reqStatus = $booking->req_status ?? null;
+                    $assigned = $booking->assigned ?? 0;
+                    $goto = $booking->goto ?? 0;
+
+                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
+                        $displayStatus = 'Accepted';
+                    } elseif ($reqStatus == 'accept') {
+                        $displayStatus = 'Pending Booking'; // Bid received but not assigned
+                    } else {
+                        $displayStatus = 'Pending Order';
+                    }
+                } else {
+                    $displayStatus = 'Pending Order';
+                }
             }
 
             return [
@@ -32,65 +70,233 @@ class ServiceRequestController extends Controller
                 'desc' => $request->desc,
                 'lang' => $request->lang,
                 'lat' => $request->lat,
-                'status' => $request->status,
+                'status' => $displayStatus,
+                'service_status' => $serviceStatus,
                 'user_name' => $request->user ? $request->user->name : 'N/A',
-                'file_urls' => $fileUrls, // Changed to array
+                'file_urls' => $fileUrls,
                 'created_at' => $request->created_at->format('Y-m-d H:i:s'),
+                // Additional booking info
+                'has_booking' => $booking ? true : false,
+                'req_status' => $booking->req_status ?? null,
+                'assigned' => $booking->assigned ?? 0,
+                'goto' => $booking->goto ?? 0,
             ];
         });
 
-        return view('serviceRequest.allRequest', compact('result'));
+        return view('serviceRequest.allRequest', compact('result', 'statusCounts'));
     }
 
-    // pending
-    public function pendingRequest(Request $request)
+    /**
+     * Get status counts for the badges
+     */
+    private function getStatusCounts($request)
     {
-        // Fetch all pending requests and eager load the user relationship
-        $data = $this->applyDateRangeFilter(ServiceRequest::where('status', 'pending')->with('user'), $request)->get();
+        $baseQuery = ServiceRequest::query();
 
-        // Map the data to include user name and ensure consistent file URL handling
-        $result = $data->map(function ($request) {
-            // Get the user's name from the related user record
-            $userName = $request->user ? $request->user->name : 'N/A';
+        // Apply date filter to counts
+        if ($request->has('start_date') && $request->start_date) {
+            $baseQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->has('end_date') && $request->end_date) {
+            $baseQuery->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $allRequests = $baseQuery->with('bookingRequests')->get();
+
+        $pendingOrders = 0;
+        $acceptedOrders = 0;
+        $cancelledOrders = 0;
+        $pendingBookings = 0;
+        $completedOrders = 0;
+
+        foreach ($allRequests as $request) {
+            $serviceStatus = $request->status;
+            $booking = $request->bookingRequests()->first();
+
+            if ($serviceStatus == 'cancel') {
+                $cancelledOrders++;
+            } elseif ($serviceStatus == 'complete') {
+                $completedOrders++;
+            } elseif ($serviceStatus == 'pending') {
+                if ($booking) {
+                    $reqStatus = $booking->req_status ?? null;
+                    $assigned = $booking->assigned ?? 0;
+                    $goto = $booking->goto ?? 0;
+
+                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
+                        $acceptedOrders++;
+                    } elseif ($reqStatus == 'accept') {
+                        $pendingBookings++;
+                    } else {
+                        $pendingOrders++;
+                    }
+                } else {
+                    $pendingOrders++;
+                }
+            }
+        }
+
+        return [
+            'pending_orders' => $pendingOrders,
+            'accepted_orders' => $acceptedOrders,
+            'cancelled_orders' => $cancelledOrders,
+            'pending_bookings' => $pendingBookings,
+            'completed_orders' => $completedOrders,
+            'total' => $allRequests->count(),
+        ];
+    }
+
+    /**
+     * Filter by Pending Orders (no booking record exists, status = pending)
+     */
+    public function pendingOrders(Request $request)
+    {
+        $data = ServiceRequest::with('user')
+            ->where('status', 'pending')
+            ->whereDoesntHave('bookingRequests')
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'pending_orders');
+    }
+
+    /**
+     * Filter by Accepted Orders (req_status = accept, assigned = 1, goto = 1)
+     */
+    public function acceptedOrders(Request $request)
+    {
+        $data = ServiceRequest::with('user')
+            ->where('status', 'pending')
+            ->whereHas('bookingRequests', function ($q) {
+                $q->where('req_status', 'accept')
+                    ->where('assigned', 1)
+                    ->where('goto', 1);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'accepted_orders');
+    }
+
+    /**
+     * Filter by Pending Bookings (req_status = accept, but not assigned yet)
+     */
+    public function pendingBookings(Request $request)
+    {
+        $data = ServiceRequest::with('user')
+            ->where('status', 'pending')
+            ->whereHas('bookingRequests', function ($q) {
+                $q->where('req_status', 'accept')
+                    ->where(function ($q2) {
+                        $q2->where('assigned', 0)
+                            ->orWhere('goto', '!=', 1);
+                    });
+            })
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'pending_bookings');
+    }
+
+    /**
+     * Filter by Cancelled Orders (status = cancel)
+     */
+    public function cancelledOrders(Request $request)
+    {
+        $data = ServiceRequest::with('user')
+            ->where('status', 'cancel')
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'cancelled_orders');
+    }
+
+    /**
+     * Filter by Completed Orders (status = complete)
+     */
+    public function completedOrders(Request $request)
+    {
+        $data = ServiceRequest::with('user')
+            ->where('status', 'complete')
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'completed_orders');
+    }
+
+    /**
+     * Format results for display
+     */
+    private function formatResults($data)
+    {
+        return $data->map(function ($request) {
+            $fileUrls = $request->file_url;
+            if (is_string($fileUrls)) {
+                $fileUrls = [$fileUrls];
+            } elseif (!is_array($fileUrls)) {
+                $fileUrls = [];
+            }
+
+            $serviceStatus = $request->status;
+            $booking = $request->bookingRequests()->first();
+
+            $displayStatus = $serviceStatus;
+
+            if ($serviceStatus == 'cancel') {
+                $displayStatus = 'Cancelled';
+            } elseif ($serviceStatus == 'complete') {
+                $displayStatus = 'Completed';
+            } elseif ($serviceStatus == 'pending') {
+                if ($booking) {
+                    $reqStatus = $booking->req_status ?? null;
+                    $assigned = $booking->assigned ?? 0;
+                    $goto = $booking->goto ?? 0;
+
+                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
+                        $displayStatus = 'Accepted';
+                    } elseif ($reqStatus == 'accept') {
+                        $displayStatus = 'Pending Booking';
+                    } else {
+                        $displayStatus = 'Pending Order';
+                    }
+                } else {
+                    $displayStatus = 'Pending Order';
+                }
+            }
 
             return [
                 'id' => $request->id,
+                'desc' => $request->desc,
                 'lang' => $request->lang,
                 'lat' => $request->lat,
-                'status' => $request->status,
-                'user_name' => $userName, // Add user name here
+                'status' => $displayStatus,
+                'service_status' => $serviceStatus,
+                'user_name' => $request->user ? $request->user->name : 'N/A',
+                'file_urls' => $fileUrls,
+                'created_at' => $request->created_at->format('Y-m-d H:i:s'),
+                'has_booking' => $booking ? true : false,
+                'req_status' => $booking->req_status ?? null,
+                'assigned' => $booking->assigned ?? 0,
+                'goto' => $booking->goto ?? 0,
             ];
         });
-
-        // Return the view with the result
-        return view('serviceRequest.pending', compact('result'));
     }
 
-    // approved
-    public function approvedRequest(Request $request)
-    {
-        // Fetch all approved requests and eager load the user relationship
-        $data = $this->applyDateRangeFilter(ServiceRequest::where('status', 'approved')->with('user'), $request)->get();
-
-        // Map the data to include user name and ensure consistent file URL handling
-        $result = $data->map(function ($request) {
-            // Get the user's name from the related user record
-            $userName = $request->user ? $request->user->name : 'N/A';
-
-            return [
-                'id' => $request->id,
-                'lang' => $request->lang,
-                'lat' => $request->lat,
-                'status' => $request->status,
-                'user_name' => $userName, // Add user name here
-            ];
-        });
-
-        // Return the view with the result
-        return view('serviceRequest.approved', compact('result'));
-    }
-
-    // status  update
     public function statusUpdates(Request $request)
     {
         if ($request->has('provider_id')) {
@@ -116,45 +322,219 @@ class ServiceRequestController extends Controller
         }
     }
 
-    public function getAcceptedProviders($id)
+public function getAcceptedProviders($id)
+{
+    try {
+        // Load the service request with booking requests and their providers
+        $serviceRequest = ServiceRequest::with([
+            'bookingRequests' => function ($query) {
+                $query->with('provider')->orderBy('created_at', 'desc');
+            },
+            'user',
+            'category',
+            'subCategory'
+        ])->findOrFail($id);
+
+        // Get all booking requests for this service request
+        $allBookings = $serviceRequest->bookingRequests;
+
+        // 1. Get the current booking state (the one that is accepted/assigned)
+        // This will be the booking with assigned = 1 (accepted, in_progress, complete, cancel)
+        $currentBooking = $allBookings->filter(function ($booking) {
+            return $booking->assigned == 1;
+        })->first();
+
+        // 2. Get all bidded providers (assigned = 0, req_status = 'accept')
+        $biddedBookings = $allBookings->filter(function ($booking) {
+            return $booking->req_status == 'accept' && $booking->assigned == 0;
+        });
+
+        // Format current booking provider
+        $currentProvider = null;
+        if ($currentBooking) {
+            $provider = $currentBooking->provider;
+
+            // Determine the status display name
+            $statusDisplay = 'Accepted';
+            if ($currentBooking->status == 'in_progress') {
+                $statusDisplay = 'In Progress';
+            } elseif ($currentBooking->status == 'complete_booking' || $currentBooking->req_status == 'complete') {
+                $statusDisplay = 'Completed';
+            } elseif ($currentBooking->status == 'cancel' || $currentBooking->req_status == 'cancel') {
+                $statusDisplay = 'Cancelled';
+            }
+
+            $currentProvider = [
+                'id' => $provider->id ?? null,
+                'name' => $provider->full_name ?? $provider->name ?? 'N/A',
+                'email' => $provider->email ?? 'N/A',
+                'phone' => $provider->phone ?? 'N/A',
+                'status' => $statusDisplay,
+                'status_raw' => $currentBooking->status ?? 'N/A',
+                'req_status' => $currentBooking->req_status ?? 'N/A',
+                'goto' => $currentBooking->goto ?? 'N/A',
+                'assigned' => $currentBooking->assigned ?? 0,
+                'order_no' => $currentBooking->order_no ?? 'N/A',
+                'price' => $currentBooking->price ?? 0,
+                'created_at' => $currentBooking->created_at ? $currentBooking->created_at->format('Y-m-d H:i:s') : 'N/A',
+                'image' => $provider->profile_image_url ?? $provider->image_url ?? asset('assets/img/avatar/avatar-1.png')
+            ];
+        }
+
+        // Format bidded providers
+        $biddedProviders = $biddedBookings->map(function ($booking) {
+            $provider = $booking->provider;
+            return [
+                'id' => $provider->id ?? null,
+                'name' => $provider->full_name ?? $provider->name ?? 'N/A',
+                'email' => $provider->email ?? 'N/A',
+                'phone' => $provider->phone ?? 'N/A',
+                'status' => 'Bidded',
+                'req_status' => $booking->req_status ?? 'N/A',
+                'goto' => $booking->goto ?? 'N/A',
+                'assigned' => $booking->assigned ?? 0,
+                'order_no' => $booking->order_no ?? 'N/A',
+                'price' => $booking->price ?? 0,
+                'bidded_at' => $booking->created_at ? $booking->created_at->format('Y-m-d H:i:s') : 'N/A',
+                'image' => $provider->profile_image_url ?? $provider->image_url ?? asset('assets/img/avatar/avatar-1.png')
+            ];
+        });
+
+        // Debug: Log the counts
+        Log::info('Request #' . $id . ' - Total Bookings: ' . $allBookings->count());
+        Log::info('Request #' . $id . ' - Current Booking: ' . ($currentBooking ? 'Yes' : 'No'));
+        Log::info('Request #' . $id . ' - Bidded: ' . $biddedBookings->count());
+
+        if (request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'service_request_id' => $serviceRequest->id,
+                'service_desc' => $serviceRequest->desc,
+                'user_name' => $serviceRequest->user->name ?? 'N/A',
+                'category' => $serviceRequest->category->name ?? 'N/A',
+                'sub_category' => $serviceRequest->subCategory->name ?? 'N/A',
+                'current_provider' => $currentProvider,
+                'bidded_providers' => $biddedProviders,
+                'total_bidded' => $biddedProviders->count()
+            ]);
+        }
+
+        return view('serviceRequest.accepted-providers', compact(
+            'serviceRequest',
+            'currentProvider',
+            'biddedProviders'
+        ));
+    } catch (\Exception $e) {
+        Log::error('Error loading accepted providers: ' . $e->getMessage(), [
+            'request_id' => $id,
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        if (request()->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+        return back()->with('error', 'Error loading providers: ' . $e->getMessage());
+    }
+}
+    /**
+     * Preview service requests before export
+     */
+    public function previewRequests(Request $request)
     {
         try {
-            $serviceRequest = ServiceRequest::with(['acceptedProviders' => function ($query) {
-                $query->withPivot('status', 'created_at', 'order_no', 'price');
-            }])->findOrFail($id);
+            $query = ServiceRequest::with([
+                'user',
+                'category',
+                'subCategory',
+                'address',
+                'bookingRequests'
+            ]);
 
-            $providers = $serviceRequest->acceptedProviders->map(function ($provider) use ($serviceRequest) {
+            // Apply status filter
+            if ($request->has('status') && $request->status) {
+                $query->where('status', $request->status);
+            }
+
+            // Apply search filter
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('desc', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($q2) use ($search) {
+                            $q2->where('name', 'like', "%{$search}%")
+                                ->orWhere('phone', 'like', "%{$search}%");
+                        });
+                });
+            }
+
+            // Apply date range filter
+            if ($request->has('start_date') && $request->start_date) {
+                $query->whereDate('created_at', '>=', $request->start_date);
+            }
+            if ($request->has('end_date') && $request->end_date) {
+                $query->whereDate('created_at', '<=', $request->end_date);
+            }
+
+            // Limit results for preview (50 records)
+            $requests = $query->orderBy('created_at', 'desc')->limit(50)->get();
+
+            // Format data for preview
+            $previewData = $requests->map(function ($request, $index) {
+                // Get saved address
+                $savedAddress = 'N/A';
+                if ($request->address) {
+                    $addressParts = [];
+                    if ($request->address->address) $addressParts[] = $request->address->address;
+                    if ($request->address->area) $addressParts[] = $request->address->area;
+                    if ($request->address->city) $addressParts[] = $request->address->city;
+                    $savedAddress = implode(', ', $addressParts);
+                }
+
+                // Get media files
+                $mediaFiles = 'N/A';
+                if ($request->file && is_array($request->file) && count($request->file) > 0) {
+                    $mediaFiles = implode("\n", $request->file);
+                }
+
+                // Map status for display
+                $statusMap = [
+                    'pending' => 'Pending',
+                    'accept' => 'Accept',
+                    'accepted' => 'Accepted',
+                    'complete' => 'Complete',
+                    'completed' => 'Completed',
+                    'cancel' => 'Cancel',
+                    'cancelled' => 'Cancelled',
+                    'rejected' => 'Rejected',
+                ];
+
                 return [
-                    'id' => $provider->id,
-                    'name' => $provider->name ?? $provider->full_name ?? 'N/A',
-                    'email' => $provider->email ?? 'N/A',
-                    'phone' => $provider->phone ?? 'N/A',
-                    'status' => $provider->pivot->status,
-                    'order_no' => $provider->pivot->order_no,
-                    'price' => $provider->pivot->price,
-                    'accepted_at' => $provider->pivot->created_at->format('Y-m-d H:i:s'),
-                    'image' => $provider->image_url ?? $provider->profile_image ?? asset('assets/img/avatar/avatar-1.png')
+                    'Sr. No' => $index + 1,
+                    'Order ID' => $request->id,
+                    'User Name' => $request->user->name ?? 'N/A',
+                    'User Phone' => $request->user->phone ?? 'N/A',
+                    'Category' => $request->category->name ?? 'N/A',
+                    'Sub Category' => $request->subCategory->name ?? 'N/A',
+                    'Description' => $request->desc ?? 'N/A',
+                    'Live Latitude' => $request->lat ?? 'N/A',
+                    'Live Longitude' => $request->lang ?? 'N/A',
+                    'Saved Address' => $savedAddress,
+                    'Media Files' => $mediaFiles,
+                    'Total Bids' => $request->bookingRequests->count(),
+                    'Status' => $statusMap[$request->status] ?? ucfirst($request->status),
+                    'Created At' => $request->created_at ? $request->created_at->format('Y-m-d H:i:s') : 'N/A',
                 ];
             });
 
-            if (request()->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'service_request_id' => $serviceRequest->id,
-                    'service_desc' => $serviceRequest->desc,
-                    'providers' => $providers
-                ]);
-            }
-
-            return view('serviceRequest.accepted-providers', compact('serviceRequest', 'providers'));
-        } catch (\Exception $e) {
-            if (request()->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error: ' . $e->getMessage()
-                ], 500);
-            }
-            return back()->with('error', 'Error loading providers');
+            return view('serviceRequest.preview', [
+                'previewTitle' => 'Service Requests Data Preview',
+                'data' => $previewData,
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Preview failed: ' . $e->getMessage());
         }
     }
 
@@ -215,5 +595,127 @@ class ServiceRequestController extends Controller
         if ($validator->fails()) {
             abort(422, $validator->errors()->first());
         }
+    }
+
+    /**
+     * Generic orders view that can handle all status types
+     * This is used by pendingOrders, acceptedOrders, cancelledOrders, pendingBookings, completedOrders
+     */
+    public function ordersView(Request $request, $type = null)
+    {
+        $query = ServiceRequest::with('user')->orderBy('created_at', 'desc');
+
+        // Get status counts for badges
+        $statusCounts = $this->getStatusCounts($request);
+
+        // Apply filters based on type
+        switch ($type) {
+            case 'pending_orders':
+                $query->where('status', 'pending')
+                    ->whereDoesntHave('bookingRequests');
+                $pageTitle = 'Pending Orders';
+                break;
+
+            case 'accepted_orders':
+                $query->where('status', 'pending')
+                    ->whereHas('bookingRequests', function ($q) {
+                        $q->where('req_status', 'accept')
+                            ->where('assigned', 1)
+                            ->where('goto', 1);
+                    });
+                $pageTitle = 'Accepted Orders';
+                break;
+
+            case 'pending_bookings':
+                $query->where('status', 'pending')
+                    ->whereHas('bookingRequests', function ($q) {
+                        $q->where('req_status', 'accept')
+                            ->where(function ($q2) {
+                                $q2->where('assigned', 0)
+                                    ->orWhere('goto', '!=', 1);
+                            });
+                    });
+                $pageTitle = 'Pending Bookings';
+                break;
+
+            case 'cancelled_orders':
+                $query->where('status', 'cancel');
+                $pageTitle = 'Cancelled Orders';
+                break;
+
+            case 'completed_orders':
+                $query->where('status', 'complete');
+                $pageTitle = 'Completed Orders';
+                break;
+
+            default:
+                $pageTitle = 'All Orders';
+                break;
+        }
+
+        // Apply date range filter
+        if ($request->has('start_date') && $request->start_date) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->has('end_date') && $request->end_date) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $data = $query->get();
+
+        // Format results
+        $result = $data->map(function ($request) {
+            $fileUrls = $request->file_url;
+            if (is_string($fileUrls)) {
+                $fileUrls = [$fileUrls];
+            } elseif (!is_array($fileUrls)) {
+                $fileUrls = [];
+            }
+
+            $serviceStatus = $request->status;
+            $booking = $request->bookingRequests()->first();
+
+            $displayStatus = $serviceStatus;
+
+            if ($serviceStatus == 'cancel') {
+                $displayStatus = 'Cancelled';
+            } elseif ($serviceStatus == 'complete') {
+                $displayStatus = 'Completed';
+            } elseif ($serviceStatus == 'pending') {
+                if ($booking) {
+                    $reqStatus = $booking->req_status ?? null;
+                    $assigned = $booking->assigned ?? 0;
+                    $goto = $booking->goto ?? 0;
+
+                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
+                        $displayStatus = 'Accepted';
+                    } elseif ($reqStatus == 'accept') {
+                        $displayStatus = 'Pending Booking';
+                    } else {
+                        $displayStatus = 'Pending Order';
+                    }
+                } else {
+                    $displayStatus = 'Pending Order';
+                }
+            }
+
+            return [
+                'id' => $request->id,
+                'desc' => $request->desc,
+                'lang' => $request->lang,
+                'lat' => $request->lat,
+                'status' => $displayStatus,
+                'service_status' => $serviceStatus,
+                'user_name' => $request->user ? $request->user->name : 'N/A',
+                'file_urls' => $fileUrls,
+                'created_at' => $request->created_at->format('Y-m-d H:i:s'),
+                'has_booking' => $booking ? true : false,
+                'req_status' => $booking->req_status ?? null,
+                'assigned' => $booking->assigned ?? 0,
+                'goto' => $booking->goto ?? 0,
+            ];
+        });
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts', 'pageTitle', 'type'));
     }
 }
