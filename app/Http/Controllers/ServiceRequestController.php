@@ -18,70 +18,13 @@ class ServiceRequestController extends Controller
      */
     public function allRequest(Request $request)
     {
-        $query = ServiceRequest::with('user')->orderBy('created_at', 'desc');
+        $query = ServiceRequest::with('user', 'bookingRequests')->orderBy('created_at', 'desc');
         $data = $this->applyDateRangeFilter($query, $request)->get();
 
         // Get status counts for badges
         $statusCounts = $this->getStatusCounts($request);
 
-        $result = $data->map(function ($request) {
-            $fileUrls = $request->file_url;
-            if (is_string($fileUrls)) {
-                $fileUrls = [$fileUrls];
-            } elseif (!is_array($fileUrls)) {
-                $fileUrls = [];
-            }
-
-            // Check status from service_requests table
-            $serviceStatus = $request->status;
-
-            // Check booking_requests for this request
-            $booking = $request->bookingRequests()->first();
-
-            // Determine display status
-            $displayStatus = $serviceStatus;
-
-            if ($serviceStatus == 'cancel') {
-                $displayStatus = 'Cancelled';
-            } elseif ($serviceStatus == 'complete') {
-                $displayStatus = 'Completed';
-            } elseif ($serviceStatus == 'pending') {
-                // Check if there's any booking
-                if ($booking) {
-                    // Check req_status
-                    $reqStatus = $booking->req_status ?? null;
-                    $assigned = $booking->assigned ?? 0;
-                    $goto = $booking->goto ?? 0;
-
-                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
-                        $displayStatus = 'Accepted';
-                    } elseif ($reqStatus == 'accept') {
-                        $displayStatus = 'Pending Booking'; // Bid received but not assigned
-                    } else {
-                        $displayStatus = 'Pending Order';
-                    }
-                } else {
-                    $displayStatus = 'Pending Order';
-                }
-            }
-
-            return [
-                'id' => $request->id,
-                'desc' => $request->desc,
-                'lang' => $request->lang,
-                'lat' => $request->lat,
-                'status' => $displayStatus,
-                'service_status' => $serviceStatus,
-                'user_name' => $request->user ? $request->user->name : 'N/A',
-                'file_urls' => $fileUrls,
-                'created_at' => $request->created_at->format('Y-m-d H:i:s'),
-                // Additional booking info
-                'has_booking' => $booking ? true : false,
-                'req_status' => $booking->req_status ?? null,
-                'assigned' => $booking->assigned ?? 0,
-                'goto' => $booking->goto ?? 0,
-            ];
-        });
+        $result = $this->formatResults($data);
 
         return view('serviceRequest.allRequest', compact('result', 'statusCounts'));
     }
@@ -93,7 +36,6 @@ class ServiceRequestController extends Controller
     {
         $baseQuery = ServiceRequest::query();
 
-        // Apply date filter to counts
         if ($request->has('start_date') && $request->start_date) {
             $baseQuery->whereDate('created_at', '>=', $request->start_date);
         }
@@ -104,41 +46,42 @@ class ServiceRequestController extends Controller
         $allRequests = $baseQuery->with('bookingRequests')->get();
 
         $pendingOrders = 0;
-        $acceptedOrders = 0;
+        $acceptOrders = 0;
+        $assignedOrders = 0;
         $cancelledOrders = 0;
         $pendingBookings = 0;
         $completedOrders = 0;
 
-        foreach ($allRequests as $request) {
-            $serviceStatus = $request->status;
-            $booking = $request->bookingRequests()->first();
+        foreach ($allRequests as $req) {
+            $booking = $this->getGoverningBooking($req);
+            $displayStatus = $this->resolveDisplayStatus($req->status, $booking);
 
-            if ($serviceStatus == 'cancel') {
-                $cancelledOrders++;
-            } elseif ($serviceStatus == 'complete') {
-                $completedOrders++;
-            } elseif ($serviceStatus == 'pending') {
-                if ($booking) {
-                    $reqStatus = $booking->req_status ?? null;
-                    $assigned = $booking->assigned ?? 0;
-                    $goto = $booking->goto ?? 0;
-
-                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
-                        $acceptedOrders++;
-                    } elseif ($reqStatus == 'accept') {
-                        $pendingBookings++;
-                    } else {
-                        $pendingOrders++;
-                    }
-                } else {
+            switch ($displayStatus) {
+                case 'Cancelled':
+                    $cancelledOrders++;
+                    break;
+                case 'Completed':
+                    $completedOrders++;
+                    break;
+                case 'Accept Order':
+                    $acceptOrders++;
+                    break;
+                case 'Assigned':
+                    $assignedOrders++;
+                    break;
+                case 'Pending Booking':
+                    $pendingBookings++;
+                    break;
+                case 'Pending Order':
                     $pendingOrders++;
-                }
+                    break;
             }
         }
 
         return [
             'pending_orders' => $pendingOrders,
-            'accepted_orders' => $acceptedOrders,
+            'accept_orders' => $acceptOrders,
+            'assigned_orders' => $assignedOrders,
             'cancelled_orders' => $cancelledOrders,
             'pending_bookings' => $pendingBookings,
             'completed_orders' => $completedOrders,
@@ -147,16 +90,20 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Filter by Pending Orders (no booking record exists, status = pending)
+     * Filter by Pending Orders (no booking, or booking not in any recognized accept-state)
      */
     public function pendingOrders(Request $request)
     {
-        $data = ServiceRequest::with('user')
+        $data = ServiceRequest::with('user', 'bookingRequests')
             ->where('status', 'pending')
-            ->whereDoesntHave('bookingRequests')
             ->orderBy('created_at', 'desc');
 
         $data = $this->applyDateRangeFilter($data, $request)->get();
+        $data = $data->filter(function ($req) {
+            $booking = $this->getGoverningBooking($req);
+            return $this->resolveDisplayStatus($req->status, $booking) === 'Pending Order';
+        })->values();
+
         $statusCounts = $this->getStatusCounts($request);
         $result = $this->formatResults($data);
 
@@ -164,11 +111,32 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Filter by Accepted Orders (req_status = accept, assigned = 1, goto = 1)
+     * Filter by Accept Order (req_status = accept, assigned = 0, goto = 0)
      */
     public function acceptedOrders(Request $request)
     {
-        $data = ServiceRequest::with('user')
+        $data = ServiceRequest::with('user', 'bookingRequests')
+            ->where('status', 'pending')
+            ->whereHas('bookingRequests', function ($q) {
+                $q->where('req_status', 'accept')
+                    ->where('assigned', 0)
+                    ->where('goto', 0);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'accept_orders');
+    }
+
+    /**
+     * Filter by Assigned (req_status = accept, assigned = 1, goto = 1)
+     */
+    public function assignedOrders(Request $request)
+    {
+        $data = ServiceRequest::with('user', 'bookingRequests')
             ->where('status', 'pending')
             ->whereHas('bookingRequests', function ($q) {
                 $q->where('req_status', 'accept')
@@ -181,22 +149,20 @@ class ServiceRequestController extends Controller
         $statusCounts = $this->getStatusCounts($request);
         $result = $this->formatResults($data);
 
-        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'accepted_orders');
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'assigned_orders');
     }
 
     /**
-     * Filter by Pending Bookings (req_status = accept, but not assigned yet)
+     * Filter by Pending Bookings (req_status = accept, assigned = 1, goto = 2)
      */
     public function pendingBookings(Request $request)
     {
-        $data = ServiceRequest::with('user')
+        $data = ServiceRequest::with('user', 'bookingRequests')
             ->where('status', 'pending')
             ->whereHas('bookingRequests', function ($q) {
                 $q->where('req_status', 'accept')
-                    ->where(function ($q2) {
-                        $q2->where('assigned', 0)
-                            ->orWhere('goto', '!=', 1);
-                    });
+                    ->where('assigned', 1)
+                    ->where('goto', 2);
             })
             ->orderBy('created_at', 'desc');
 
@@ -212,7 +178,7 @@ class ServiceRequestController extends Controller
      */
     public function cancelledOrders(Request $request)
     {
-        $data = ServiceRequest::with('user')
+        $data = ServiceRequest::with('user', 'bookingRequests')
             ->where('status', 'cancel')
             ->orderBy('created_at', 'desc');
 
@@ -228,7 +194,7 @@ class ServiceRequestController extends Controller
      */
     public function completedOrders(Request $request)
     {
-        $data = ServiceRequest::with('user')
+        $data = ServiceRequest::with('user', 'bookingRequests')
             ->where('status', 'complete')
             ->orderBy('created_at', 'desc');
 
@@ -240,7 +206,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Format results for display
+     * Format results for display - single source of truth via resolveDisplayStatus()
      */
     private function formatResults($data)
     {
@@ -253,31 +219,9 @@ class ServiceRequestController extends Controller
             }
 
             $serviceStatus = $request->status;
-            $booking = $request->bookingRequests()->first();
+            $booking = $this->getGoverningBooking($request);
 
-            $displayStatus = $serviceStatus;
-
-            if ($serviceStatus == 'cancel') {
-                $displayStatus = 'Cancelled';
-            } elseif ($serviceStatus == 'complete') {
-                $displayStatus = 'Completed';
-            } elseif ($serviceStatus == 'pending') {
-                if ($booking) {
-                    $reqStatus = $booking->req_status ?? null;
-                    $assigned = $booking->assigned ?? 0;
-                    $goto = $booking->goto ?? 0;
-
-                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
-                        $displayStatus = 'Accepted';
-                    } elseif ($reqStatus == 'accept') {
-                        $displayStatus = 'Pending Booking';
-                    } else {
-                        $displayStatus = 'Pending Order';
-                    }
-                } else {
-                    $displayStatus = 'Pending Order';
-                }
-            }
+            $displayStatus = $this->resolveDisplayStatus($serviceStatus, $booking);
 
             return [
                 'id' => $request->id,
@@ -322,123 +266,127 @@ class ServiceRequestController extends Controller
         }
     }
 
-public function getAcceptedProviders($id)
-{
-    try {
-        // Load the service request with booking requests and their providers
-        $serviceRequest = ServiceRequest::with([
-            'bookingRequests' => function ($query) {
-                $query->with('provider')->orderBy('created_at', 'desc');
-            },
-            'user',
-            'category',
-            'subCategory'
-        ])->findOrFail($id);
+    public function getAcceptedProviders($id)
+    {
+        try {
+            // Load the service request with booking requests and their providers
+            $serviceRequest = ServiceRequest::with([
+                'bookingRequests' => function ($query) {
+                    $query->with('provider')->orderBy('created_at', 'desc');
+                },
+                'user',
+                'category',
+                'subCategory'
+            ])->findOrFail($id);
 
-        // Get all booking requests for this service request
-        $allBookings = $serviceRequest->bookingRequests;
+            // Get all booking requests for this service request
+            $allBookings = $serviceRequest->bookingRequests;
 
-        // 1. Get the current booking state (the one that is accepted/assigned)
-        // This will be the booking with assigned = 1 (accepted, in_progress, complete, cancel)
-        $currentBooking = $allBookings->filter(function ($booking) {
-            return $booking->assigned == 1;
-        })->first();
+            // 1. Get the current booking state (the one that is accepted/assigned)
+            // This will be the booking with assigned = 1 (accepted, in_progress, complete, cancel)
+            $currentBooking = $allBookings->filter(function ($booking) {
+                return $booking->assigned == 1;
+            })->first();
 
-        // 2. Get all bidded providers (assigned = 0, req_status = 'accept')
-        $biddedBookings = $allBookings->filter(function ($booking) {
-            return $booking->req_status == 'accept' && $booking->assigned == 0;
-        });
+            // 2. Get all bidded providers - everyone who placed a bid on this request.
+            // This must always show every bidder, regardless of order status
+            // (pending/complete/cancel) or any later change to req_status on their
+            // booking row. The only booking excluded here is the current/active one,
+            // since that provider is already shown in the "Current Booking State" section.
+            $biddedBookings = $allBookings->reject(function ($booking) use ($currentBooking) {
+                return $currentBooking && $booking->id === $currentBooking->id;
+            });
 
-        // Format current booking provider
-        $currentProvider = null;
-        if ($currentBooking) {
-            $provider = $currentBooking->provider;
+            // Format current booking provider
+            $currentProvider = null;
+            if ($currentBooking) {
+                $provider = $currentBooking->provider;
 
-            // Determine the status display name
-            $statusDisplay = 'Accepted';
-            if ($currentBooking->status == 'in_progress') {
-                $statusDisplay = 'In Progress';
-            } elseif ($currentBooking->status == 'complete_booking' || $currentBooking->req_status == 'complete') {
-                $statusDisplay = 'Completed';
-            } elseif ($currentBooking->status == 'cancel' || $currentBooking->req_status == 'cancel') {
-                $statusDisplay = 'Cancelled';
+                // Determine the status display name
+                $statusDisplay = 'Accepted';
+                if ($currentBooking->status == 'in_progress') {
+                    $statusDisplay = 'In Progress';
+                } elseif ($currentBooking->status == 'complete_booking' || $currentBooking->req_status == 'complete') {
+                    $statusDisplay = 'Completed';
+                } elseif ($currentBooking->status == 'cancel' || $currentBooking->req_status == 'cancel') {
+                    $statusDisplay = 'Cancelled';
+                }
+
+                $currentProvider = [
+                    'id' => $provider->id ?? null,
+                    'name' => $provider->full_name ?? $provider->name ?? 'N/A',
+                    'email' => $provider->email ?? 'N/A',
+                    'phone' => $provider->phone ?? 'N/A',
+                    'status' => $statusDisplay,
+                    'status_raw' => $currentBooking->status ?? 'N/A',
+                    'req_status' => $currentBooking->req_status ?? 'N/A',
+                    'goto' => $currentBooking->goto ?? 'N/A',
+                    'assigned' => $currentBooking->assigned ?? 0,
+                    'order_no' => $currentBooking->order_no ?? 'N/A',
+                    'price' => $currentBooking->price ?? 0,
+                    'created_at' => $currentBooking->created_at ? $currentBooking->created_at->format('Y-m-d H:i:s') : 'N/A',
+                    'image' => $provider->profile_image_url ?? $provider->image_url ?? asset('assets/img/avatar/avatar-1.png')
+                ];
             }
 
-            $currentProvider = [
-                'id' => $provider->id ?? null,
-                'name' => $provider->full_name ?? $provider->name ?? 'N/A',
-                'email' => $provider->email ?? 'N/A',
-                'phone' => $provider->phone ?? 'N/A',
-                'status' => $statusDisplay,
-                'status_raw' => $currentBooking->status ?? 'N/A',
-                'req_status' => $currentBooking->req_status ?? 'N/A',
-                'goto' => $currentBooking->goto ?? 'N/A',
-                'assigned' => $currentBooking->assigned ?? 0,
-                'order_no' => $currentBooking->order_no ?? 'N/A',
-                'price' => $currentBooking->price ?? 0,
-                'created_at' => $currentBooking->created_at ? $currentBooking->created_at->format('Y-m-d H:i:s') : 'N/A',
-                'image' => $provider->profile_image_url ?? $provider->image_url ?? asset('assets/img/avatar/avatar-1.png')
-            ];
-        }
+            // Format bidded providers
+            $biddedProviders = $biddedBookings->map(function ($booking) {
+                $provider = $booking->provider;
+                return [
+                    'id' => $provider->id ?? null,
+                    'name' => $provider->full_name ?? $provider->name ?? 'N/A',
+                    'email' => $provider->email ?? 'N/A',
+                    'phone' => $provider->phone ?? 'N/A',
+                    'status' => 'Bidded',
+                    'req_status' => $booking->req_status ?? 'N/A',
+                    'goto' => $booking->goto ?? 'N/A',
+                    'assigned' => $booking->assigned ?? 0,
+                    'order_no' => $booking->order_no ?? 'N/A',
+                    'price' => $booking->price ?? 0,
+                    'bidded_at' => $booking->created_at ? $booking->created_at->format('Y-m-d H:i:s') : 'N/A',
+                    'image' => $provider->profile_image_url ?? $provider->image_url ?? asset('assets/img/avatar/avatar-1.png')
+                ];
+            });
 
-        // Format bidded providers
-        $biddedProviders = $biddedBookings->map(function ($booking) {
-            $provider = $booking->provider;
-            return [
-                'id' => $provider->id ?? null,
-                'name' => $provider->full_name ?? $provider->name ?? 'N/A',
-                'email' => $provider->email ?? 'N/A',
-                'phone' => $provider->phone ?? 'N/A',
-                'status' => 'Bidded',
-                'req_status' => $booking->req_status ?? 'N/A',
-                'goto' => $booking->goto ?? 'N/A',
-                'assigned' => $booking->assigned ?? 0,
-                'order_no' => $booking->order_no ?? 'N/A',
-                'price' => $booking->price ?? 0,
-                'bidded_at' => $booking->created_at ? $booking->created_at->format('Y-m-d H:i:s') : 'N/A',
-                'image' => $provider->profile_image_url ?? $provider->image_url ?? asset('assets/img/avatar/avatar-1.png')
-            ];
-        });
+            // Debug: Log the counts
+            Log::info('Request #' . $id . ' - Total Bookings: ' . $allBookings->count());
+            Log::info('Request #' . $id . ' - Current Booking: ' . ($currentBooking ? 'Yes' : 'No'));
+            Log::info('Request #' . $id . ' - Bidded: ' . $biddedBookings->count());
 
-        // Debug: Log the counts
-        Log::info('Request #' . $id . ' - Total Bookings: ' . $allBookings->count());
-        Log::info('Request #' . $id . ' - Current Booking: ' . ($currentBooking ? 'Yes' : 'No'));
-        Log::info('Request #' . $id . ' - Bidded: ' . $biddedBookings->count());
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'service_request_id' => $serviceRequest->id,
+                    'service_desc' => $serviceRequest->desc,
+                    'user_name' => $serviceRequest->user->name ?? 'N/A',
+                    'category' => $serviceRequest->category->name ?? 'N/A',
+                    'sub_category' => $serviceRequest->subCategory->name ?? 'N/A',
+                    'current_provider' => $currentProvider,
+                    'bidded_providers' => $biddedProviders,
+                    'total_bidded' => $biddedProviders->count()
+                ]);
+            }
 
-        if (request()->ajax()) {
-            return response()->json([
-                'success' => true,
-                'service_request_id' => $serviceRequest->id,
-                'service_desc' => $serviceRequest->desc,
-                'user_name' => $serviceRequest->user->name ?? 'N/A',
-                'category' => $serviceRequest->category->name ?? 'N/A',
-                'sub_category' => $serviceRequest->subCategory->name ?? 'N/A',
-                'current_provider' => $currentProvider,
-                'bidded_providers' => $biddedProviders,
-                'total_bidded' => $biddedProviders->count()
+            return view('serviceRequest.accepted-providers', compact(
+                'serviceRequest',
+                'currentProvider',
+                'biddedProviders'
+            ));
+        } catch (\Exception $e) {
+            Log::error('Error loading accepted providers: ' . $e->getMessage(), [
+                'request_id' => $id,
+                'trace' => $e->getTraceAsString()
             ]);
-        }
 
-        return view('serviceRequest.accepted-providers', compact(
-            'serviceRequest',
-            'currentProvider',
-            'biddedProviders'
-        ));
-    } catch (\Exception $e) {
-        Log::error('Error loading accepted providers: ' . $e->getMessage(), [
-            'request_id' => $id,
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        if (request()->ajax()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ], 500);
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage()
+                ], 500);
+            }
+            return back()->with('error', 'Error loading providers: ' . $e->getMessage());
         }
-        return back()->with('error', 'Error loading providers: ' . $e->getMessage());
     }
-}
     /**
      * Preview service requests before export
      */
@@ -599,41 +547,51 @@ public function getAcceptedProviders($id)
 
     /**
      * Generic orders view that can handle all status types
-     * This is used by pendingOrders, acceptedOrders, cancelledOrders, pendingBookings, completedOrders
+     * This is used by pendingOrders, acceptedOrders, assignedOrders, cancelledOrders, pendingBookings, completedOrders
      */
     public function ordersView(Request $request, $type = null)
     {
-        $query = ServiceRequest::with('user')->orderBy('created_at', 'desc');
+        $query = ServiceRequest::with('user', 'bookingRequests')->orderBy('created_at', 'desc');
 
         // Get status counts for badges
         $statusCounts = $this->getStatusCounts($request);
 
+        $filterInPhp = false;
+
         // Apply filters based on type
         switch ($type) {
             case 'pending_orders':
-                $query->where('status', 'pending')
-                    ->whereDoesntHave('bookingRequests');
+                $query->where('status', 'pending');
+                $filterInPhp = true; // "everything else" is easiest to resolve via resolveDisplayStatus()
                 $pageTitle = 'Pending Orders';
                 break;
 
-            case 'accepted_orders':
+            case 'accept_orders':
+                $query->where('status', 'pending')
+                    ->whereHas('bookingRequests', function ($q) {
+                        $q->where('req_status', 'accept')
+                            ->where('assigned', 0)
+                            ->where('goto', 0);
+                    });
+                $pageTitle = 'Accept Orders';
+                break;
+
+            case 'assigned_orders':
                 $query->where('status', 'pending')
                     ->whereHas('bookingRequests', function ($q) {
                         $q->where('req_status', 'accept')
                             ->where('assigned', 1)
                             ->where('goto', 1);
                     });
-                $pageTitle = 'Accepted Orders';
+                $pageTitle = 'Assigned Orders';
                 break;
 
             case 'pending_bookings':
                 $query->where('status', 'pending')
                     ->whereHas('bookingRequests', function ($q) {
                         $q->where('req_status', 'accept')
-                            ->where(function ($q2) {
-                                $q2->where('assigned', 0)
-                                    ->orWhere('goto', '!=', 1);
-                            });
+                            ->where('assigned', 1)
+                            ->where('goto', 2);
                     });
                 $pageTitle = 'Pending Bookings';
                 break;
@@ -663,59 +621,93 @@ public function getAcceptedProviders($id)
 
         $data = $query->get();
 
+        if ($filterInPhp) {
+            $data = $data->filter(function ($req) {
+                $booking = $this->getGoverningBooking($req);
+                return $this->resolveDisplayStatus($req->status, $booking) === 'Pending Order';
+            })->values();
+        }
+
         // Format results
-        $result = $data->map(function ($request) {
-            $fileUrls = $request->file_url;
-            if (is_string($fileUrls)) {
-                $fileUrls = [$fileUrls];
-            } elseif (!is_array($fileUrls)) {
-                $fileUrls = [];
-            }
-
-            $serviceStatus = $request->status;
-            $booking = $request->bookingRequests()->first();
-
-            $displayStatus = $serviceStatus;
-
-            if ($serviceStatus == 'cancel') {
-                $displayStatus = 'Cancelled';
-            } elseif ($serviceStatus == 'complete') {
-                $displayStatus = 'Completed';
-            } elseif ($serviceStatus == 'pending') {
-                if ($booking) {
-                    $reqStatus = $booking->req_status ?? null;
-                    $assigned = $booking->assigned ?? 0;
-                    $goto = $booking->goto ?? 0;
-
-                    if ($reqStatus == 'accept' && $assigned == 1 && $goto == 1) {
-                        $displayStatus = 'Accepted';
-                    } elseif ($reqStatus == 'accept') {
-                        $displayStatus = 'Pending Booking';
-                    } else {
-                        $displayStatus = 'Pending Order';
-                    }
-                } else {
-                    $displayStatus = 'Pending Order';
-                }
-            }
-
-            return [
-                'id' => $request->id,
-                'desc' => $request->desc,
-                'lang' => $request->lang,
-                'lat' => $request->lat,
-                'status' => $displayStatus,
-                'service_status' => $serviceStatus,
-                'user_name' => $request->user ? $request->user->name : 'N/A',
-                'file_urls' => $fileUrls,
-                'created_at' => $request->created_at->format('Y-m-d H:i:s'),
-                'has_booking' => $booking ? true : false,
-                'req_status' => $booking->req_status ?? null,
-                'assigned' => $booking->assigned ?? 0,
-                'goto' => $booking->goto ?? 0,
-            ];
-        });
+        $result = $this->formatResults($data);
 
         return view('serviceRequest.orders', compact('result', 'statusCounts', 'pageTitle', 'type'));
+    }
+
+    /**
+     * Picks the correct booking_requests row that governs this service
+     * request's display status, when multiple providers have bid.
+     *
+     * Priority:
+     *  1. A row with assigned = 1 (the real current state: Assigned / Pending Booking)
+     *  2. A row with req_status = accept, assigned = 0 (Accept Order state)
+     *  3. Fallback: most recently created row (for raw display only)
+     */
+    private function getGoverningBooking($serviceRequest)
+    {
+        $bookings = $serviceRequest->relationLoaded('bookingRequests')
+            ? $serviceRequest->bookingRequests
+            : $serviceRequest->bookingRequests()->get();
+
+        if ($bookings->isEmpty()) {
+            return null;
+        }
+
+        $booking = $bookings->firstWhere('assigned', 1);
+        if ($booking) {
+            return $booking;
+        }
+
+        $booking = $bookings->first(function ($b) {
+            return $b->req_status == 'accept' && $b->assigned == 0;
+        });
+        if ($booking) {
+            return $booking;
+        }
+
+        return $bookings->sortByDesc('created_at')->first();
+    }
+
+    /**
+     * Single source of truth for resolving a request's display status.
+     * Rules:
+     *  - service_requests.status = cancel   -> Cancelled
+     *  - service_requests.status = complete -> Completed
+     *  - pending, booking req_status=accept, assigned=0, goto=0 -> Accept Order
+     *  - pending, booking req_status=accept, assigned=1, goto=1 -> Assigned
+     *  - pending, booking req_status=accept, assigned=1, goto=2 -> Pending Booking
+     *  - anything else while pending (no booking, or not in a recognized accept-state) -> Pending Order
+     */
+    private function resolveDisplayStatus($serviceStatus, $booking)
+    {
+        if ($serviceStatus == 'cancel') {
+            return 'Cancelled';
+        }
+
+        if ($serviceStatus == 'complete') {
+            return 'Completed';
+        }
+
+        if ($serviceStatus == 'pending' && $booking) {
+            $reqStatus = $booking->req_status ?? null;
+            $assigned  = $booking->assigned ?? 0;
+            $goto      = $booking->goto ?? 0;
+
+            if ($reqStatus == 'accept') {
+                if ($assigned == 0 && $goto == 0) {
+                    return 'Accept Order';
+                }
+
+                if ($assigned == 1 && $goto == 1) {
+                    return 'Assigned';
+                }
+
+                if ($assigned == 1 && $goto == 2) {
+                    return 'Pending Booking';
+                }
+            }
+        }
+
+        return 'Pending Order';
     }
 }

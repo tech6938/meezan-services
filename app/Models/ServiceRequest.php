@@ -125,7 +125,7 @@ class ServiceRequest extends Model
         return $this->hasMany(ProviderRequestSeen::class, 'request_id');
     }
 
- /**
+    /**
      * Get all booking requests with their providers
      */
     public function bookingsWithProviders()
