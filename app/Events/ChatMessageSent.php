@@ -6,6 +6,7 @@ use App\Models\Chat;
 use App\Models\Provider;
 use App\Models\ShopKeeper;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -53,7 +54,7 @@ class ChatMessageSent implements ShouldBroadcastNow
             'file_type' => $this->chat->file_type,
             'file_path' => $this->chat->file_path,
             'is_seen' => (bool) $this->chat->is_seen,
-            'created_at' => $this->chat->created_at->toDateTimeString(),
+            'created_at' => $this->chat->created_at ? Carbon::parse($this->chat->created_at)->setTimezone(config('app.timezone', 'Asia/Karachi'))->format('d M Y, h:i A') : null,
         ];
     }
 

@@ -113,7 +113,7 @@ class ShopRequestController extends Controller
                     'desc'       => $request->desc,
                     'status'     => $request->status,
                     // 'shopkeeper_name'  => $request->user->name,
-                    'created_at' => optional($request->created_at)->format('Y-m-d H:i:s'),
+                    'created_at' => $this->formatApiDateTime(optional($request->created_at)),
                 ];
             });
 
@@ -179,7 +179,7 @@ class ShopRequestController extends Controller
                 'file'       => $request->file,
                 'file_type'  => $request->file_type,
                 'status'     => $request->status,
-                'created_at' => optional($request->created_at)->format('Y-m-d H:i:s'),
+                'created_at' => $this->formatApiDateTime(optional($request->created_at)),
             ];
 
             return response()->json([

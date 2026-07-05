@@ -110,7 +110,7 @@ class ReferralController extends Controller
                     'booking_amount' => (float) $log->booking_amount,
                     'earned_amount' => (float) $log->earned_amount,
                     'status' => $log->status,
-                    'created_at' => $log->created_at,
+                    'created_at' => $this->formatApiDateTime($log->created_at),
                     'referred_user' => $log->referredUser ? [
                         'id' => $log->referredUser->id,
                         'name' => $log->referredUser->name,
@@ -123,7 +123,7 @@ class ReferralController extends Controller
                         'order_no' => $log->booking->order_no,
                         'price' => $log->booking->price,
                         'status' => $log->booking->status,
-                        'created_at' => $log->booking->created_at,
+                        'created_at' => $this->formatApiDateTime($log->booking->created_at),
                     ] : null,
                 ];
             })->values(),

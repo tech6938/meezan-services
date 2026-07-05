@@ -5,9 +5,11 @@ namespace App\Http\Controllers\api;
 use App\Events\ChatMessageSent;
 use App\Http\Controllers\Controller;
 use App\Models\Chat;
+use App\Models\FCMToken;
 use App\Models\Provider;
 use App\Models\ShopKeeper;
 use App\Models\User;
+use App\Services\FcmTokenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -110,6 +112,45 @@ class ChatController extends Controller
     private function fileUrl(?string $path): ?string
     {
         return $path ? url($path) : null;
+    }
+
+    private function buildChatNotificationBody(int $count): string
+    {
+        return $count === 1 ? '1 new message' : $count . ' new messages';
+    }
+
+    private function sendChatPushNotification(
+        int $recipientId,
+        string $recipientType,
+        int $senderId,
+        int $bookingId,
+        string $senderName,
+        int $unreadCount
+    ): void {
+        $fcmService = app(FcmTokenService::class);
+
+        $fcmToken = FCMToken::where('entity_type', $recipientType)
+            ->where('entity_id', $recipientId)
+            ->first();
+
+        if (!$fcmToken || empty($fcmToken->fcm_token)) {
+            return;
+        }
+
+        $data = [
+            'type' => 'chat',
+            'sender_id' => (string) $senderId,
+            'conversation_id' => (string) $bookingId,
+            'timestamp' => $this->formatApiDateTime(now()),
+            'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+        ];
+
+        $fcmService->sendNotification(
+            $fcmToken->fcm_token,
+            $senderName,
+            $this->buildChatNotificationBody($unreadCount),
+            $data
+        );
     }
 
     private function unreadConversationQuery(array $receiver, array $sender)
@@ -233,7 +274,7 @@ class ChatController extends Controller
                         'image' => $otherUserPayload['image'],
                     ],
                     'latest_message' => $chat->message,
-                    'latest_message_time' => $chat->created_at,
+                    'latest_message_time' => $this->formatApiDateTime($chat->created_at),
                     'latest_file' => $this->fileUrl($chat->file_path),
                     'total_messages' => $messages->count(),
                     'unread_count' => $unreadCount,
@@ -395,7 +436,7 @@ class ChatController extends Controller
 
             return [
                 'id' => $chat->id,
-                'created_at' => $chat->created_at,
+                'created_at' => $this->formatApiDateTime($chat->created_at),
                 'sender_type' => $sender['type'] ?? 'unknown',
                 'message' => $chat->message,
                 'file_url' => $this->fileUrl($chat->file_path),
@@ -497,6 +538,30 @@ class ChatController extends Controller
             ]);
 
             $chat->load('sender');
+
+            $senderPayload = $this->participantPayload($this->findParticipant((int) $auth['id'], $auth['type']));
+            $recipientPayload = $this->participantPayload($receiver);
+
+            if ($senderPayload && $recipientPayload) {
+                $unreadCount = Chat::where('booking_id', $request->booking_id)
+                    ->where('sender_id', (int) $auth['id'])
+                    ->where('sender_type', $auth['type'])
+                    ->where('receiver_id', (int) $request->receiver_id)
+                    ->where('receiver_type', $request->receiver_type)
+                    ->where('is_seen', false)
+                    ->whereNull('deleted_at')
+                    ->count();
+
+                $this->sendChatPushNotification(
+                    (int) $request->receiver_id,
+                    $recipientPayload['type'],
+                    (int) $auth['id'],
+                    (int) $request->booking_id,
+                    $senderPayload['name'] ?? 'New message',
+                    $unreadCount
+                );
+            }
+
             event(new ChatMessageSent($chat));
 
             return response()->json([

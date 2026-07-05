@@ -100,7 +100,7 @@ class ShopBookingRequestController extends Controller
                     'desc'       => $request->desc,
                     'status'     => $request->status,
                     'user_name'  => $request->user->name,
-                    'created_at' => optional($request->created_at)->format('Y-m-d H:i:s'),
+                    'created_at' => $this->formatApiDateTime(optional($request->created_at)),
                 ];
             });
 
@@ -167,7 +167,7 @@ class ShopBookingRequestController extends Controller
                 'file'       => $request->file,
                 'file_type'  => $request->file_type,
                 'status'     => $request->status,
-                'created_at' => optional($request->created_at)->format('Y-m-d H:i:s'),
+                'created_at' => $this->formatApiDateTime(optional($request->created_at)),
                 'user'       => [
                     'name'  => optional($request->user)->name,
                     'image' => optional($request->user)->image
@@ -222,7 +222,7 @@ class ShopBookingRequestController extends Controller
                 'description'    => $booking->shopServiceRequest->desc ?? null,
                 'status'         => $booking->status,
                 'price'          => $booking->price,
-                'starting_date'  => optional($booking->created_at)->format('Y-m-d') ?? null,
+                'starting_date'  => $this->formatApiDateTime(optional($booking->created_at)),
                 'shopkeeper_name' => $booking->shopkeeper->name ?? null,
             ];
         });
@@ -285,7 +285,7 @@ class ShopBookingRequestController extends Controller
             'cancelled_by'  => $booking->cancel_by ?? null,
             'cancel_reason' => $booking->cancel_reason ?? null,
             'price'         => $booking->price,
-            'starting_date' => optional($booking->shopServiceRequest->created_at)->format('Y-m-d'),
+            'starting_date' => $this->formatApiDateTime(optional($booking->shopServiceRequest->created_at)),
             'shopkeeper' => $shopkeeper ? [
                 'id' => $shopkeeper->id,
                 'name' => $shopkeeper->name,

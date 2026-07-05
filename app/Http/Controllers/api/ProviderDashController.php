@@ -21,11 +21,12 @@ class ProviderDashController extends Controller
             $provider_id = auth('provider-api')->id();
             $totalbookings = BookingRequest::where('provider_id', $provider_id)->get();
             $pending = BookingRequest::where('provider_id', $provider_id)->where('status', 'pending')
-            ->where('assigned', 1)
-            ->where('goto', 2)
-            ->get();
+                ->where('assigned', 1)
+                ->where('goto', 2)
+                ->get();
             $cancel = BookingRequest::where('provider_id', $provider_id)->where('status', 'cancel')->get();
             $completed = BookingRequest::where('provider_id', $provider_id)->where('status', 'complete_booking')->get();
+            $inProgress = BookingRequest::where('provider_id', $provider_id)->where('status', 'in_progress')->get();
 
             // Get completed booking IDs
             $completedIds = $completed->pluck('id');
@@ -46,6 +47,7 @@ class ProviderDashController extends Controller
                 'total_bookings' => count($totalbookings),
                 'pending' => count($pending),
                 'cancel' => count($cancel),
+                'in_progress' => count($inProgress),
                 'compeleted' => count($completed),
                 'total_earning' => number_format($totalEarning, 2),
                 'app_commission' => number_format($totalCommissionDeducted, 2),
@@ -200,8 +202,11 @@ class ProviderDashController extends Controller
                 $data = [
                     'user_type' => 'provider',
                     'full_name' => $providerData->full_name,
-                    'profile_image' => asset('profiles/'.$providerData->profile_image) ?? null,
-                    'avg_rating' => $avg_rating ? round($avg_rating, 2) : null,
+                    'profile_image' => asset('profiles/' . $providerData->profile_image) ?? null,
+                    'avg_rating' => $avg_rating
+                        ? number_format($avg_rating, 2, '.', '')
+                        : number_format(0, 2, '.', ''),
+                    // 'avg_rating' => $avg_rating ? round($avg_rating, 2) : floatval(0.00),
                     'previous_work_images' => $previousImages
                 ];
             }
@@ -221,7 +226,7 @@ class ProviderDashController extends Controller
                     // 'user_type' => 'shopkeeper',
                     'full_name' => $shopkeeper->name,
                     'profile_image' => $shopkeeper->profile_image ?? null,
-                    'avg_rating' => $avg_rating ? round($avg_rating, 2) : null,
+                    'avg_rating' => $avg_rating ? round($avg_rating, 2) : floatval(0.00),
                     'previous_work_images' => $previousImages
                 ];
             }
@@ -251,8 +256,10 @@ class ProviderDashController extends Controller
                 $previousImages = Previous::where('provider_id', $id)->first();
                 if (!$previousImages) {
                     return response()->json([
-                        'status' => false,
-                        'message' => 'No previous work found for this provider'
+                        // 'status' => false,
+                        // 'message' => 'No previous work found for this provider'
+                        'status' => true,
+                        'message' => []
                     ], 404);
                 }
                 $provider = Provider::select('id', 'full_name', 'profile_image')
@@ -276,8 +283,11 @@ class ProviderDashController extends Controller
                 $data = [
                     'user_type' => 'provider',
                     'full_name' => $provider->full_name,
-                    'profile_image' => $provider->profile_image,
-                    'avg_rating' => $avg_rating ? round($avg_rating, 2) : null,
+                    'profile_image' => $provider->profile_image_url ?? null,
+                    // 'avg_rating' => $avg_rating ? round($avg_rating, 2) : 0.00,
+                    'avg_rating' => $avg_rating
+                        ? number_format($avg_rating, 2, '.', '')
+                        : number_format(0, 2, '.', ''),
                     'previous_work_images' => $previousImages
                 ];
             }
@@ -313,7 +323,7 @@ class ProviderDashController extends Controller
                     'user_type' => 'shopkeeper',
                     'full_name' => $shopkeeper->name,
                     'profile_image' => $shopkeeper->profile_image,
-                    'avg_rating' => $avg_rating ? round($avg_rating, 2) : null,
+                    'avg_rating' => $avg_rating ? round($avg_rating, 2) : 0.00,
                     'previous_work_images' => $previousImages
                 ];
             }

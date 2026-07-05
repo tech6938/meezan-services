@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Wallet;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
 use App\Models\Deposit;
+use App\Models\Wallet;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class WalletController extends Controller
 {
@@ -110,13 +111,17 @@ class WalletController extends Controller
 
             // Map each deposit to a simple array
             $allData = $data->map(function ($deposit) {
+                $createdAt = $deposit->created_at
+                    ? Carbon::parse($deposit->created_at)->setTimezone(config('app.timezone', 'Asia/Karachi'))
+                    : null;
+
                 return [
                     'gateway' => $deposit->gateway,
                     'transaction_id' => $deposit->transaction_id,
                     'transaction_type' => $deposit->transaction_type,
                     'amount' => $deposit->amount,
-                    'date' => $deposit->created_at->toDateString(),
-                    'time' => $deposit->created_at->toTimeString(),
+                    'date' => $createdAt ? $createdAt->format('d M Y') : null,
+                    'time' => $createdAt ? $createdAt->format('h:i A') : null,
                 ];
             });
 

@@ -609,8 +609,7 @@ class BookingRequestController extends Controller
                 'status'        => $booking->status,
                 'price'         => $booking->price,
 
-                'starting_date' => optional($booking->created_at)
-                    ->format('Y-m-d'),
+                'starting_date' => $this->formatApiDateTime($booking->created_at),
             ];
         });
 
@@ -668,8 +667,7 @@ class BookingRequestController extends Controller
                 'status'        => $booking->status,
                 'price'         => $booking->price,
 
-                'starting_date' => optional($booking->serviceRequest->created_at)
-                    ->format('Y-m-d'),
+                'starting_date' => $this->formatApiDateTime($booking->serviceRequest->created_at),
             ];
         });
 
@@ -678,6 +676,13 @@ class BookingRequestController extends Controller
             'message' => 'My Booking retieved successfully',
             'data' => $data
         ], 200);
+    }
+
+    private function resolveBookingStartDate($booking): ?string
+    {
+        $startDate = $booking->created_at;
+
+        return $this->formatApiDateTime($startDate);
     }
 
     // bookingDetails for provider
@@ -739,7 +744,7 @@ class BookingRequestController extends Controller
             'provider_name' => $booking->provider->full_name ?? null,
             'description'  => $booking->serviceRequest->desc ?? null,
             'price'        => $booking->price,
-            'starting_date' => optional($booking->serviceRequest->created_at)->format('Y-m-d'),
+            'starting_date' => $this->resolveBookingStartDate($booking),
 
             // Unread message counts
             'unread_counts' => [
@@ -864,7 +869,7 @@ class BookingRequestController extends Controller
             'cancelled_by'  => $booking->cancel_by ?? null,
             'cancel_reason' => $booking->cancel_reason ?? null,
             'price'         => $booking->price,
-            'starting_date' => optional($booking->created_at)->format('Y-m-d'),
+            'starting_date' => $this->resolveBookingStartDate($booking),
 
             // Unread message counts
             'unread_counts' => [
@@ -1422,7 +1427,7 @@ class BookingRequestController extends Controller
                     'shop_cat' => optional($request->shop)->category,
                     'desc' => $request->desc,
                     'status' => $booking ? $booking->req_status : $request->status, // Fixed: Now uses ServiceRequest status when no booking
-                    'created_at' => $request->created_at,
+                    'created_at' => $this->formatApiDateTime($request->created_at),
                     'provider_name' => optional(optional($booking)->provider)->full_name,
                     'shopkeeper_name' => optional(optional($booking)->shopkeeper)->name,
                 ];
@@ -1625,7 +1630,7 @@ class BookingRequestController extends Controller
                     'file' => $serviceRequest->file,
                     'file_type' => $serviceRequest->file_type,
                     'status' => $status,
-                    'created_at' => $serviceRequest->created_at,
+                    'created_at' => $this->formatApiDateTime($serviceRequest->created_at),
                     'unread_counts' => [
                         'provider' => $providerUnreadCount,
                         'user' => $userUnreadCount,
@@ -1673,7 +1678,7 @@ class BookingRequestController extends Controller
             $data = array_merge([
                 'type' => $type,
                 'user_id' => (string)$userId,
-                'timestamp' => now()->toDateTimeString(),
+                'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
 
@@ -1712,7 +1717,7 @@ class BookingRequestController extends Controller
                 'type' => $type,
                 'entity_id' => (string)$entityId,
                 'entity_type' => $entityType,
-                'timestamp' => now()->toDateTimeString(),
+                'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
 

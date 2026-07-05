@@ -157,7 +157,7 @@ class AuthController extends Controller
             'type' => 'welcome',
             'user_id' => (string)$user->id,
             'user_name' => $user->name ?? 'User',
-            'login_time' => now()->toDateTimeString(),
+            'login_time' => $this->formatApiDateTime(now()),
             'action' => 'home',
             'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
         ];

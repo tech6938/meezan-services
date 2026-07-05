@@ -13,7 +13,7 @@
             font-weight: 500;
             display: inline-block;
         }
-        .status-pending-order { background: #ffc107; color: #212529; }
+        .status-pending-order { background: #28a745; color: white; }
         .status-accepted { background: #28a745; color: white; }
         .status-cancelled { background: #dc3545; color: white; }
         .status-pending-booking { background: #17a2b8; color: white; }

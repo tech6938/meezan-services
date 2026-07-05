@@ -25,7 +25,7 @@ class ProviderRegisterController extends Controller
     {
         $this->fcmService = $fcmService;
     }
-    
+
     public function register(Request $request)
     {
         // Validate input
@@ -266,7 +266,7 @@ class ProviderRegisterController extends Controller
             'type' => 'welcome',
             'user_id' => (string)$user->id,
             'user_name' => $user->full_name ?? 'User',
-            'login_time' => now()->toDateTimeString(),
+            'login_time' => $this->formatApiDateTime(now()),
             'action' => 'home',
             'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
         ];
@@ -300,9 +300,9 @@ class ProviderRegisterController extends Controller
                 'full_name' => $provider->full_name,
                 'phone' => $provider->phone,
                 'email' => $provider->email,
-                'profile_image_url' => $provider->profile_image,
-                'id_front_url' => $provider->id_front,
-                'id_back_url' => $provider->id_back,
+                'profile_image_url' => $provider->profile_image_url,
+                'id_front_url' => $provider->id_front_url,
+                'id_back_url' => $provider->id_back_url,
                 'services' => $provider->services,
             ]
         ], 200);

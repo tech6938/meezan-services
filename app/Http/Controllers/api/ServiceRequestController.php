@@ -79,7 +79,7 @@ class ServiceRequestController extends Controller
                         'shop_cat' => optional($request->shop)->category,
                         'desc' => $request->desc,
                         'status' => $status,
-                        'created_at' => $request->created_at,
+                        'created_at' => $this->formatApiDateTime($request->created_at),
                         'provider_name' => optional(optional($booking)->provider)->full_name,
                         'shopkeeper_name' => optional(optional($booking)->shopkeeper)->name,
                         'total_bids' => $request->bookingRequests->count(),
@@ -452,7 +452,7 @@ class ServiceRequestController extends Controller
                     'file' => $serviceRequest->file,
                     'file_type' => $serviceRequest->file_type,
                     'status' => $mainStatus,
-                    'created_at' => $serviceRequest->created_at,
+                    'created_at' => $this->formatApiDateTime($serviceRequest->created_at),
                     'total_providers_bid' => count($providersList),
                     'total_shopkeepers_bid' => count($shopkeepersList),
                     'providers' => $providersList,
@@ -496,7 +496,7 @@ class ServiceRequestController extends Controller
             $data = array_merge([
                 'type' => $type,
                 'user_id' => (string)$userId,
-                'timestamp' => now()->toDateTimeString(),
+                'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
 
@@ -535,7 +535,7 @@ class ServiceRequestController extends Controller
                 'type' => $type,
                 'entity_id' => (string)$entityId,
                 'entity_type' => $entityType,
-                'timestamp' => now()->toDateTimeString(),
+                'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
 
@@ -591,7 +591,7 @@ class ServiceRequestController extends Controller
                 'desc' => $serviceRequest->desc ?? '',
                 'lat' => $serviceRequest->lat ?? '',
                 'lang' => $serviceRequest->lang ?? '',
-                'created_at' => $serviceRequest->created_at->toDateTimeString(),
+                'created_at' => $this->formatApiDateTime($serviceRequest->created_at),
                 'action' => 'view_order',
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ];

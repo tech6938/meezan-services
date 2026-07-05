@@ -85,7 +85,7 @@ class UploadController extends Controller
                     'url' => url($upload->file_path),
                     'file_url' => url($upload->file_path),
                     'file_path' => $upload->file_path,
-                    'uploaded_at' => $upload->created_at->toDateTimeString(),
+                    'uploaded_at' => $this->formatApiDateTime($upload->created_at),
                 ];
             });
 
