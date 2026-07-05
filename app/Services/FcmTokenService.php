@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\FCMToken;
-use App\Models\User;
+use App\Models\NotificationLog;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Exception\FirebaseException;
 use Kreait\Firebase\Exception\MessagingException;
@@ -111,26 +111,69 @@ class FcmTokenService
 
     //         $result = $this->messaging->send($message);
     //         Log::info('FCM Notification sent successfully for token: ' . $deviceToken);
-            
+
     //         return [
     //             'success' => true,
     //             'result' => $result
     //         ];
     //     } catch (MessagingException | FirebaseException $e) {
     //         Log::error('FCM Send Error: ' . $e->getMessage());
-            
+
     //         // If token is invalid, remove it from database
     //         if (str_contains($e->getMessage(), 'Invalid registration token')) {
     //             FCMToken::where('fcm_token', $deviceToken)->delete();
     //             Log::info('Removed invalid FCM token from database');
     //         }
-            
+
     //         return [
     //             'success' => false,
     //             'error' => $e->getMessage()
     //         ];
     //     }
     // }
+
+    private function saveNotificationLog(string $title, string $body, array $data = []): void
+    {
+        $receiverType = $data['receiver_type']
+            ?? $data['entity_type']
+            ?? $data['user_type']
+            ?? null;
+
+        if (!$receiverType) {
+            if (array_key_exists('user_id', $data)) {
+                $receiverType = 'user';
+            } elseif (array_key_exists('provider_id', $data)) {
+                $receiverType = 'provider';
+            } elseif (array_key_exists('shopkeeper_id', $data)) {
+                $receiverType = 'shopkeeper';
+            }
+        }
+
+        $receiverId = $data['receiver_id']
+            ?? $data['entity_id']
+            ?? $data['user_id']
+            ?? $data['provider_id']
+            ?? $data['shopkeeper_id']
+            ?? null;
+
+        if (!$receiverType || $receiverId === null || $receiverId === '') {
+            return;
+        }
+
+        try {
+            NotificationLog::create([
+                'receiver_type' => $receiverType,
+                'receiver_id' => (int) $receiverId,
+                'title' => $title,
+                'description' => $body,
+                'type' => $data['type'] ?? 'general',
+                'data' => $data,
+                'is_read' => false,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to store notification log: ' . $e->getMessage());
+        }
+    }
 
     /**
      * Send notification to single device
@@ -146,6 +189,8 @@ class FcmTokenService
         }
 
         try {
+            $this->saveNotificationLog($title, $body, $data);
+
             // Add more data to help debugging
             $enhancedData = array_merge($data, [
                 'title' => $title,

@@ -140,6 +140,8 @@ class ChatController extends Controller
         $data = [
             'type' => 'chat',
             'sender_id' => (string) $senderId,
+            'receiver_type' => $recipientType,
+            'receiver_id' => (string) $recipientId,
             'conversation_id' => (string) $bookingId,
             'timestamp' => $this->formatApiDateTime(now()),
             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',

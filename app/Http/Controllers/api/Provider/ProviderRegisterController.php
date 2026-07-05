@@ -265,6 +265,8 @@ class ProviderRegisterController extends Controller
         $data = [
             'type' => 'welcome',
             'user_id' => (string)$user->id,
+            'receiver_type' => 'provider',
+            'receiver_id' => (string)$user->id,
             'user_name' => $user->full_name ?? 'User',
             'login_time' => $this->formatApiDateTime(now()),
             'action' => 'home',

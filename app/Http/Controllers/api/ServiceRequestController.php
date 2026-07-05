@@ -496,6 +496,8 @@ class ServiceRequestController extends Controller
             $data = array_merge([
                 'type' => $type,
                 'user_id' => (string)$userId,
+                'receiver_type' => 'user',
+                'receiver_id' => (string)$userId,
                 'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
@@ -535,6 +537,8 @@ class ServiceRequestController extends Controller
                 'type' => $type,
                 'entity_id' => (string)$entityId,
                 'entity_type' => $entityType,
+                'receiver_type' => $entityType,
+                'receiver_id' => (string)$entityId,
                 'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
@@ -605,20 +609,28 @@ class ServiceRequestController extends Controller
 
             $fcmService = app(\App\Services\FcmTokenService::class);
 
-            // Get FCM tokens for these providers
-            $tokens = \App\Models\FCMToken::where('entity_type', 'provider')
-                ->whereIn('entity_id', $partnerIds['providers'])
-                ->pluck('fcm_token')
-                ->toArray();
+            $sent = false;
 
-            if (empty($tokens)) {
-                return false;
+            foreach ($partnerIds['providers'] as $providerId) {
+                $fcmToken = \App\Models\FCMToken::where('entity_type', 'provider')
+                    ->where('entity_id', $providerId)
+                    ->first();
+
+                if (!$fcmToken || empty($fcmToken->fcm_token)) {
+                    continue;
+                }
+
+                $providerData = array_merge($data, [
+                    'receiver_type' => 'provider',
+                    'receiver_id' => (string)$providerId,
+                    'provider_id' => (string)$providerId,
+                ]);
+
+                $fcmService->sendNotification($fcmToken->fcm_token, $title, $body, $providerData);
+                $sent = true;
             }
 
-            // Send to multiple tokens at once
-            $result = $fcmService->sendToMultiple($tokens, $title, $body, $data);
-
-            return isset($result['success']) && $result['success'];
+            return $sent;
         } catch (\Exception $e) {
             return false;
         }
@@ -695,6 +707,9 @@ class ServiceRequestController extends Controller
                 'type' => 'new_order',
                 'request_id' => (string)$serviceRequest->id,
                 'status' => 'accepted',
+                'receiver_type' => 'user',
+                'receiver_id' => (string)$serviceRequest->user_id,
+                'user_id' => (string)$serviceRequest->user_id,
                 'action' => 'view_order',
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ];

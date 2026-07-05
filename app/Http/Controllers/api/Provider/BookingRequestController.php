@@ -1678,6 +1678,8 @@ class BookingRequestController extends Controller
             $data = array_merge([
                 'type' => $type,
                 'user_id' => (string)$userId,
+                'receiver_type' => 'user',
+                'receiver_id' => (string)$userId,
                 'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);
@@ -1717,6 +1719,8 @@ class BookingRequestController extends Controller
                 'type' => $type,
                 'entity_id' => (string)$entityId,
                 'entity_type' => $entityType,
+                'receiver_type' => $entityType,
+                'receiver_id' => (string)$entityId,
                 'timestamp' => $this->formatApiDateTime(now()),
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
             ], $additionalData);

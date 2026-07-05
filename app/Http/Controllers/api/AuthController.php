@@ -156,6 +156,8 @@ class AuthController extends Controller
         $data = [
             'type' => 'welcome',
             'user_id' => (string)$user->id,
+            'receiver_type' => 'user',
+            'receiver_id' => (string)$user->id,
             'user_name' => $user->name ?? 'User',
             'login_time' => $this->formatApiDateTime(now()),
             'action' => 'home',

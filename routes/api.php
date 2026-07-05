@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\api\{AddressController, AuthController, ChatController, ReferralController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
+use App\Http\Controllers\api\{AddressController, AuthController, ChatController, NotificationController, ReferralController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
 use App\Http\Controllers\api\{ShopKeeperAuthController, NearbyShopController, WalletController};
 use App\Http\Controllers\api\Provider\BookingRequestController;
 use App\Http\Controllers\api\Provider\ProviderRegisterController;
@@ -151,6 +151,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::controller(UploadController::class)->group(function () {
         Route::post('/upload', 'upload');
         Route::get('/upload/list', 'list');
+    });
+
+    // Notification Routes
+    Route::controller(NotificationController::class)->group(function () {
+        Route::get('/notifications', 'index');
+        Route::post('/notifications/mark-as-read', 'markAsRead');
     });
 
     // Provider Profile Routes

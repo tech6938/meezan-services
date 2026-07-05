@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use App\Console\Commands\ClearOldNotifications;
 use App\Console\Commands\DeleteChat;
 
 
@@ -11,3 +12,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command(DeleteChat::class)->everyTenSeconds();
+Schedule::command(ClearOldNotifications::class)->daily();
