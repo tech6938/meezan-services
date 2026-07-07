@@ -29,22 +29,10 @@
                                     </select>
                                 </div>
 
-                                <div class="col-md-4 mb-3">
+                                <div class="col-md-6 mb-3">
                                     <label class="form-label">Level 1 Commission</label>
                                     <input type="number" step="0.01" name="referral_level_1" class="form-control"
                                         value="{{ old('referral_level_1', $settings->referral_level_1 ?? 0) }}" required>
-                                </div>
-
-                                <div class="col-md-4 mb-3">
-                                    <label class="form-label">Level 2 Commission</label>
-                                    <input type="number" step="0.01" name="referral_level_2" class="form-control"
-                                        value="{{ old('referral_level_2', $settings->referral_level_2 ?? 0) }}" required>
-                                </div>
-
-                                <div class="col-md-4 mb-3">
-                                    <label class="form-label">Level 3 Commission</label>
-                                    <input type="number" step="0.01" name="referral_level_3" class="form-control"
-                                        value="{{ old('referral_level_3', $settings->referral_level_3 ?? 0) }}" required>
                                 </div>
 
                                 <div class="col-md-6 mb-3">

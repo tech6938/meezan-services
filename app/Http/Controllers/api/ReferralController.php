@@ -49,7 +49,7 @@ class ReferralController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $this->referralService->buildTree($user, 3),
+            'data' => $this->referralService->buildTree($user, 1),
         ]);
     }
 

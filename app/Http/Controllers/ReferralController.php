@@ -28,8 +28,6 @@ class ReferralController extends Controller
             'referral_enabled' => 'nullable|in:0,1',
             'referral_type' => 'required|in:fixed,percentage',
             'referral_level_1' => 'required|numeric|min:0',
-            'referral_level_2' => 'required|numeric|min:0',
-            'referral_level_3' => 'required|numeric|min:0',
             'referral_min_amount' => 'nullable|numeric|min:0',
             'referral_max_amount' => 'nullable|numeric|gte:referral_min_amount',
         ]);
@@ -46,8 +44,8 @@ class ReferralController extends Controller
         $settings->referral_enabled = (int) $request->boolean('referral_enabled');
         $settings->referral_type = $request->referral_type;
         $settings->referral_level_1 = $request->referral_level_1;
-        $settings->referral_level_2 = $request->referral_level_2;
-        $settings->referral_level_3 = $request->referral_level_3;
+        $settings->referral_level_2 = 0;
+        $settings->referral_level_3 = 0;
         $settings->referral_min_amount = $request->referral_min_amount;
         $settings->referral_max_amount = $request->referral_max_amount;
         $settings->save();
@@ -82,7 +80,7 @@ class ReferralController extends Controller
             'created_at',
         ]);
 
-        $tree = $this->referralService->buildForest($users, null, 3);
+        $tree = $this->referralService->buildForest($users, null, 1);
 
         $summary = [
             'total_customers' => User::count(),

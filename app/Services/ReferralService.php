@@ -84,28 +84,19 @@ class ReferralService
 
         $settings = $this->getSettings();
         $bookingAmount = (float) $booking->price;
-        $levels = [
-            1 => (float) ($settings->referral_level_1 ?? 0),
-            2 => (float) ($settings->referral_level_2 ?? 0),
-            3 => (float) ($settings->referral_level_3 ?? 0),
-        ];
+        $levelOneRate = (float) ($settings->referral_level_1 ?? 0);
 
         $currentUser = $booking->user;
         $ancestors = [];
 
-        for ($depth = 1; $depth <= 3; $depth++) {
-            if (!$currentUser || !$currentUser->referrer) {
-                break;
-            }
-
-            $currentUser = $currentUser->referrer;
-            $ancestors[$depth] = $currentUser;
+        if ($currentUser && $currentUser->referrer) {
+            $ancestors[1] = $currentUser->referrer;
         }
 
         $created = [];
 
         foreach ($ancestors as $level => $referrer) {
-            $baseCommission = $levels[$level] ?? 0;
+            $baseCommission = $level === 1 ? $levelOneRate : 0;
 
             if ($baseCommission <= 0) {
                 continue;
@@ -155,7 +146,7 @@ class ReferralService
         ];
     }
 
-    public function buildTree(User $root, int $depth = 3): array
+    public function buildTree(User $root, int $depth = 1): array
     {
         $root->loadCount('referrals');
 
@@ -181,7 +172,7 @@ class ReferralService
         return $this->formatTreeNode($root, 0, $tree);
     }
 
-    public function buildForest(Collection $users, ?int $rootId = null, int $maxDepth = 3): array
+    public function buildForest(Collection $users, ?int $rootId = null, int $maxDepth = 1): array
     {
         $childrenByParent = $users->groupBy('referred_by_user_id');
 
