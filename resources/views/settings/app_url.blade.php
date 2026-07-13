@@ -2,7 +2,8 @@
 
 @section('css')
     <link rel="stylesheet" href="{{ asset('assets/bundles/datatables/datatables.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}">
+    <link rel="stylesheet"
+        href="{{ asset('assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
         .setting-key {
@@ -60,7 +61,8 @@
                                                 </option>
                                             @endforeach
                                         </select>
-                                        <input type="hidden" id="setting_key_hidden" name="setting_key_hidden" value="">
+                                        <input type="hidden" id="setting_key_hidden" name="setting_key_hidden"
+                                            value="">
                                         @error('setting_key')
                                             <span class="invalid-feedback">{{ $message }}</span>
                                         @enderror
@@ -152,7 +154,8 @@
                                 @endphp
 
                                 @if (empty($existingSettings))
-                                    <p class="text-muted text-center">No settings added yet. Use the form to add settings.</p>
+                                    <p class="text-muted text-center">No settings added yet. Use the form to add settings.
+                                    </p>
                                 @else
                                     <div class="table-responsive">
                                         <table class="table table-hover" id="settingsTable">
@@ -217,7 +220,10 @@
             if ($('#settingsTable tbody tr').length > 0) {
                 $('#settingsTable').DataTable({
                     "pageLength": 100,
-                    "lengthMenu": [[100, 300, 500, 1000], [100, 300, 500, 1000]],
+                    "lengthMenu": [
+                        [100, 300, 500, 1000],
+                        [100, 300, 500, 1000]
+                    ],
                     "ordering": true,
                     "responsive": true
                 });
@@ -303,18 +309,20 @@
                     showLoaderOnConfirm: true,
                     preConfirm: async () => {
                         try {
-                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-                                             document.querySelector('input[name="_token"]')?.value;
+                            const csrfToken = document.querySelector('meta[name="csrf-token"]')
+                                ?.getAttribute('content') ||
+                                document.querySelector('input[name="_token"]')?.value;
 
-                            const response = await fetch(`{{ url('appUrl/destroy') }}/${key}`, {
-                                method: 'DELETE',
-                                headers: {
-                                    'X-CSRF-TOKEN': csrfToken,
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Content-Type': 'application/json'
-                                }
-                            });
+                            const response = await fetch(
+                                `{{ url('appUrl/destroy') }}/${key}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'X-CSRF-TOKEN': csrfToken,
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'Content-Type': 'application/json'
+                                    }
+                                });
 
                             const data = await response.json();
 
@@ -332,13 +340,15 @@
                     if (result.isConfirmed && result.value && result.value.status) {
                         Swal.fire({
                             title: 'Deleted!',
-                            text: result.value.message || `${name} has been deleted successfully.`,
+                            text: result.value.message ||
+                                `${name} has been deleted successfully.`,
                             icon: 'success',
                             timer: 2000,
                             showConfirmButton: false
                         }).then(() => {
                             // Remove the row from table
-                            const row = $(`.delete-setting[data-key="${key}"]`).closest('tr');
+                            const row = $(`.delete-setting[data-key="${key}"]`).closest(
+                                'tr');
                             const table = $('#settingsTable').DataTable();
                             table.row(row).remove().draw();
 
@@ -359,6 +369,7 @@
             });
         });
 
+        // Form submission validation
         // Form submission validation
         document.getElementById('settingForm').addEventListener('submit', function(e) {
             let key = document.getElementById('setting_key').value;
@@ -382,6 +393,76 @@
                 return false;
             }
 
+            // Define URL fields
+            const urlFields = [
+                'app_url', 'website_url', 'tiktok_url', 'instagram_url',
+                'youtube_url', 'facebook_url', 'customer_video_tutorial_url',
+                'provider_video_tutorial_url', 'privacy_policy', 'privacy_policy_partner',
+                'privacy_policy_customer', 'termsConditions_partner', 'termsConditions_customer',
+                'partner_agreement', 'about_us', 'contact_us'
+            ];
+
+            // Validate URL fields - UPDATED REGEX
+            if (urlFields.includes(key)) {
+                // More permissive URL validation that accepts @ and other special characters
+                try {
+                    // If value is empty or null, skip validation
+                    if (!value) {
+                        return true;
+                    }
+
+                    // Try to create URL object to validate
+                    let url = value;
+
+                    // If no protocol, add https:// for validation
+                    if (!url.match(/^https?:\/\//i)) {
+                        url = 'https://' + url;
+                    }
+
+                    const urlObj = new URL(url);
+
+                    // Additional check: ensure it has a valid hostname
+                    if (!urlObj.hostname || urlObj.hostname === '') {
+                        throw new Error('Invalid hostname');
+                    }
+
+                    // Specific check for YouTube and TikTok URLs
+                    const validDomains = [
+                        'youtube.com', 'www.youtube.com', 'youtu.be',
+                        'tiktok.com', 'www.tiktok.com',
+                        'twitter.com', 'www.tiktok.com', 'x.com',
+                        'instagram.com', 'www.instagram.com',
+                        'facebook.com', 'www.facebook.com',
+                        'example.com', 'www.example.com'
+                    ];
+
+                    // If it's a YouTube or TikTok URL, accept it even if domain not in list
+                    // This ensures all YouTube/TikTok URLs are accepted
+                    if (urlObj.hostname.includes('youtube.com') ||
+                        urlObj.hostname.includes('youtu.be') ||
+                        urlObj.hostname.includes('tiktok.com')) {
+                        // YouTube and TikTok URLs are always valid
+                        return true;
+                    }
+
+                    // For other domains, check if it's in the valid list or has a valid format
+                    // This allows any valid URL format
+                } catch (e) {
+                    // Invalid URL
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Validation Error',
+                        text: 'Please enter a valid URL. Examples:\n' +
+                            '• https://www.youtube.com/@MeezanServices\n' +
+                            '• https://www.tiktok.com/@meezan_services\n' +
+                            '• https://example.com',
+                        icon: 'error',
+                        confirmButtonColor: '#3085d6'
+                    });
+                    return false;
+                }
+            }
+
             // Validate WhatsApp number
             if (key === 'whatsapp') {
                 const phoneRegex = /^[\+]?[0-9]{10,15}$/;
@@ -390,19 +471,6 @@
                     Swal.fire({
                         title: 'Validation Error',
                         text: 'Please enter a valid WhatsApp number (10-15 digits, optional +)',
-                        icon: 'error',
-                        confirmButtonColor: '#3085d6'
-                    });
-                    return false;
-                }
-            }
-            // Validate URL
-            else if (key && (key.includes('url') || key === 'app_url' || key === 'website_url')) {
-                if (value && !value.match(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i)) {
-                    e.preventDefault();
-                    Swal.fire({
-                        title: 'Validation Error',
-                        text: 'Please enter a valid URL (e.g., https://example.com)',
                         icon: 'error',
                         confirmButtonColor: '#3085d6'
                     });

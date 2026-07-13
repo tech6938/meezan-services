@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\ServiceRequest;
+use App\Http\Controllers\ServiceRequestController;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
@@ -10,11 +11,13 @@ class RequestsMultiSheetExport implements WithMultipleSheets
 {
     protected $requests;
     protected $filters;
+    protected $controller;
 
     public function __construct($requests, $filters = [])
     {
         $this->requests = $requests;
         $this->filters = $filters;
+        $this->controller = new ServiceRequestController();
     }
 
     public static function fromRequest(Request $request)
@@ -111,7 +114,7 @@ class RequestsMultiSheetExport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            '📋 Requests Summary' => new RequestSummarySheet($this->requests, $this->filters),
+            '📋 Requests Summary' => new RequestSummarySheet($this->requests, $this->filters, $this->controller),
             '💰 Bids & Bookings' => new RequestBidsSheet($this->requests, $this->filters),
         ];
     }

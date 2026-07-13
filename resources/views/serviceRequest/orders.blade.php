@@ -5,19 +5,56 @@
     <link rel="stylesheet" href="assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css">
 
     <style>
-        /* Status badges */
+        /* ===== STATUS BADGES ===== */
         .status-badge {
-            padding: 5px 12px;
+            padding: 6px 14px;
             border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             display: inline-block;
         }
-        .status-pending-order { background: #ffc107; color: #212529; }
-        .status-accepted { background: #28a745; color: white; }
-        .status-cancelled { background: #dc3545; color: white; }
-        .status-pending-booking { background: #17a2b8; color: white; }
-        .status-completed { background: #6c757d; color: white; }
+
+        /* Pending - Yellow */
+        .status-pending-order {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        /* Accept Order - Green */
+        .status-accept-order {
+            background-color: #28a745;
+            color: white;
+        }
+
+        /* Accepted - Green (same as Accept Order) */
+        .status-accepted {
+            background-color: #28a745;
+            color: white;
+        }
+
+        /* Assigned - Orange */
+        .status-assigned {
+            background-color: #fd7e14;
+            color: white;
+        }
+
+        /* Completed - Teal */
+        .status-completed {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        /* Cancelled - Red */
+        .status-cancelled {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        /* Pending Booking - Purple */
+        .status-pending-booking {
+            background-color: #6f42c1;
+            color: white;
+        }
 
         /* Filter tabs */
         .filter-tabs {
@@ -143,6 +180,13 @@
             color: #495057;
             display: inline-block;
         }
+
+        .w-100 { width: 100%; }
+        .mt-2 { margin-top: 8px; }
+        .gap-2 { gap: 8px; }
+        .flex-wrap { flex-wrap: wrap; }
+        .d-flex { display: flex; }
+        .align-items-center { align-items: center; }
     </style>
 @endsection
 
@@ -191,15 +235,20 @@
                                         <i data-feather="clock"></i> Pending Orders
                                         <span class="badge-count">{{ $statusCounts['pending_orders'] ?? 0 }}</span>
                                     </a>
+                                    <a href="{{ route('acceptOrders', request()->except('type')) }}"
+                                       class="filter-tab {{ request()->routeIs('acceptOrders') ? 'active' : '' }}">
+                                        <i data-feather="check-circle"></i> Accepted Orders
+                                        <span class="badge-count">{{ $statusCounts['accept_orders'] ?? 0 }}</span>
+                                    </a>
                                     <a href="{{ route('pendingBookings', request()->except('type')) }}"
                                        class="filter-tab {{ request()->routeIs('pendingBookings') ? 'active' : '' }}">
                                         <i data-feather="book"></i> Pending Bookings
                                         <span class="badge-count">{{ $statusCounts['pending_bookings'] ?? 0 }}</span>
                                     </a>
-                                    <a href="{{ route('acceptedOrders', request()->except('type')) }}"
-                                       class="filter-tab {{ request()->routeIs('acceptedOrders') ? 'active' : '' }}">
-                                        <i data-feather="check-circle"></i> Accepted Orders
-                                        <span class="badge-count">{{ $statusCounts['accepted_orders'] ?? 0 }}</span>
+                                    <a href="{{ route('assignedOrders', request()->except('type')) }}"
+                                       class="filter-tab {{ request()->routeIs('assignedOrders') ? 'active' : '' }}">
+                                        <i data-feather="user-check"></i> Assigned Orders
+                                        <span class="badge-count">{{ $statusCounts['assigned_orders'] ?? 0 }}</span>
                                     </a>
                                     <a href="{{ route('cancelledOrders', request()->except('type')) }}"
                                        class="filter-tab {{ request()->routeIs('cancelledOrders') ? 'active' : '' }}">
@@ -235,7 +284,9 @@
                                                             @php
                                                                 $statusClass = match($provider['status']) {
                                                                     'Pending Order' => 'status-pending-order',
+                                                                    'Accept Order' => 'status-accept-order',
                                                                     'Accepted' => 'status-accepted',
+                                                                    'Assigned' => 'status-assigned',
                                                                     'Cancelled' => 'status-cancelled',
                                                                     'Pending Booking' => 'status-pending-booking',
                                                                     'Completed' => 'status-completed',
@@ -256,7 +307,7 @@
                                                         </td>
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2 flex-wrap">
-                                                                <button class="btn btn-dark viewBtn"
+                                                                <button class="btn btn-dark viewBtn btn-sm"
                                                                     data-name="{{ $provider['user_name'] }}"
                                                                     data-status="{{ $provider['status'] }}"
                                                                     data-lat="{{ $provider['lat'] ?? 'N/A' }}"
@@ -266,15 +317,14 @@
                                                                     <i data-feather="eye"></i>
                                                                 </button>
                                                                 <a href="{{ route('service-request.accepted-providers', $provider['id']) }}"
-                                                                    class="btn btn-info" target="_blank">
+                                                                    class="btn btn-info btn-sm" target="_blank">
                                                                     <i data-feather="users"></i> View Providers
                                                                 </a>
-                                                                <!-- Status Update Button -->
-                                                                <button class="btn btn-primary openModalBtn"
+                                                                <button class="btn btn-primary openModalBtn btn-sm"
                                                                     data-provider-id="{{ $provider['id'] }}">
                                                                     <i data-feather="edit-2"></i>
                                                                 </button>
-                                                                <!-- Delete Button -->                                                            </div>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -382,8 +432,20 @@
                     document.getElementById("viewName").textContent = this.dataset.name;
 
                     const statusEl = document.getElementById("viewStatus");
-                    statusEl.textContent = this.dataset.status;
-                    statusEl.className = "status-badge";
+                    const statusText = this.dataset.status;
+                    statusEl.textContent = statusText;
+
+                    // Apply correct status class to modal badge
+                    let statusClass = 'status-pending-order';
+                    if (statusText === 'Pending Order') statusClass = 'status-pending-order';
+                    else if (statusText === 'Accept Order') statusClass = 'status-accept-order';
+                    else if (statusText === 'Accepted') statusClass = 'status-accepted';
+                    else if (statusText === 'Assigned') statusClass = 'status-assigned';
+                    else if (statusText === 'Cancelled') statusClass = 'status-cancelled';
+                    else if (statusText === 'Pending Booking') statusClass = 'status-pending-booking';
+                    else if (statusText === 'Completed') statusClass = 'status-completed';
+
+                    statusEl.className = 'status-badge ' + statusClass;
 
                     document.getElementById("viewLat").textContent = this.dataset.lat;
                     document.getElementById("viewLng").textContent = this.dataset.lng;
@@ -451,72 +513,6 @@
             });
 
             document.querySelector(".statusClose").onclick = () => statusModal.style.display = "none";
-
-            // Delete functionality
-            document.querySelectorAll('.delete-btn').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const providerName = this.dataset.providerName;
-                    const form = this.closest('.delete-form');
-
-                    Swal.fire({
-                        title: 'Are you sure?',
-                        text: `You are about to delete order "${providerName}". This action cannot be undone!`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#d33',
-                        cancelButtonColor: '#3085d6',
-                        confirmButtonText: 'Yes, delete it!',
-                        cancelButtonText: 'Cancel',
-                        showLoaderOnConfirm: true,
-                        preConfirm: async () => {
-                            try {
-                                const formData = new FormData(form);
-                                formData.append('_method', 'DELETE');
-
-                                const response = await fetch(form.action, {
-                                    method: 'POST',
-                                    headers: {
-                                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
-                                        'Accept': 'application/json',
-                                        'X-Requested-With': 'XMLHttpRequest'
-                                    },
-                                    body: formData
-                                });
-
-                                const text = await response.text();
-                                let data;
-                                try {
-                                    data = JSON.parse(text);
-                                } catch (e) {
-                                    throw new Error('Server returned invalid response');
-                                }
-
-                                if (!response.ok) {
-                                    throw new Error(data.message || data.error || 'Something went wrong');
-                                }
-
-                                return data;
-                            } catch (error) {
-                                Swal.showValidationMessage(`Request failed: ${error.message}`);
-                                throw error;
-                            }
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed && result.value) {
-                            Swal.fire({
-                                title: 'Deleted!',
-                                text: `Order "${providerName}" has been deleted successfully.`,
-                                icon: 'success',
-                                timer: 2000,
-                                showConfirmButton: false
-                            }).then(() => {
-                                window.location.reload();
-                            });
-                        }
-                    });
-                });
-            });
 
             // Close modals when clicking outside
             window.onclick = function(event) {

@@ -42,84 +42,152 @@
             color: #856404;
         }
 
-        /* Status Badges */
+        /* ===== STATUS BADGES ===== */
+        /* Pending - Yellow */
         .badge-status-pending {
             background-color: #ffc107;
             color: #212529;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-status-pending-order {
+            background-color: #ffc107;
+            color: #212529;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
             display: inline-block;
         }
 
-        .badge-status-accept {
-            background-color: #28a745;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-        }
-
+        /* Accepted - Green */
         .badge-status-accepted {
             background-color: #28a745;
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             display: inline-block;
         }
-
-        .badge-status-complete {
-            background-color: #17a2b8;
+        .badge-status-accept {
+            background-color: #28a745;
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             display: inline-block;
         }
 
+        /* Assigned - Orange */
+        .badge-status-assigned {
+            background-color: #fd7e14;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-status-in-progress {
+            background-color: #fd7e14;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* Completed - Blue/Teal */
         .badge-status-completed {
             background-color: #17a2b8;
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             display: inline-block;
         }
-
-        .badge-status-cancel {
-            background-color: #dc3545;
+        .badge-status-complete {
+            background-color: #17a2b8;
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             display: inline-block;
         }
 
+        /* Cancelled - Red */
         .badge-status-cancelled {
             background-color: #dc3545;
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             display: inline-block;
         }
-
+        .badge-status-cancel {
+            background-color: #dc3545;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
         .badge-status-rejected {
             background-color: #dc3545;
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* Pending Booking - Purple */
+        .badge-status-pending-booking {
+            background-color: #6f42c1;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-number {
+            font-size: 13px;
+            padding: 4px 12px;
+        }
+
+        .media-files-wrapper {
+            max-width: 150px;
+            word-break: break-all;
+        }
+
+        .media-file-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 11px;
+        }
+
+        .media-file-link:hover {
+            text-decoration: underline;
+        }
+
+        .description-text {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             display: inline-block;
         }
 
@@ -170,25 +238,34 @@
             color: white;
         }
 
-        .badge-number {
-            font-size: 13px;
-            padding: 4px 12px;
+        /* Status color legend */
+        .status-legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
         }
-
-        .media-files-wrapper {
-            max-width: 150px;
-            word-break: break-all;
+        .status-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
         }
-
-        .media-file-link {
-            color: #007bff;
-            text-decoration: none;
-            font-size: 11px;
+        .status-legend-item .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
         }
-
-        .media-file-link:hover {
-            text-decoration: underline;
-        }
+        .dot-yellow { background: #ffc107; }
+        .dot-green { background: #28a745; }
+        .dot-orange { background: #fd7e14; }
+        .dot-blue { background: #17a2b8; }
+        .dot-red { background: #dc3545; }
+        .dot-purple { background: #6f42c1; }
 
         @media (max-width: 768px) {
             .summary-stats .stat-box {
@@ -198,14 +275,6 @@
             .summary-stats .stat-box:last-child {
                 border-bottom: none;
             }
-        }
-
-        .description-text {
-            max-width: 200px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: inline-block;
         }
     </style>
 @endsection
@@ -272,6 +341,28 @@
                                     </small>
                                 </div>
 
+                                <!-- Status Legend -->
+                                <div class="status-legend">
+                                    <span class="status-legend-item">
+                                        <span class="dot dot-yellow"></span> Pending (Yellow)
+                                    </span>
+                                    <span class="status-legend-item">
+                                        <span class="dot dot-green"></span> Accepted (Green)
+                                    </span>
+                                    <span class="status-legend-item">
+                                        <span class="dot dot-orange"></span> Assigned/In Progress (Orange)
+                                    </span>
+                                    <span class="status-legend-item">
+                                        <span class="dot dot-blue"></span> Completed (Blue)
+                                    </span>
+                                    <span class="status-legend-item">
+                                        <span class="dot dot-red"></span> Cancelled/Rejected (Red)
+                                    </span>
+                                    <span class="status-legend-item">
+                                        <span class="dot dot-purple"></span> Pending Booking (Purple)
+                                    </span>
+                                </div>
+
                                 <div class="table-responsive">
                                     <table class="table table-striped" id="preview-table">
                                         <thead>
@@ -295,6 +386,26 @@
                                         <tbody>
                                             @if (isset($data) && $data->isNotEmpty())
                                                 @foreach ($data as $request)
+                                                    @php
+                                                        // Determine status class based on status text
+                                                        // IMPORTANT: Check "Pending Booking" FIRST before "Pending"
+                                                        $statusText = $request['Status'];
+                                                        $statusClass = 'badge-status-pending'; // default
+
+                                                        if (strpos($statusText, 'Pending Booking') !== false) {
+                                                            $statusClass = 'badge-status-pending-booking';
+                                                        } elseif (strpos($statusText, 'Pending') !== false) {
+                                                            $statusClass = 'badge-status-pending';
+                                                        } elseif (strpos($statusText, 'Accepted') !== false || strpos($statusText, 'Accept') !== false) {
+                                                            $statusClass = 'badge-status-accepted';
+                                                        } elseif (strpos($statusText, 'Assigned') !== false || strpos($statusText, 'In Progress') !== false) {
+                                                            $statusClass = 'badge-status-assigned';
+                                                        } elseif (strpos($statusText, 'Completed') !== false || strpos($statusText, 'Complete') !== false) {
+                                                            $statusClass = 'badge-status-completed';
+                                                        } elseif (strpos($statusText, 'Cancelled') !== false || strpos($statusText, 'Cancel') !== false || strpos($statusText, 'Rejected') !== false) {
+                                                            $statusClass = 'badge-status-cancelled';
+                                                        }
+                                                    @endphp
                                                     <tr>
                                                         <td class="text-center">{{ $request['Sr. No'] }}</td>
                                                         <td>
@@ -334,20 +445,6 @@
                                                             <span class="badge badge-primary badge-number">{{ $request['Total Bids'] }}</span>
                                                         </td>
                                                         <td class="text-center">
-                                                            @php
-                                                                $statusMap = [
-                                                                    'Pending' => 'pending',
-                                                                    'Accept' => 'accept',
-                                                                    'Accepted' => 'accepted',
-                                                                    'Complete' => 'complete',
-                                                                    'Completed' => 'completed',
-                                                                    'Cancel' => 'cancel',
-                                                                    'Cancelled' => 'cancelled',
-                                                                    'Rejected' => 'rejected',
-                                                                ];
-                                                                $statusKey = $statusMap[$request['Status']] ?? strtolower($request['Status']);
-                                                                $statusClass = 'badge-status-' . $statusKey;
-                                                            @endphp
                                                             <span class="{{ $statusClass }}">{{ $request['Status'] }}</span>
                                                         </td>
                                                         <td class="text-center">{{ $request['Created At'] }}</td>
@@ -425,15 +522,26 @@
                                                 <div class="card-body py-2">
                                                     <div class="row">
                                                         @foreach ($statusCounts as $status => $count)
+                                                            @php
+                                                                $statusColor = 'text-primary';
+                                                                if (strpos($status, 'Pending Booking') !== false) {
+                                                                    $statusColor = 'text-purple';
+                                                                } elseif (strpos($status, 'Pending') !== false) {
+                                                                    $statusColor = 'text-warning';
+                                                                } elseif (strpos($status, 'Accepted') !== false || strpos($status, 'Accept') !== false) {
+                                                                    $statusColor = 'text-success';
+                                                                } elseif (strpos($status, 'Assigned') !== false || strpos($status, 'In Progress') !== false) {
+                                                                    $statusColor = 'text-warning';
+                                                                } elseif (strpos($status, 'Completed') !== false || strpos($status, 'Complete') !== false) {
+                                                                    $statusColor = 'text-info';
+                                                                } elseif (strpos($status, 'Cancelled') !== false || strpos($status, 'Cancel') !== false || strpos($status, 'Rejected') !== false) {
+                                                                    $statusColor = 'text-danger';
+                                                                }
+                                                            @endphp
                                                             <div class="col-md-2 col-4">
                                                                 <div class="text-center">
                                                                     <small class="text-muted">{{ $status }}</small>
-                                                                    <h5 class="{{
-                                                                        strpos($status, 'Pending') !== false ? 'text-warning' :
-                                                                        (strpos($status, 'Accept') !== false ? 'text-success' :
-                                                                        (strpos($status, 'Complete') !== false ? 'text-info' :
-                                                                        (strpos($status, 'Cancel') !== false ? 'text-danger' : 'text-primary')))
-                                                                    }}">{{ $count }}</h5>
+                                                                    <h5 class="{{ $statusColor }}">{{ $count }}</h5>
                                                                 </div>
                                                             </div>
                                                         @endforeach
@@ -509,21 +617,25 @@
                             th { background-color: #9C27B0; color: white; }
                             .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; }
                             .text-center { text-align: center; }
+                            /* Status Badge Colors */
                             .badge-status-pending { background: #ffc107; color: #212529; padding: 2px 8px; border-radius: 4px; }
-                            .badge-status-accept { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-pending-order { background: #ffc107; color: #212529; padding: 2px 8px; border-radius: 4px; }
                             .badge-status-accepted { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; }
-                            .badge-status-complete { background: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-accept { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-assigned { background: #fd7e14; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-in-progress { background: #fd7e14; color: white; padding: 2px 8px; border-radius: 4px; }
                             .badge-status-completed { background: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; }
-                            .badge-status-cancel { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-complete { background: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; }
                             .badge-status-cancelled { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
+                            .badge-status-cancel { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
                             .badge-status-rejected { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; }
-                            .preview-header { margin-bottom: 20px; }
-                            .summary-stats { margin-top: 20px; }
+                            .badge-status-pending-booking { background: #6f42c1; color: white; padding: 2px 8px; border-radius: 4px; }
                             .text-success { color: #28a745; }
                             .text-warning { color: #ffc107; }
                             .text-danger { color: #dc3545; }
                             .text-info { color: #17a2b8; }
                             .text-primary { color: #007bff; }
+                            .text-purple { color: #6f42c1; }
                             .description-text { max-width: 150px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                             .media-files-wrapper { max-width: 120px; word-break: break-all; }
                             @media print {

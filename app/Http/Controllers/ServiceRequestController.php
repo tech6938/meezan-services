@@ -47,6 +47,7 @@ class ServiceRequestController extends Controller
 
         $pendingOrders = 0;
         $acceptOrders = 0;
+        $acceptedOrders = 0;
         $assignedOrders = 0;
         $cancelledOrders = 0;
         $pendingBookings = 0;
@@ -66,6 +67,9 @@ class ServiceRequestController extends Controller
                 case 'Accept Order':
                     $acceptOrders++;
                     break;
+                case 'Accepted':
+                    $acceptedOrders++;
+                    break;
                 case 'Assigned':
                     $assignedOrders++;
                     break;
@@ -81,6 +85,7 @@ class ServiceRequestController extends Controller
         return [
             'pending_orders' => $pendingOrders,
             'accept_orders' => $acceptOrders,
+            'accepted_orders' => $acceptedOrders,
             'assigned_orders' => $assignedOrders,
             'cancelled_orders' => $cancelledOrders,
             'pending_bookings' => $pendingBookings,
@@ -387,103 +392,107 @@ class ServiceRequestController extends Controller
             return back()->with('error', 'Error loading providers: ' . $e->getMessage());
         }
     }
+
     /**
      * Preview service requests before export
      */
     public function previewRequests(Request $request)
     {
-        try {
-            $query = ServiceRequest::with([
-                'user',
-                'category',
-                'subCategory',
-                'address',
-                'bookingRequests'
-            ]);
+        // Get the same data as allRequest method
+        $query = ServiceRequest::with(['user', 'category', 'subCategory', 'bookingRequests', 'address']);
 
-            // Apply status filter
-            if ($request->has('status') && $request->status) {
-                $query->where('status', $request->status);
-            }
-
-            // Apply search filter
-            if ($request->has('search') && $request->search) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('desc', 'like', "%{$search}%")
-                        ->orWhereHas('user', function ($q2) use ($search) {
-                            $q2->where('name', 'like', "%{$search}%")
-                                ->orWhere('phone', 'like', "%{$search}%");
-                        });
-                });
-            }
-
-            // Apply date range filter
-            if ($request->has('start_date') && $request->start_date) {
-                $query->whereDate('created_at', '>=', $request->start_date);
-            }
-            if ($request->has('end_date') && $request->end_date) {
-                $query->whereDate('created_at', '<=', $request->end_date);
-            }
-
-            // Limit results for preview (50 records)
-            $requests = $query->orderBy('created_at', 'desc')->limit(50)->get();
-
-            // Format data for preview
-            $previewData = $requests->map(function ($request, $index) {
-                // Get saved address
-                $savedAddress = 'N/A';
-                if ($request->address) {
-                    $addressParts = [];
-                    if ($request->address->address) $addressParts[] = $request->address->address;
-                    if ($request->address->area) $addressParts[] = $request->address->area;
-                    if ($request->address->city) $addressParts[] = $request->address->city;
-                    $savedAddress = implode(', ', $addressParts);
-                }
-
-                // Get media files
-                $mediaFiles = 'N/A';
-                if ($request->file && is_array($request->file) && count($request->file) > 0) {
-                    $mediaFiles = implode("\n", $request->file);
-                }
-
-                // Map status for display
-                $statusMap = [
-                    'pending' => 'Pending',
-                    'accept' => 'Accept',
-                    'accepted' => 'Accepted',
-                    'complete' => 'Complete',
-                    'completed' => 'Completed',
-                    'cancel' => 'Cancel',
-                    'cancelled' => 'Cancelled',
-                    'rejected' => 'Rejected',
-                ];
-
-                return [
-                    'Sr. No' => $index + 1,
-                    'Order ID' => $request->id,
-                    'User Name' => $request->user->name ?? 'N/A',
-                    'User Phone' => $request->user->phone ?? 'N/A',
-                    'Category' => $request->category->name ?? 'N/A',
-                    'Sub Category' => $request->subCategory->name ?? 'N/A',
-                    'Description' => $request->desc ?? 'N/A',
-                    'Live Latitude' => $request->lat ?? 'N/A',
-                    'Live Longitude' => $request->lang ?? 'N/A',
-                    'Saved Address' => $savedAddress,
-                    'Media Files' => $mediaFiles,
-                    'Total Bids' => $request->bookingRequests->count(),
-                    'Status' => $statusMap[$request->status] ?? ucfirst($request->status),
-                    'Created At' => $request->created_at ? $request->created_at->format('Y-m-d H:i:s') : 'N/A',
-                ];
+        // Apply filters (same as allRequest)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('desc', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
             });
-
-            return view('serviceRequest.preview', [
-                'previewTitle' => 'Service Requests Data Preview',
-                'data' => $previewData,
-            ]);
-        } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Preview failed: ' . $e->getMessage());
         }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        // Get the data
+        $requests = $query->orderBy('created_at', 'desc')->get();
+
+        // Format data for preview (matching allRequest format)
+        $data = collect();
+        $srNo = 1;
+
+        foreach ($requests as $request) {
+            // Get saved address
+            $savedAddress = 'N/A';
+            if ($request->address) {
+                $addressParts = [];
+                if ($request->address->address) $addressParts[] = $request->address->address;
+                if ($request->address->area) $addressParts[] = $request->address->area;
+                if ($request->address->city) $addressParts[] = $request->address->city;
+                $savedAddress = implode(', ', $addressParts);
+            }
+
+            // Get media files - using 'file' attribute from model
+            $mediaFiles = [];
+            if ($request->file && is_array($request->file) && count($request->file) > 0) {
+                $mediaFiles = $request->file;
+            }
+
+            // IMPORTANT: Use the same status resolution as allRequest
+            $booking = $this->getGoverningBooking($request);
+            $displayStatus = $this->resolveDisplayStatus($request->status, $booking);
+
+            $data->push([
+                'Sr. No' => $srNo++,
+                'Order ID' => $request->id,
+                'User Name' => $request->user?->name ?? 'N/A',
+                'User Phone' => $request->user?->phone ?? 'N/A',
+                'Category' => $request->category?->name ?? 'N/A',
+                'Sub Category' => $request->subCategory?->name ?? 'N/A',
+                'Description' => $request->desc ?? 'N/A',
+                'Live Latitude' => $request->lat ?? 'N/A',
+                'Live Longitude' => $request->lang ?? 'N/A',
+                'Saved Address' => $savedAddress,
+                'Media Files' => !empty($mediaFiles) ? implode("\n", $mediaFiles) : 'N/A',
+                'Total Bids' => $request->bookingRequests->count() ?? 0,
+                'Status' => $displayStatus,
+                'Created At' => $request->created_at?->format('Y-m-d H:i:s') ?? 'N/A',
+                'raw_status' => $request->status,
+            ]);
+        }
+
+        return view('serviceRequest.preview', compact('data'));
+    }
+
+    /**
+     * Get status display text
+     */
+    private function getStatusDisplay($status)
+    {
+        $statusMap = [
+            'pending' => 'Pending Order',
+            'accepted' => 'Accepted',
+            'cancelled' => 'Cancelled',
+            'pending_booking' => 'Pending Booking',
+            'completed' => 'Completed',
+            'assigned' => 'Assigned',
+            'in_progress' => 'In Progress',
+            'rejected' => 'Rejected',
+        ];
+
+        return $statusMap[$status] ?? ucfirst($status);
     }
 
     /**
@@ -562,7 +571,7 @@ class ServiceRequestController extends Controller
         switch ($type) {
             case 'pending_orders':
                 $query->where('status', 'pending');
-                $filterInPhp = true; // "everything else" is easiest to resolve via resolveDisplayStatus()
+                $filterInPhp = true;
                 $pageTitle = 'Pending Orders';
                 break;
 
@@ -643,7 +652,7 @@ class ServiceRequestController extends Controller
      *  2. A row with req_status = accept, assigned = 0 (Accept Order state)
      *  3. Fallback: most recently created row (for raw display only)
      */
-    private function getGoverningBooking($serviceRequest)
+    public function getGoverningBooking($serviceRequest)
     {
         $bookings = $serviceRequest->relationLoaded('bookingRequests')
             ? $serviceRequest->bookingRequests
@@ -678,7 +687,7 @@ class ServiceRequestController extends Controller
      *  - pending, booking req_status=accept, assigned=1, goto=2 -> Pending Booking
      *  - anything else while pending (no booking, or not in a recognized accept-state) -> Pending Order
      */
-    private function resolveDisplayStatus($serviceStatus, $booking)
+    public function resolveDisplayStatus($serviceStatus, $booking)
     {
         if ($serviceStatus == 'cancel') {
             return 'Cancelled';
@@ -709,5 +718,26 @@ class ServiceRequestController extends Controller
         }
 
         return 'Pending Order';
+    }
+
+    /**
+     * Filter by Accept Orders (req_status = accept, assigned = 0, goto = 0)
+     */
+    public function acceptOrders(Request $request)
+    {
+        $data = ServiceRequest::with('user', 'bookingRequests')
+            ->where('status', 'pending')
+            ->whereHas('bookingRequests', function ($q) {
+                $q->where('req_status', 'accept')
+                    ->where('assigned', 0)
+                    ->where('goto', 0);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $data = $this->applyDateRangeFilter($data, $request)->get();
+        $statusCounts = $this->getStatusCounts($request);
+        $result = $this->formatResults($data);
+
+        return view('serviceRequest.orders', compact('result', 'statusCounts'))->with('type', 'accept_orders');
     }
 }

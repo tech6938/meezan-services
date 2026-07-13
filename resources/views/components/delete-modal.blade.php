@@ -1,3 +1,11 @@
+@php
+    $permissionAction = $permissionAction ?? 'can_delete';
+    $currentPermission = app(\App\Services\AdminAuthorizationService::class)->currentRoutePermission();
+    $currentModule = $currentPermission['moduleKey'] ?? null;
+    $shouldRender = $currentModule ? admin_can($currentModule, $permissionAction) : true;
+@endphp
+
+@if($shouldRender)
 <div class="modal fade" id="{{ $id ?? 'deleteModal' }}" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -24,6 +32,7 @@
                 </form>
             </div>
 
-        </div>
     </div>
+</div>
+@endif
 </div>

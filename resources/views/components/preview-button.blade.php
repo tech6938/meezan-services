@@ -2,6 +2,10 @@
 @php
     $defaultLabel = $buttonLabel ?? 'Preview';
     $previewTitle = $previewTitle ?? 'Data Preview';
+    $permissionAction = $permissionAction ?? 'can_view';
+    $currentPermission = app(\App\Services\AdminAuthorizationService::class)->currentRoutePermission();
+    $currentModule = $currentPermission['moduleKey'] ?? null;
+    $shouldRender = $currentModule ? admin_can($currentModule, $permissionAction) : true;
 
     // Ensure queryParams is an array
     $queryParamsArray = is_array($queryParams ?? []) ? $queryParams ?? [] : [];
@@ -10,6 +14,7 @@
     $previewUrl = $apiUrl . '?' . http_build_query($queryParamsArray);
 @endphp
 
+@if($shouldRender)
 <div class="preview-button-wrapper" style="display: inline-block;">
     <a href="{{ $previewUrl }}" class="btn btn-info preview-btn"
         style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 6px; border: none; background-color: #17a2b8; color: white; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-decoration: none;">
@@ -40,3 +45,4 @@
         transform: translateY(0);
     }
 </style>
+@endif

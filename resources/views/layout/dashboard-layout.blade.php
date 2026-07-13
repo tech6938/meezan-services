@@ -48,10 +48,12 @@
                     </ul>
                 </div>
                 <ul class="navbar-nav navbar-right">
-                    <li class="p-2">
-                        <a href="{{ route('chatsList') }}" class="btn btn-primary text-white"><i
-                                data-feather="message-circle"></i></a>
-                    </li>
+                    @adminRouteAllowed('chatsList')
+                        <li class="p-2">
+                            <a href="{{ route('chatsList') }}" class="btn btn-primary text-white"><i
+                                    data-feather="message-circle"></i></a>
+                        </li>
+                    @endadminRouteAllowed
                     <li class="dropdown"><a href="#" data-toggle="dropdown"
                             class="nav-link dropdown-toggle nav-link-lg nav-link-user"> <img alt="image"
                                 src="{{ asset('assets/img/user.png') }}" class="user-img-radious-style"> <span
@@ -80,167 +82,296 @@
                     </div>
                     <ul class="sidebar-menu">
                         <li class="menu-header">Main</li>
-                        <li class="dropdown  {{ request()->routeIs('dashboard') ? 'active' : ' ' }}">
-                            <a href="{{ route('dashboard') }}" class="nav-link"><i
-                                    data-feather="monitor"></i><span>Dashboard</span></a>
-                        </li>
-                        <li
-                            class="dropdown {{ request()->routeIs('main-categories.index') || request()->routeIs('sub-categories.index') ? 'active' : ' ' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown"><i
-                                    data-feather="layers"></i><span>Skill Categories</span></a>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('main-categories.index') }}">Main Categories</a>
-                                </li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('sub-categories.index') }}">Sub Categories</a>
-                                </li>
-                            </ul>
-                        </li>
-                        <li class="dropdown  {{ request()->routeIs('chatsList') ? 'active' : ' ' }}">
-                            <a href="{{ route('chatsList') }}" class="nav-link"><i
-                                    data-feather="message-circle"></i><span>Chat List</span></a>
-                        </li>
-                        <li class="dropdown {{ request()->routeIs('userList') ? 'active' : ' ' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown"><i
-                                    data-feather="user"></i><span>Users</span></a>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('userList') }}">Users List</a></li>
-                            </ul>
-                        </li>
-                        <li
-                            class="dropdown  {{ request()->routeIs('allProviders') || request()->routeIs('approvedProviders') || request()->routeIs('suspendedProviders') || request()->routeIs('blockedProviders') || request()->routeIs('pendingProviders') ? 'active' : ' ' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown"><i
-                                    data-feather="users"></i><span>Providers</span></a>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('allProviders') }}">All Providers</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('approvedProviders') }}">Approved</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('suspendedProviders') }}">Suspended</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('blockedProviders') }}">Blocked</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('pendingProviders') }}">Pending</a></li>
-                            </ul>
-                        </li>
-                        <li class="dropdown  {{ request()->routeIs('allRequest') ? 'active' : ' ' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown"><i class="fas  fa-tasks"></i>
-                                <span>Requests</span></a>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('allRequest') }}">All Request</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('pendingRequest') }}">Pending Request</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('approvedRequest') }}">Approved Request</a>
-                                </li>
-                            </ul>
-                        </li>
-                        <li
-                            class="dropdown  {{ request()->routeIs('pendingBooking') ? 'active' : ' ' }} {{ request()->routeIs('startBooking') ? 'active' : ' ' }}   {{ request()->routeIs('cancelBooking') ? 'active' : ' ' }} {{ request()->routeIs('allBookings') ? 'active' : ' ' }} {{ request()->routeIs('endBooking') ? 'active' : ' ' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown"><i
-                                    class="fas fa-calendar-alt"></i>
-                                <span>Booking</span></a>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('allBookings') }}"> All Bookings</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('pendingBooking') }}">Pending Bookings</a>
-                                </li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('startBooking') }}">Start Bookings</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('endBooking') }}">Complete Bookings</a></li>
-                            </ul>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('cancelBooking') }}">Cancel Bookings</a></li>
-                            </ul>
-                        </li>
-                        <li
-                            class="dropdown {{ request()->routeIs('shopkeepers') || request()->routeIs('shops') ? 'active' : ' ' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown"><i
-                                    data-feather="shopping-cart"></i>
+                        @adminRouteAllowed('dashboard')
+                            <li class="dropdown  {{ request()->routeIs('dashboard') ? 'active' : ' ' }}">
+                                <a href="{{ route('dashboard') }}" class="nav-link"><i
+                                        data-feather="monitor"></i><span>Dashboard</span></a>
+                            </li>
+                        @endadminRouteAllowed
+                        @if (admin_can_route('main-categories.index') || admin_can_route('sub-categories.index'))
+                            <li
+                                class="dropdown {{ request()->routeIs('main-categories.index') || request()->routeIs('sub-categories.index') ? 'active' : ' ' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown"><i
+                                        data-feather="layers"></i><span>Skill Categories</span></a>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('main-categories.index')
+                                        <li><a class="nav-link" href="{{ route('main-categories.index') }}">Main
+                                                Categories</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('sub-categories.index')
+                                        <li><a class="nav-link" href="{{ route('sub-categories.index') }}">Sub
+                                                Categories</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                            </li>
+                        @endif
+                        @adminRouteAllowed('chatsList')
+                            <li class="dropdown  {{ request()->routeIs('chatsList') ? 'active' : ' ' }}">
+                                <a href="{{ route('chatsList') }}" class="nav-link"><i
+                                        data-feather="message-circle"></i><span>Chat List</span></a>
+                            </li>
+                        @endadminRouteAllowed
+                        @if (admin_can_route('userList') || admin_can_route('allProviders'))
+                            <li class="dropdown {{ request()->routeIs('userList') ? 'active' : ' ' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown"><i
+                                        data-feather="user"></i><span>Users</span></a>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('userList')
+                                        <li><a class="nav-link" href="{{ route('userList') }}">Users List</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                            </li>
+                        @endif
+                        @if (admin_can_route('allProviders') ||
+                                admin_can_route('approvedProviders') ||
+                                admin_can_route('suspendedProviders') ||
+                                admin_can_route('blockedProviders') ||
+                                admin_can_route('pendingProviders'))
+                            <li
+                                class="dropdown  {{ request()->routeIs('allProviders') || request()->routeIs('approvedProviders') || request()->routeIs('suspendedProviders') || request()->routeIs('blockedProviders') || request()->routeIs('pendingProviders') ? 'active' : ' ' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown"><i
+                                        data-feather="users"></i><span>Providers</span></a>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('allProviders')
+                                        <li><a class="nav-link" href="{{ route('allProviders') }}">All Providers</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('approvedProviders')
+                                        <li><a class="nav-link" href="{{ route('approvedProviders') }}">Approved</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('suspendedProviders')
+                                        <li><a class="nav-link" href="{{ route('suspendedProviders') }}">Suspended</a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('blockedProviders')
+                                        <li><a class="nav-link" href="{{ route('blockedProviders') }}">Blocked</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('pendingProviders')
+                                        <li><a class="nav-link" href="{{ route('pendingProviders') }}">Pending</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                            </li>
+                        @endif
+                        @if (admin_can_route('allRequest') || admin_can_route('pendingRequest') || admin_can_route('approvedRequest'))
+                            <li class="dropdown  {{ request()->routeIs('allRequest') ? 'active' : ' ' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown"><i
+                                        class="fas  fa-tasks"></i>
+                                    <span>Requests</span></a>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('allRequest')
+                                        <li><a class="nav-link" href="{{ route('allRequest') }}">All Request</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('pendingRequest')
+                                        <li><a class="nav-link" href="{{ route('pendingRequest') }}">Pending Request</a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('approvedRequest')
+                                        <li><a class="nav-link" href="{{ route('approvedRequest') }}">Approved
+                                                Request</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                            </li>
+                        @endif
+                        @if (admin_can_route('allBookings') ||
+                                admin_can_route('pendingBooking') ||
+                                admin_can_route('startBooking') ||
+                                admin_can_route('endBooking') ||
+                                admin_can_route('cancelBooking'))
+                            <li
+                                class="dropdown  {{ request()->routeIs('pendingBooking') ? 'active' : ' ' }} {{ request()->routeIs('startBooking') ? 'active' : ' ' }}   {{ request()->routeIs('cancelBooking') ? 'active' : ' ' }} {{ request()->routeIs('allBookings') ? 'active' : ' ' }} {{ request()->routeIs('endBooking') ? 'active' : ' ' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown"><i
+                                        class="fas fa-calendar-alt"></i>
+                                    <span>Booking</span></a>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('allBookings')
+                                        <li><a class="nav-link" href="{{ route('allBookings') }}"> All Bookings</a></li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('pendingBooking')
+                                        <li><a class="nav-link" href="{{ route('pendingBooking') }}">Pending Bookings</a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('startBooking')
+                                        <li><a class="nav-link" href="{{ route('startBooking') }}">Start Bookings</a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('endBooking')
+                                        <li><a class="nav-link" href="{{ route('endBooking') }}">Complete Bookings</a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('cancelBooking')
+                                        <li><a class="nav-link" href="{{ route('cancelBooking') }}">Cancel Bookings</a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                            </li>
+                        @endif
+                        @adminRouteAllowed('shopkeepers')
+                            <li
+                                class="dropdown {{ request()->routeIs('shopkeepers') || request()->routeIs('shops') ? 'active' : ' ' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown"><i
+                                        data-feather="shopping-cart"></i>
 
-                                <span>Shop</span></a>
-                            <ul class="dropdown-menu">
-                                <li><a class="nav-link" href="{{ route('shopkeepers') }}">ShopKeepers</a></li>
-                            </ul>
-                        </li>
+                                    <span>Shop</span></a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="nav-link" href="{{ route('shopkeepers') }}">ShopKeepers</a></li>
+                                </ul>
+                            </li>
+                        @endadminRouteAllowed
 
                         <!-- Pages Menu Item -->
-                        <li class="dropdown {{ request()->routeIs('pages.index') ? 'active' : ' ' }}">
-                            <a href="{{ route('pages.index') }}" class="nav-link"><i
-                                    data-feather="file-text"></i><span>Pages</span></a>
-                        </li>
+                        @adminRouteAllowed('pages.index')
+                            <li class="dropdown {{ request()->routeIs('pages.index') ? 'active' : ' ' }}">
+                                <a href="{{ route('pages.index') }}" class="nav-link"><i
+                                        data-feather="file-text"></i><span>Pages</span></a>
+                            </li>
+                        @endadminRouteAllowed
 
-                        <li
-                            class="dropdown {{ request()->routeIs('commission.*') || request()->routeIs('appUrl.*') ? 'active' : '' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown">
-                                <i data-feather="settings"></i>
-                                <span>Setting</span>
-                            </a>
+                        @php
+                            $admin = auth()->guard('admin')->user();
+                            $authService = app(App\Services\AdminAuthorizationService::class);
 
-                            <ul class="dropdown-menu">
+                            $canViewCommission = $admin && admin_can_route('commission.index');
+                            $canViewAppUrl = $admin && admin_can_route('appUrl.index');
+                            $canManageAdmins = $admin && $authService->allows($admin, 'admin-management', 'can_view');
+                            $canManageAccessControl =
+                                $admin && $authService->allows($admin, 'access-control', 'can_status');
+                        @endphp
 
-                                <!-- Commission -->
-                                <li class="{{ request()->routeIs('commission.*') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('commission.index') }}">
-                                        Commission
-                                    </a>
-                                </li>
+                        @if ($canViewCommission || $canViewAppUrl || $canManageAdmins || $canManageAccessControl)
+                            <li
+                                class="dropdown {{ request()->routeIs('commission.*') || request()->routeIs('appUrl.*') || request()->routeIs('access-control.*') || request()->routeIs('admin.*') ? 'active' : '' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown">
+                                    <i data-feather="settings"></i>
+                                    <span>Setting</span>
+                                </a>
+                                <ul class="dropdown-menu">
+                                    @if ($canViewCommission)
+                                        <li class="{{ request()->routeIs('commission.*') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('commission.index') }}">Commission</a>
+                                        </li>
+                                    @endif
+                                    @if ($canViewAppUrl)
+                                        <li class="{{ request()->routeIs('appUrl.*') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('appUrl.index') }}">App URL</a>
+                                        </li>
+                                    @endif
+                                    @if ($canManageAdmins)
+                                        <li class="{{ request()->routeIs('admin.*') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('admin.index') }}">Manage Admins</a>
+                                        </li>
+                                    @endif
+                                    @if ($canManageAccessControl)
+                                        <li class="{{ request()->routeIs('access-control.*') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('access-control.index') }}">Roles &
+                                                Permissions</a>
+                                        </li>
+                                    @endif
+                                </ul>
+                            </li>
+                        @endif
+                        {{-- @php
+                                    $admin = auth()->guard('admin')->user();
+                                    $debug = [
+                                        'admin_exists' => (bool) $admin,
+                                        'admin_id' => $admin?->id,
+                                        'is_super_admin_db' => $admin?->is_super_admin,
+                                        'is_super_admin_method' => $admin?->isSuperAdmin(),
+                                        'role_id' => $admin?->role_id,
+                                        'role_name' => $admin?->assignedRole?->name,
+                                        'can_manage_admins' => $admin
+                                            ? app(App\Services\AdminAuthorizationService::class)->allows(
+                                                $admin,
+                                                'admin-management',
+                                                'can_view',
+                                            )
+                                            : false,
+                                        'can_manage_access_control' => $admin
+                                            ? app(App\Services\AdminAuthorizationService::class)->allows(
+                                                $admin,
+                                                'access-control',
+                                                'can_status',
+                                            )
+                                            : false,
+                                    ];
+                                @endphp
 
-                                <!-- App URL -->
-                                <li class="{{ request()->routeIs('appUrl.*') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('appUrl.index') }}">
-                                        App URL
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
+                                <!-- Debug output - remove after testing -->
+                                <pre style="background: #f4f4f4; padding: 10px; margin: 10px; border: 1px solid #ddd;">
+    Debug: {{ json_encode($debug, JSON_PRETTY_PRINT) }}
+</pre> --}}
 
-                        <li
-                            class="dropdown {{ request()->routeIs('referrals.*') ? 'active' : '' }}">
-                            <a href="#" class="menu-toggle nav-link has-dropdown">
-                                <i data-feather="git-branch"></i>
-                                <span>Referral Management</span>
-                            </a>
+                        @if (admin_can_route('referrals.settings') ||
+                                admin_can_route('referrals.tree') ||
+                                admin_can_route('referrals.customerEarnings') ||
+                                admin_can_route('referrals.commissionLogs') ||
+                                admin_can_route('referrals.reports'))
+                            <li class="dropdown {{ request()->routeIs('referrals.*') ? 'active' : '' }}">
+                                <a href="#" class="menu-toggle nav-link has-dropdown">
+                                    <i data-feather="git-branch"></i>
+                                    <span>Referral Management</span>
+                                </a>
 
-                            <ul class="dropdown-menu">
-                                <li class="{{ request()->routeIs('referrals.settings') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('referrals.settings') }}">
-                                        Settings
-                                    </a>
-                                </li>
-                                <li class="{{ request()->routeIs('referrals.tree') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('referrals.tree') }}">
-                                        Referral Tree
-                                    </a>
-                                </li>
-                                <li class="{{ request()->routeIs('referrals.customerEarnings') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('referrals.customerEarnings') }}">
-                                        Customer Earnings
-                                    </a>
-                                </li>
-                                <li class="{{ request()->routeIs('referrals.commissionLogs') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('referrals.commissionLogs') }}">
-                                        Commission Logs
-                                    </a>
-                                </li>
-                                <li class="{{ request()->routeIs('referrals.reports') ? 'active' : '' }}">
-                                    <a class="nav-link" href="{{ route('referrals.reports') }}">
-                                        Reports
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
+                                <ul class="dropdown-menu">
+                                    @adminRouteAllowed('referrals.settings')
+                                        <li class="{{ request()->routeIs('referrals.settings') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('referrals.settings') }}">
+                                                Settings
+                                            </a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                    @adminRouteAllowed('referrals.tree')
+                                        <li class="{{ request()->routeIs('referrals.tree') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('referrals.tree') }}">
+                                                Referral Tree
+                                            </a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                    @adminRouteAllowed('referrals.customerEarnings')
+                                        <li
+                                            class="{{ request()->routeIs('referrals.customerEarnings') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('referrals.customerEarnings') }}">
+                                                Customer Earnings
+                                            </a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                    @adminRouteAllowed('referrals.commissionLogs')
+                                        <li class="{{ request()->routeIs('referrals.commissionLogs') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('referrals.commissionLogs') }}">
+                                                Commission Logs
+                                            </a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                    @adminRouteAllowed('referrals.reports')
+                                        <li class="{{ request()->routeIs('referrals.reports') ? 'active' : '' }}">
+                                            <a class="nav-link" href="{{ route('referrals.reports') }}">
+                                                Reports
+                                            </a>
+                                        </li>
+                                    @endadminRouteAllowed
+                                </ul>
+                            </li>
+                        @endif
 
                         <li class="menu-header">OFF LOAD</li>
                         <form id="logout-form" action="{{ route('logout') }}" method="POST"

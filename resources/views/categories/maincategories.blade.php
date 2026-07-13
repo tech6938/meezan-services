@@ -43,7 +43,7 @@
                                             </td>
 
                                             <td>
-                                                <img src="{{ asset('storage/' . $item->image) }}" style="width:100px; height:100px;" alt="image">
+                                                <img src="{{ $item->image }}" style="width:100px; height:100px;" alt="image">
                                             </td>
                                             <td>
                                                 <div class="d-flex gap-2">

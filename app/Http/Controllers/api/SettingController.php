@@ -14,7 +14,7 @@ class SettingController extends Controller
         'app_url',
         'whatsapp',
         'website_url',
-        'twitter_url',
+        'tiktok_url',
         'instagram_url',
         'youtube_url',
         'facebook_url',

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\api\{AddressController, AuthController, ChatController, NotificationController, ReferralController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
+use App\Http\Controllers\api\{AddressController, AuthController, ChatController, NotificationController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
 use App\Http\Controllers\api\{ShopKeeperAuthController, NearbyShopController, WalletController};
 use App\Http\Controllers\api\Provider\BookingRequestController;
 use App\Http\Controllers\api\Provider\ProviderRegisterController;
@@ -8,6 +8,7 @@ use App\Http\Controllers\api\RatingController;
 use App\Http\Controllers\api\ResetPassController;
 use App\Http\Controllers\api\SettingController;
 use App\Http\Controllers\api\ShopController;
+use App\Http\Controllers\ReferralController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -140,11 +141,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/mark-as-read', 'markAsSeen');
     });
 
-    Route::controller(ReferralController::class)->group(function () {
-        Route::get('/my-referral-code', 'myReferralCode');
-        Route::get('/my-referral-tree', 'myReferralTree');
-        Route::get('/my-referral-earnings', 'myReferralEarnings');
-        Route::get('/my-referral-history', 'myReferralHistory');
+    // Route::controller(ReferralController::class)->group(function () {
+    //     Route::get('/my-referral-code', 'myReferralCode');
+    //     Route::get('/my-referral-tree', 'myReferralTree');
+    //     Route::get('/my-referral-earnings', 'myReferralEarnings');
+    //     Route::get('/my-referral-history', 'myReferralHistory');
+    // });
+    Route::prefix('referral')->group(function () {
+        // Validate referral code
+        Route::post('validate', [ReferralController::class, 'validateCode']);
+
+        // Apply referral code
+        Route::post('apply', [ReferralController::class, 'apply']);
+
+        // Get user's referral info
+        Route::get('info', [ReferralController::class, 'getInfo'])->middleware('auth:sanctum');
     });
 
     // Upload Routes

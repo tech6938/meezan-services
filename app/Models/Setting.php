@@ -18,7 +18,7 @@ class Setting extends Model
         'about_us',
         'contact_us',
         'website_url',
-        'twitter_url',
+        'tiktok_url',
         'instagram_url',
         'youtube_url',
         'facebook_url',

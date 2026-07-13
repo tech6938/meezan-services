@@ -8,11 +8,15 @@ use App\Models\User;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReferralController extends Controller
 {
-    public function __construct(protected ReferralService $referralService)
+    protected ReferralService $referralService;
+
+    public function __construct(ReferralService $referralService)
     {
+        $this->referralService = $referralService;
     }
 
     public function settings()
@@ -203,5 +207,142 @@ class ReferralController extends Controller
         ];
 
         return view('referrals.reports', compact('summary', 'levelSummary', 'monthlySummary'));
+    }
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Simple landing page for referral links
+     */
+    public function landing($code)
+    {
+        // Find the referrer
+        $referrer = User::where('referral_code', $code)->first();
+
+        if (!$referrer) {
+            return view('referral.invalid', ['code' => $code]);
+        }
+
+        // Log the click
+        Log::info('Referral link clicked', [
+            'code' => $code,
+            'referrer_id' => $referrer->id,
+            'ip' => request()->ip()
+        ]);
+
+        // Simple view with app deep link and fallback
+        return view('referral.landing', [
+            'code' => $code,
+            'referrer_name' => $referrer->name,
+            'app_scheme' => 'meezanservices://referral?code=' . $code,
+            'playstore_url' => 'https://play.google.com/store/apps/details?id=com.meezanservices.app&referrer=' . $code,
+            'appstore_url' => 'https://apps.apple.com/app/idYOUR_APP_ID?referrer=' . $code,
+        ]);
+    }
+
+    /**
+     * Simple API endpoint for app to validate referral code
+     */
+    public function validateCode(Request $request)
+    {
+        $code = $request->input('code');
+
+        // Validate code exists
+        $referrer = User::where('referral_code', $code)->first();
+
+        if (!$referrer) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Invalid referral code'
+            ], 404);
+        }
+
+        return response()->json([
+            'valid' => true,
+            'referrer_id' => $referrer->id,
+            'referrer_name' => $referrer->name,
+        ]);
+    }
+
+    /**
+     * Simple API endpoint for applying referral code
+     */
+    public function apply(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'referral_code' => 'required|string',
+        ]);
+
+        $user = User::find($request->user_id);
+        $referrer = User::where('referral_code', $request->referral_code)->first();
+
+        // Check if valid
+        if (!$referrer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid referral code'
+            ]);
+        }
+
+        // Check self-referral
+        if ($referrer->id === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot refer yourself'
+            ]);
+        }
+
+        // Check already referred
+        if ($user->referred_by_user_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Already referred'
+            ]);
+        }
+
+        // Assign referrer
+        $user->referred_by_user_id = $referrer->id;
+        $user->save();
+
+        // Increment referral count
+        $referrer->increment('referral_total_referrals');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Referral applied successfully'
+        ]);
+    }
+
+    /**
+     * Get user's referral info (for sharing)
+     */
+    public function getInfo(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        // Generate code if not exists
+        if (!$user->referral_code) {
+            $user->referral_code = $this->referralService->generateUniqueReferralCode();
+            $user->save();
+        }
+
+        return response()->json([
+            'referral_code' => $user->referral_code,
+            'referral_link' => config('app.url') . '/referral/' . $user->referral_code,
+            'total_referrals' => $user->referral_total_referrals ?? 0,
+            'total_earned' => $user->referral_total_earned ?? 0,
+        ]);
     }
 }

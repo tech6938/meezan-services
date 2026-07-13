@@ -2,6 +2,10 @@
 @php
     $defaultLabel = $buttonLabel ?? 'Export to Excel';
     $defaultFileName = $fileName ?? 'export';
+    $permissionAction = $permissionAction ?? 'can_export';
+    $currentPermission = app(\App\Services\AdminAuthorizationService::class)->currentRoutePermission();
+    $currentModule = $currentPermission['moduleKey'] ?? null;
+    $shouldRender = $currentModule ? admin_can($currentModule, $permissionAction) : true;
 
     // Ensure queryParams is an array
     $queryParamsArray = is_array($queryParams ?? []) ? $queryParams ?? [] : [];
@@ -10,6 +14,7 @@
     $paramsJson = !empty($queryParamsArray) ? json_encode($queryParamsArray) : '{}';
 @endphp
 
+@if($shouldRender)
 <div class="export-button-wrapper" style="display: inline-block;">
     <button class="btn btn-success export-btn" id="export-btn-{{ uniqid() }}" data-api-url="{{ $apiUrl }}"
         data-file-name="{{ $defaultFileName }}"
@@ -261,3 +266,4 @@
         return container;
     }
 </script>
+@endif

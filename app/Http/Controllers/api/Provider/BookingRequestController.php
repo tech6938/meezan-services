@@ -292,8 +292,8 @@ class BookingRequestController extends Controller
             // ========== SEND NOTIFICATION TO USER (CUSTOMER) ==========
             $this->sendNotificationToUser(
                 $specificBooking->user_id,
-                'Partner Is On The Way! 🚗',
-                $partnerName . ' is coming to your location for ' . $displayName,
+                'Order Assigned!',
+                'You will be notified once the '.$partnerName . ' You have selected ' . $displayName . ' starts the journey',
                 'accept_order',
                 [
                     'booking_id' => (string)$specificBooking->id,
@@ -309,8 +309,8 @@ class BookingRequestController extends Controller
                 $this->sendNotificationToPartner(
                     $request->provider_id,
                     'provider',
-                    'You Are On The Way! 🚗',
-                    'Customer has confirmed your arrival for ' . $displayName,
+                    'Order Assigned!',
+                    'Tap "Go to Customer" to start your journey ' . $displayName,
                     'confirm_coming',
                     [
                         'booking_id' => (string)$specificBooking->id,
@@ -419,8 +419,8 @@ class BookingRequestController extends Controller
 
             $this->sendNotificationToUser(
                 $bookingRequest->user_id,
-                'Partner Has Arrived! 🚗',
-                $partnerName . ' has arrived at your location',
+                $partnerName ,
+                 ' is coming at your location',
                 'accept_order',
                 [
                     'booking_id' => (string)$bookingRequest->id,

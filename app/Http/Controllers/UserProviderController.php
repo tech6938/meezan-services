@@ -6,6 +6,7 @@ use App\Exports\ProvidersExport;
 use App\Exports\ProvidersMultiSheetExport;
 use App\Exports\UsersExport;
 use App\Exports\UsersMultiSheetExport;
+use App\Mail\ProviderStatusUpdateMail;
 use App\Models\BookingRequest;
 use App\Models\Provider;
 use App\Models\ServiceRequest;
@@ -13,6 +14,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -213,7 +215,21 @@ class UserProviderController extends Controller
         $provider->status = $request->status;
         $provider->save();
 
-        return redirect()->back()->with('success', 'Status updated successfully.');
+        $message = "Your account status has been updated to '{$provider->status}'.";
+        $status = $provider->status;
+        $role = 'provider';
+
+        try {
+            // Send email
+            Mail::to($provider->email)->send(
+                new ProviderStatusUpdateMail($message, $status, $role)
+            );
+
+            return redirect()->back()->with('success', 'Status updated successfully. Email notification sent.');
+        } catch (\Exception $e) {
+
+            return redirect()->back()->with('warning', 'Status updated but email notification could not be sent.');
+        }
     }
 
     public function destroy($id)

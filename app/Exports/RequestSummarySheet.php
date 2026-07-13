@@ -14,16 +14,20 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Style\Color;
+use App\Http\Controllers\ServiceRequestController;
 
 class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithColumnFormatting, WithEvents
 {
     protected $requests;
     protected $filters;
+    protected $controller;
 
-    public function __construct($requests, $filters = [])
+    public function __construct($requests, $filters = [], $controller = null)
     {
         $this->requests = $requests;
         $this->filters = $filters;
+        $this->controller = $controller ?? new ServiceRequestController();
     }
 
     public function collection()
@@ -72,6 +76,10 @@ class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, 
             $mediaFiles = implode("\n", $request->file);
         }
 
+        // Get the correct status using the same logic as blade
+        $booking = $this->controller->getGoverningBooking($request);
+        $displayStatus = $this->controller->resolveDisplayStatus($request->status, $booking);
+
         return [
             $serialNumber,
             $request->id,
@@ -85,7 +93,7 @@ class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, 
             $savedAddress,
             $mediaFiles,
             $request->bookingRequests->count(),
-            ucfirst($request->status),
+            $displayStatus, // Use the resolved status
             $request->created_at ? $request->created_at->format('Y-m-d H:i:s') : 'N/A',
         ];
     }
@@ -101,6 +109,7 @@ class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, 
 
     public function styles(Worksheet $sheet): array
     {
+        // Header styling
         $sheet->getStyle('1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 12],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2196F3']],
@@ -109,8 +118,42 @@ class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, 
 
         $sheet->getStyle('A:A')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('K:K')->getAlignment()->setWrapText(true); // Wrap media files
+        $sheet->getStyle('L:L')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('M:M')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Apply status colors
+        $lastRow = $sheet->getHighestRow();
+        if ($lastRow > 1) {
+            for ($row = 2; $row <= $lastRow; $row++) {
+                $status = $sheet->getCell('M' . $row)->getValue();
+                $color = $this->getStatusColor($status);
+                
+                $sheet->getStyle('M' . $row)->applyFromArray([
+                    'font' => ['color' => ['rgb' => $color['text']]],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $color['background']]],
+                ]);
+            }
+        }
 
         return [];
+    }
+
+    /**
+     * Get status color based on status text
+     */
+    private function getStatusColor($status)
+    {
+        $colors = [
+            'Pending Order' => ['background' => 'FFC107', 'text' => '212529'],
+            'Accept Order' => ['background' => '28A745', 'text' => 'FFFFFF'],
+            'Accepted' => ['background' => '28A745', 'text' => 'FFFFFF'],
+            'Assigned' => ['background' => 'FD7E14', 'text' => 'FFFFFF'],
+            'Completed' => ['background' => '17A2B8', 'text' => 'FFFFFF'],
+            'Cancelled' => ['background' => 'DC3545', 'text' => 'FFFFFF'],
+            'Pending Booking' => ['background' => '6F42C1', 'text' => 'FFFFFF'],
+        ];
+
+        return $colors[$status] ?? ['background' => 'F8F9FA', 'text' => '212529'];
     }
 
     public function columnWidths(): array
@@ -128,7 +171,7 @@ class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, 
             'J' => 40,  // Saved Address
             'K' => 50,  // Media Files
             'L' => 12,  // Total Bids
-            'M' => 15,  // Status
+            'M' => 18,  // Status
             'N' => 20,  // Created At
         ];
     }
@@ -142,6 +185,27 @@ class RequestSummarySheet implements FromCollection, WithHeadings, WithMapping, 
                 $lastRow = $sheet->getHighestRow();
                 $sheet->setAutoFilter("A1:{$lastColumn}{$lastRow}");
                 $sheet->freezePane('A2');
+
+                // Add filter info if filters are applied
+                $filters = array_filter($this->filters);
+                if (!empty($filters)) {
+                    $filterText = 'Filters Applied: ';
+                    $filterParts = [];
+                    foreach ($filters as $key => $value) {
+                        if ($value && !empty($value)) {
+                            $filterParts[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . $value;
+                        }
+                    }
+                    if (!empty($filterParts)) {
+                        $filterText .= implode(' | ', $filterParts);
+                        $sheet->setCellValue('A' . ($lastRow + 2), $filterText);
+                        $sheet->mergeCells('A' . ($lastRow + 2) . ':N' . ($lastRow + 2));
+                        $sheet->getStyle('A' . ($lastRow + 2))->applyFromArray([
+                            'font' => ['italic' => true, 'color' => ['rgb' => '6C757D']],
+                            'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
+                        ]);
+                    }
+                }
             },
         ];
     }

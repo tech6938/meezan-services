@@ -15,7 +15,7 @@ class ReferralService
     public function generateUniqueReferralCode(int $length = 8): string
     {
         do {
-            $code = 'REF' . Str::upper(Str::random($length));
+            $code = 'MS-REF-' . Str::upper(Str::random($length));
         } while (User::where('referral_code', $code)->exists());
 
         return $code;

@@ -15,7 +15,7 @@ class SettingController extends Controller
         'app_url',
         'whatsapp',
         'website_url',
-        'twitter_url',
+        'tiktok_url',
         'instagram_url',
         'youtube_url',
         'facebook_url',
@@ -85,7 +85,7 @@ class SettingController extends Controller
             $setting->app_url = null;
             $setting->whatsapp = null;
             $setting->website_url = null;
-            $setting->twitter_url = null;
+            $setting->tiktok_url = null;
             $setting->instagram_url = null;
             $setting->youtube_url = null;
             $setting->facebook_url = null;

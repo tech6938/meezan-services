@@ -1,81 +1,85 @@
 <?php
 
-use App\Http\Controllers\{AuthController, BookingController, MainCategoryController, ReferralController, SettingController, SubCategoryController, TaxController, VolunteerController, PageController};
-use App\Http\Controllers\api\RatingController;
+use App\Http\Controllers\AdminAccessController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChatsController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\MainCategoryController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ServiceRequestController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\SubCategoryController;
+use App\Http\Controllers\TaxController;
 use App\Http\Controllers\UserProviderController;
-use App\Http\Middleware\AuthMiddleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
-// dash
-Route::middleware([AuthMiddleware::class])->group(function () {
-    Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
-    // volunteers routes
-    // Route::resource('volunteer', VolunteerController::class);
-});
+
+// Route::get('/clear', function () {
+//     \Artisan::call('cache:clear');
+//     \Artisan::call('config:clear');
+//     \Artisan::call('route:clear');
+//     \Artisan::call('view:clear');
+
+//     return "Cleared!";
+// });
 
 Route::controller(AuthController::class)->group(function () {
-    // Login
+
     Route::get('/', 'login')->name('login');
+
     Route::post('/match-login', 'match_login')->name('match-login');
-    // Signup
+
     Route::get('/signup', 'signup')->name('signup');
     Route::post('/insert-signup', 'insert_signup')->name('insert-signup');
-    // Logout
+
     Route::post('/logout', 'logout')->name('logout');
-    // Forgot password
+
     Route::get('/forget', 'forget')->name('forget');
     Route::post('/forget-message', 'forget_message')->name('forget_message');
-    // OTP
+
     Route::get('/otp', 'otp')->name('otp');
     Route::post('/matching-route', 'matching_route')->name('matching_route');
-    // Reset password
+
     Route::get('/reset', 'reset')->name('reset');
     Route::post('/reset-password', 'update_password')->name('reset_password');
-    // for main categories and mainCategoriesDetails
-    Route::resource('/main-categories', MainCategoryController::class);
-    // for sub category
-    Route::resource('/sub-categories',  SubCategoryController::class);
+});
 
-    // // for chat list
+Route::middleware(['admin.auth', 'admin.permission'])->group(function () {
+    Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
+
+    Route::resource('/main-categories', MainCategoryController::class);
+    Route::resource('/sub-categories', SubCategoryController::class);
+
     Route::prefix('admin')->group(function () {
         Route::controller(ChatsController::class)->group(function () {
             Route::get('/chat-list', 'chatsList')->name('chatsList');
             Route::get('/chats/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}/{booking_id}', 'chatBetween')->name('chats.between');
             Route::post('/chats/export', 'exportSelectedChats')->name('chats.export');
         });
-        // Chat deletion routes
+
         Route::get('/chats/delete/{sender_type}/{sender_id}/{receiver_type}/{receiver_id}', [ChatsController::class, 'deleteChatPage'])->name('chats.delete.page');
         Route::post('/chats/delete-by-booking', [ChatsController::class, 'deleteChatByBooking'])->name('chats.delete.by-booking');
         Route::post('/chats/force-delete', [ChatsController::class, 'forceDeleteConversation'])->name('chats.force-delete');
     });
 
-    // If you need routes without admin prefix for backward compatibility
     Route::middleware(['auth', 'admin'])->group(function () {
-        Route::controller(ChatsController::class)->group(function () {
-            Route::delete('/chats/delete-by-order/{orderNo}', 'deleteChatsByOrderNo')->name('chats.deleteByOrderNo.legacy');
-        });
+        Route::delete('/chats/delete-by-order/{orderNo}', [ChatsController::class, 'deleteChatsByOrderNo'])->name('chats.deleteByOrderNo.legacy');
     });
 
-    /*
-|--------------------------------------------------------------------------
-| Users & Providers Routes
-|--------------------------------------------------------------------------
-*/
     Route::controller(UserProviderController::class)->group(function () {
-        // for users list and viewUserDetail and update status
         Route::get('/users-list', 'userList')->name('userList');
         Route::get('/view-user-detail/{id}', 'viewUserDetail')->name('viewUserDetail');
         Route::post('/updateUserStatus', 'updateUserStatus')->name('updateUserStatus');
         Route::delete('/user/{id}', 'userDestroy')->name('user.destroy');
 
-        // Export routes
         Route::get('/users/export', 'exportUsers')->name('users.export');
         Route::get('/users/preview', 'previewUsers')->name('users.preview');
-        // for providers list
+
         Route::get('/approved-providers', 'approvedProviders')->name('approvedProviders');
         Route::get('/blocked-providers', 'blockedProviders')->name('blockedProviders');
         Route::get('/suspended-providers', 'suspendedProviders')->name('suspendedProviders');
@@ -90,65 +94,52 @@ Route::controller(AuthController::class)->group(function () {
         Route::get('/users/export-multi', 'exportUsersMultiSheet')->name('users.exportMulti');
     });
 
-    /*
-|--------------------------------------------------------------------------
-| Service Requests Routes
-|--------------------------------------------------------------------------
-*/
-    // Route::controller(ServiceRequestController::class)->group(function () {
+    // routes/web.php
 
-    //     // all service request service requests
-    //     Route::get('/orders', 'allRequest')->name('allRequest');
-        Route::get('/pending-request', 'pendingRequest')->name('pendingRequest');
-        Route::get('/approved-request', 'approvedRequest')->name('approvedRequest');
-    //     Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
-    //     // Service Requests Preview Route
-    //     Route::get('/orders/preview', 'previewRequests')->name('orders.preview');
-    //     Route::get('/order/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
-    //     Route::get('/orders/export', 'exportRequests')->name('requests.export');
-    //     Route::get('/orders/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
-    // });
-Route::controller(ServiceRequestController::class)->group(function () {
-    // All service requests
-    Route::get('/orders', 'allRequest')->name('allRequest');
+    Route::controller(ServiceRequestController::class)->group(function () {
+        // Main routes
+        Route::get('/orders', 'allRequest')->name('allRequest');
+        Route::get('/pending-request', 'pendingOrders')->name('pendingRequest');
+        Route::get('/approved-request', 'acceptedOrders')->name('approvedRequest');
 
-    // Status filter routes - using the same ordersView method
-    Route::get('/orders/pending-orders', function (Request $request) {
-        return app(ServiceRequestController::class)->ordersView($request, 'pending_orders');
-    })->name('pendingOrders');
+        // Order views with filters
+        Route::get('/orders/pending-orders', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'pending_orders');
+        })->name('pendingOrders');
 
-    Route::get('/orders/accepted-orders', function (Request $request) {
-        return app(ServiceRequestController::class)->ordersView($request, 'accepted_orders');
-    })->name('acceptedOrders');
+        Route::get('/orders/accept-orders', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'accept_orders');
+        })->name('acceptOrders');
 
-    Route::get('/orders/cancelled-orders', function (Request $request) {
-        return app(ServiceRequestController::class)->ordersView($request, 'cancelled_orders');
-    })->name('cancelledOrders');
+        Route::get('/orders/accepted-orders', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'accepted_orders');
+        })->name('acceptedOrders');
 
-    Route::get('/orders/pending-bookings', function (Request $request) {
-        return app(ServiceRequestController::class)->ordersView($request, 'pending_bookings');
-    })->name('pendingBookings');
+        Route::get('/orders/assigned-orders', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'assigned_orders');
+        })->name('assignedOrders');
 
-    Route::get('/orders/completed-orders', function (Request $request) {
-        return app(ServiceRequestController::class)->ordersView($request, 'completed_orders');
-    })->name('completedOrders');
+        Route::get('/orders/cancelled-orders', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'cancelled_orders');
+        })->name('cancelledOrders');
 
-    // Other routes
-    Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
-    Route::get('/orders/preview', 'previewRequests')->name('orders.preview');
-    Route::get('/order/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
-    Route::get('/orders/export', 'exportRequests')->name('requests.export');
-    Route::get('/orders/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
-});
+        Route::get('/orders/pending-bookings', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'pending_bookings');
+        })->name('pendingBookings');
 
-    /*
-|--------------------------------------------------------------------------
-| Booking Requests Routes
-|--------------------------------------------------------------------------
-*/
+        Route::get('/orders/completed-orders', function (Request $request) {
+            return app(ServiceRequestController::class)->ordersView($request, 'completed_orders');
+        })->name('completedOrders');
+
+        // Other routes
+        Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
+        Route::get('/orders/preview', 'previewRequests')->name('orders.preview');
+        Route::get('/order/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
+        Route::get('/orders/export', 'exportRequests')->name('requests.export');
+        Route::get('/orders/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
+    });
+
     Route::controller(BookingController::class)->group(function () {
-
-        // booking requests lists
         Route::get('/all-bookings', 'allBookings')->name('allBookings');
         Route::get('/pending-bookings', 'pendingBooking')->name('pendingBooking');
         Route::get('/start-bookings', 'startBooking')->name('startBooking');
@@ -156,51 +147,30 @@ Route::controller(ServiceRequestController::class)->group(function () {
         Route::get('/cancel-bookings', 'cancelBooking')->name('cancelBooking');
         Route::get('/booking-chat/{status}/{user_id}/{provider_id}', 'chatBetweenBooking')->name('booking.chat');
         Route::get('/booking-detail/{booking_id}', 'bookingDetail')->name('booking.detail');
-
-        // update status
         Route::post('/bookingStatusUpdate', 'bookingStatusUpdate')->name('bookingStatusUpdate');
         Route::get('/bookings/export', 'exportBookings')->name('bookings.export');
         Route::get('/bookings/export-multi', 'exportBookingsMultiSheet')->name('bookings.exportMultiMulti');
         Route::get('/bookings/preview', 'previewBooking')->name('bookings.preview');
     });
 
-    /*
-|--------------------------------------------------------------------------
-| Tax Routes
-|--------------------------------------------------------------------------
-*/
     Route::controller(TaxController::class)->group(function () {
-
         Route::get('/tax', 'index')->name('tax.index');
         Route::post('/tax', 'store')->name('tax.store');
     });
-    Route::resource('commission', CommissionController::class);
 
+    Route::resource('commission', CommissionController::class);
     Route::get('/get-subcategories/{id}', [CommissionController::class, 'getSubCategories']);
 
-    /*
-|--------------------------------------------------------------------------
-| Shopkeepers & Shops Routes
-|--------------------------------------------------------------------------
-*/
     Route::controller(ShopController::class)->group(function () {
-
-        // shopkeeper shopkeepers
         Route::get('/all-shopkeepers', 'shopkeepers')->name('shopkeepers');
         Route::delete('/shopkeepers/{id}', 'destroy')->name('shopkeepers.destroy');
         Route::post('/status/update', 'statusUpdate')->name('shopkeepers.status');
         Route::get('/shopkeeper/{id}', 'shops')->name('shops');
     });
 
-    /*
-|--------------------------------------------------------------------------
-| Setting Routes
-|--------------------------------------------------------------------------
-*/
     Route::controller(SettingController::class)->group(function () {
         Route::get('/appUrl', 'appUrl')->name('appUrl.index');
         Route::post('/appUrl/store', 'appUrlStore')->name('appUrl.store');
-        // Route::post('app/is', 'appIsOn')->name('settings.appIsOn');
         Route::post('/settings/user-app-status', 'userAppIsOn')->name('settings.userAppIsOn');
         Route::post('/settings/provider-app-status', 'providerAppIsOn')->name('settings.providerAppIsOn');
         Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
@@ -213,11 +183,6 @@ Route::controller(ServiceRequestController::class)->group(function () {
         Route::get('/contact_us', 'contactUs')->name('contactUs');
     });
 
-    /*
-|--------------------------------------------------------------------------
-| Referral Management
-|--------------------------------------------------------------------------
-*/
     Route::prefix('referral')->name('referrals.')->controller(ReferralController::class)->group(function () {
         Route::get('/settings', 'settings')->name('settings');
         Route::post('/settings', 'updateSettings')->name('settings.update');
@@ -227,13 +192,21 @@ Route::controller(ServiceRequestController::class)->group(function () {
         Route::get('/reports', 'reports')->name('reports');
     });
 
-    /*
-|--------------------------------------------------------------------------
-| Pages Routes
-|--------------------------------------------------------------------------
-*/
     Route::controller(PageController::class)->group(function () {
         Route::get('/pages', 'index')->name('pages.index');
         Route::get('/pages/content/{pageId}', 'getPageContent')->name('pages.content');
     });
+
+    Route::resource('admin', AdminController::class);
+
+    Route::controller(AdminAccessController::class)->prefix('access-control')->name('access-control.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{role}/edit', 'edit')->name('edit');
+        Route::put('/{role}', 'update')->name('update');
+        Route::delete('/{role}', 'destroy')->name('destroy');
+    });
 });
+
+Route::get('/referral/{code}', [ReferralController::class, 'landing'])->name('referral.landing');
