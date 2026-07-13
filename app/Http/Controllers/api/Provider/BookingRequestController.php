@@ -284,7 +284,8 @@ class BookingRequestController extends Controller
             // Get both names for display
             $urduName = $subCategory->name ?? 'Service';
             $englishName = $subCategory->urdu_name ?? 'Service';
-            $displayName = $urduName . ' (' . $englishName . ')';
+            // $displayName = $urduName . ' (' . $englishName . ')';
+            $displayName = $urduName;
 
             $partnerName = $request->provider_id ?
                 (\App\Models\Provider::find($request->provider_id)->full_name ?? 'Provider') : (\App\Models\ShopKeeper::find($request->shopkeeper_id)->name ?? 'Shopkeeper');
@@ -293,7 +294,8 @@ class BookingRequestController extends Controller
             $this->sendNotificationToUser(
                 $specificBooking->user_id,
                 'Order Assigned!',
-                'You will be notified once the '.$partnerName . ' You have selected ' . $displayName . ' starts the journey',
+                // 'You will be notified once the '.$partnerName . ' You have selected ' . $displayName . ' starts the journey',
+                'You\'ll be notified when ' . $partnerName . ' starts the journey.' . $displayName,
                 'accept_order',
                 [
                     'booking_id' => (string)$specificBooking->id,
