@@ -37,7 +37,7 @@ class AuthController extends Controller
                 'phone'     => 'required|string|unique:users,phone',
                 'email'     => 'required|string|unique:users,email',
                 'password'  => 'required|string|min:6',
-                'device_id' => 'required|string|unique:users,device_id',
+                'device_id' => 'nullable|string',
                 'fcm_token' => 'required',
                 'referral_code' => 'nullable|string|exists:users,referral_code',
             ]);
@@ -48,7 +48,7 @@ class AuthController extends Controller
                     'phone'     => $request->phone,
                     'email'     => $request->email,
                     'password'  => Hash::make($request->password),
-                    'device_id' => $request->device_id,
+                    'device_id' => $request->device_id ?? null,
                     'referral_code' => $this->referralService->generateUniqueReferralCode(),
                 ]);
 

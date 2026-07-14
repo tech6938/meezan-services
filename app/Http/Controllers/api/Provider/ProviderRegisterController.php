@@ -34,7 +34,6 @@ class ProviderRegisterController extends Controller
             'phone' => 'required|string|unique:providers,phone',
             'email' => 'required|email|unique:providers,email',
             'fcm_token' => 'required',
-            'full_name' => 'required|string',
             'profile_image' => 'nullable|image|mimes:jpg,jpeg,png',
             'id_front' => 'required|mimes:jpg,jpeg,png,pdf',
             'id_back' => 'required|mimes:jpg,jpeg,png,pdf',
@@ -47,12 +46,12 @@ class ProviderRegisterController extends Controller
             'password' => 'required|string|min:6',
         ]);
 
-        if (Provider::where('device_id', $request->device_id)->exists()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'This Device Already Exists',
-            ]);
-        }
+        // if (Provider::where('device_id', $request->device_id)->exists()) {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'This Device Already Exists',
+        //     ]);
+        // }
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
@@ -135,7 +134,7 @@ class ProviderRegisterController extends Controller
                 'id_front' => $idFrontName,
                 'id_back' => $idBackName,
                 'services' => $servicesData,  // store only JSON
-                'device_id' => $request->device_id,
+                'device_id' => $request->device_id ?? null,
                 'password' => Hash::make($request->password),
             ]);
 
