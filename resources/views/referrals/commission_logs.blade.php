@@ -158,7 +158,7 @@
                                             <div class="text-muted small">{{ $log->referredUser->referral_code ?? '' }}</div>
                                         </td>
                                         <td>Level {{ $log->level }}</td>
-                                        <td>{{ $log->booking->order_no ?? $log->booking_id ?? 'N/A' }}</td>
+                                        <td>{{ 'MS-BKG-' . ($log->booking->id ?? $log->booking_id ?? 'N/A') }}</td>
                                         <td>{{ number_format($log->booking_amount, 2) }} R.s</td>
                                         <td>{{ number_format($log->earned_amount, 2) }} R.s</td>
                                         <td>{{ optional($log->created_at)->format('d M, Y H:i') }}</td>

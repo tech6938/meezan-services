@@ -41,7 +41,7 @@ class ChatsController extends Controller
                     'last_message' => $firstChat->message,
                     'last_message_time' => $firstChat->created_at,
                     'message_count' => $chatGroup->count(),
-                    'order_no' => $firstChat->bookingRequest->order_no ?? null,
+                    'order_no' => $firstChat->bookingRequest->request_id ?? null,
                     'booking_status' => $firstChat->bookingRequest->status ?? 'N/A',
                     'chat' => $firstChat // Keep reference for links
                 ];
@@ -173,25 +173,29 @@ class ChatsController extends Controller
             }
 
             $participants = explode('|', $chatKey);
-            if (count($participants) !== 2) {
+            if (count($participants) < 2) {
                 continue;
             }
 
             [$senderType, $senderId] = $this->parseParticipantKey($participants[0]);
             [$receiverType, $receiverId] = $this->parseParticipantKey($participants[1]);
+            $bookingId = $participants[2] ?? null;
 
             if (!$senderType || !$receiverType) {
                 continue;
             }
 
             // Get all messages between these users
-            $messages = Chat::betweenParticipants(
+            $messageQuery = Chat::betweenParticipants(
                 ['id' => (int) $senderId, 'type' => $senderType],
                 ['id' => (int) $receiverId, 'type' => $receiverType]
-            )
-                ->with(['sender', 'receiver'])
-                ->orderBy('created_at', 'asc')
-                ->get();
+            )->with(['sender', 'receiver']);
+
+            if ($bookingId !== null && $bookingId !== '') {
+                $messageQuery->where('booking_id', $bookingId);
+            }
+
+            $messages = $messageQuery->orderBy('created_at', 'asc')->get();
 
             if ($messages->isEmpty()) {
                 continue;
@@ -209,7 +213,11 @@ class ChatsController extends Controller
             $htmlContent = $this->generateChatHTML($messages, $sender, $receiver, $tempDir);
 
             // Save HTML file
-            $filename = "chat_{$this->typeAlias($senderType)}_{$senderId}_{$this->typeAlias($receiverType)}_{$receiverId}.html";
+            $filename = "chat_{$this->typeAlias($senderType)}_{$senderId}_{$this->typeAlias($receiverType)}_{$receiverId}";
+            if ($bookingId !== null && $bookingId !== '') {
+                $filename .= "_booking_{$bookingId}";
+            }
+            $filename .= '.html';
             $filepath = $tempDir . '/' . $filename;
             file_put_contents($filepath, $htmlContent);
             $exportedFiles[] = $filepath;

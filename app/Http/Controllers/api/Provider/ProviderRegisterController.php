@@ -309,6 +309,27 @@ class ProviderRegisterController extends Controller
         ], 200);
     }
 
+    public function providerStatus()
+    {
+        $provider = Auth::guard('provider-api')->user();
+        // return $provider;
+
+        if (!$provider) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Provider status retrived sussessfully! ',
+            'data' => [
+                'type' => $provider->status,
+            ]
+        ], 200);
+    }
+
 
 
     public function updateProfile(Request $request)

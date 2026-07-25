@@ -53,6 +53,7 @@ Route::controller(SettingController::class)->group(function () {
 Route::controller(AuthController::class)->group(function () {
     Route::post('/auth', 'auth');
     Route::post('/register', 'register');
+    Route::get('/user/status', 'userStatus');
     Route::post('/fcm_token', 'fcm_token');
 });
 
@@ -60,6 +61,7 @@ Route::controller(AuthController::class)->group(function () {
 Route::controller(ProviderRegisterController::class)->group(function () {
     Route::post('providerRegister', 'register');
     Route::post('providerLogin', 'login');
+    Route::get('provider/status', 'providerStatus');
 });
 
 // ShopKeeper Authentication

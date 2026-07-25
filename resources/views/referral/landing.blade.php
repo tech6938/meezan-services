@@ -4,7 +4,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Join Meezan Services</title>
     <style>
         * {
@@ -26,16 +26,11 @@
         .card {
             background: white;
             border-radius: 20px;
-            padding: 40px;
+            padding: 40px 30px;
             max-width: 400px;
             width: 100%;
             text-align: center;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3)
-        }
-
-        .icon {
-            font-size: 60px;
-            margin-bottom: 15px
         }
 
         h1 {
@@ -105,6 +100,12 @@
             transform: translateY(-2px)
         }
 
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .btn-secondary {
             background: #edf2f7;
             color: #4a5568
@@ -112,6 +113,29 @@
 
         .btn-secondary:hover {
             background: #e2e8f0
+        }
+
+        .btn-playstore {
+            background: #34a853;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-playstore:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 168, 83, 0.4);
         }
 
         .stores {
@@ -122,23 +146,6 @@
             flex-wrap: wrap
         }
 
-        .stores a {
-            padding: 10px 20px;
-            border-radius: 10px;
-            text-decoration: none;
-            color: white;
-            font-weight: 600;
-            font-size: 14px
-        }
-
-        .play {
-            background: #34a853
-        }
-
-        .apple {
-            background: #007aff
-        }
-
         .footer {
             margin-top: 16px;
             font-size: 12px;
@@ -146,7 +153,7 @@
         }
 
         .hidden {
-            display: none
+            display: none !important;
         }
 
         .loading {
@@ -160,6 +167,10 @@
             animation: spin 0.8s linear infinite
         }
 
+        .loading.show {
+            display: block;
+        }
+
         @keyframes spin {
             0% {
                 transform: rotate(0)
@@ -168,6 +179,38 @@
             100% {
                 transform: rotate(360deg)
             }
+        }
+
+        .playstore-icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='white' d='M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            flex-shrink: 0;
+        }
+
+        .status-message {
+            display: none;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .status-message.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-message.error {
+            background: #fed7d7;
+            color: #742a2a;
         }
     </style>
 </head>
@@ -185,87 +228,89 @@
         <div class="referrer">👤 Referred by <strong>{{ $referrer_name }}</strong></div>
 
         <div id="loading" class="loading"></div>
-        <div id="status" style="display:none;padding:10px;border-radius:8px;margin-bottom:12px;"></div>
+        <div id="status" class="status-message"></div>
 
-        <button id="openBtn" class="btn btn-primary" onclick="openApp()">
-            📱 Open App
-        </button>
-
-        <a id="downloadBtn" href="#" class="btn btn-secondary hidden" onclick="downloadApp()">
-            ⬇️ Download App
+        <a href="{{ $playstore_url }}" class="btn-playstore" target="_blank">
+            <span class="playstore-icon"></span>
+            Download from Play Store
         </a>
-
-        <div class="stores">
-            <a href="{{ $playstore_url }}" class="play">Play Store</a>
-            <a href="{{ $appstore_url }}" class="apple">App Store</a>
-        </div>
 
         <p class="footer">By continuing, you agree to our Terms</p>
     </div>
 
     <script>
         const code = '{{ $code }}';
-        const appScheme = '{{ $app_scheme }}';
         const playUrl = '{{ $playstore_url }}';
-        const appleUrl = '{{ $appstore_url }}';
-        let isAppOpened = false;
 
+        // Check if user is on mobile device
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        // Show status message
         function showStatus(msg, type = 'info') {
             const status = document.getElementById('status');
-            status.style.display = 'block';
-            status.style.background = type === 'error' ? '#fed7d7' : '#c6f6d5';
-            status.style.color = type === 'error' ? '#742a2a' : '#22543d';
             status.textContent = msg;
+            status.className = 'status-message show ' + type;
         }
 
-        function openApp() {
-            const btn = document.getElementById('openBtn');
-            const loading = document.getElementById('loading');
-            const downloadBtn = document.getElementById('downloadBtn');
+        // On mobile, try to open app via deep link
+        document.addEventListener('DOMContentLoaded', function() {
+            if (isMobileDevice()) {
+                showStatus('Opening app...', 'info');
 
-            btn.disabled = true;
-            btn.textContent = 'Opening...';
-            loading.style.display = 'block';
+                // Try multiple methods to open the app
+                const deepLink = 'meezan_services://referral?code=' + code;
 
-            // Try to open app
-            const link = document.createElement('a');
-            link.href = appScheme;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Check if app opened
-            setTimeout(() => {
-                if (!isAppOpened) {
-                    loading.style.display = 'none';
-                    btn.style.display = 'none';
-                    downloadBtn.classList.remove('hidden');
-                    showStatus('App not found. Download to continue.', 'error');
+                // Method 1: Try with iframe
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = deepLink;
+                    document.body.appendChild(iframe);
+                    setTimeout(() => {
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                        }
+                    }, 2000);
+                } catch (e) {
+                    console.error('Iframe error:', e);
                 }
-            }, 2000);
-        }
 
-        function downloadApp() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                // Method 2: Try with link click
+                setTimeout(() => {
+                    try {
+                        const link = document.createElement('a');
+                        link.href = deepLink;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        setTimeout(() => {
+                            if (document.body.contains(link)) {
+                                document.body.removeChild(link);
+                            }
+                        }, 200);
+                    } catch (e) {
+                        console.error('Link click error:', e);
+                    }
+                }, 500);
 
-            if (isIOS) {
-                window.location.href = appleUrl;
-            } else {
-                window.location.href = playUrl;
-            }
-        }
+                // Method 3: Try window.location
+                setTimeout(() => {
+                    try {
+                        window.location.href = deepLink;
+                    } catch (e) {
+                        console.error('Window location error:', e);
+                    }
+                }, 1000);
 
-        // Detect if app opened successfully
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                isAppOpened = true;
-                showStatus('Opening app...', 'success');
+                // If app doesn't open after 5 seconds, show download option
+                setTimeout(() => {
+                    document.getElementById('loading').classList.remove('show');
+                    showStatus('Could not open app. Please download from Play Store.', 'error');
+                }, 5000);
             }
         });
-
-        // Auto open on page load
-        setTimeout(openApp, 500);
     </script>
 </body>
 

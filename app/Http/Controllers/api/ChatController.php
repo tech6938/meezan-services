@@ -220,10 +220,21 @@ class ChatController extends Controller
                 ->whereNull('deleted_at')
                 ->latest()
                 ->get()
-                ->groupBy('booking_id'); // Group by booking_id instead of participant key
+                // A booking can contain more than one accepted partner. A
+                // booking-only key merges those conversations and leaks one
+                // partner's unread count into the other partner's row.
+                ->groupBy(function ($chat) use ($auth) {
+                    $isOutgoing = $chat->sender_id === $auth['id']
+                        && $chat->sender_type === $auth['type'];
+                    $otherId = $isOutgoing ? $chat->receiver_id : $chat->sender_id;
+                    $otherType = $isOutgoing ? $chat->receiver_type : $chat->sender_type;
 
-            $list = $chats->map(function ($messages, $bookingId) use ($auth) {
+                    return $chat->booking_id . ':' . $otherType . ':' . $otherId;
+                });
+
+            $list = $chats->map(function ($messages, $conversationKey) use ($auth) {
                 $chat = $messages->first();
+                $bookingId = $chat->booking_id;
 
                 $isOutgoing = $chat->sender_id === $auth['id']
                     && $chat->sender_type === $auth['type'];
@@ -258,11 +269,13 @@ class ChatController extends Controller
                     ]
                 )
                     ->where('booking_id', $bookingId) // Important: Filter by booking_id
-                    ->where('receiver_id', $auth['id'])
-                    ->where('receiver_type', $auth['type'])
-                    ->where('is_seen', false)
-                    ->whereNull('deleted_at')
-                    ->count();
+                ->where('receiver_id', $auth['id'])
+                ->where('receiver_type', $auth['type'])
+                ->where(function ($query) {
+                    $query->where('is_seen', false)->orWhereNull('is_seen');
+                })
+                ->whereNull('deleted_at')
+                ->count();
 
                 return [
                     'booking_id' => $bookingId,
@@ -345,6 +358,12 @@ class ChatController extends Controller
                     'type' => $senderType,
                 ]
             )
+                // Mark only the selected booking/conversation as read. The
+                // previous query marked this sender's messages read across
+                // every booking.
+                ->when($request->filled('booking_id'), function ($query) use ($request) {
+                    $query->where('booking_id', (int) $request->input('booking_id'));
+                })
                 ->update([
                     'is_seen' => true,
                     'seen_at' => now()

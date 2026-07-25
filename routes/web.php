@@ -134,6 +134,7 @@ Route::middleware(['admin.auth', 'admin.permission'])->group(function () {
         // Other routes
         Route::post('/statusUpdates', 'statusUpdates')->name('statusUpdates');
         Route::get('/orders/preview', 'previewRequests')->name('orders.preview');
+        Route::get('/orders/{id}/chats', 'orderChats')->name('orders.chats');
         Route::get('/order/details/{id}', 'getAcceptedProviders')->name('service-request.accepted-providers');
         Route::get('/orders/export', 'exportRequests')->name('requests.export');
         Route::get('/orders/export-multi', 'exportRequestsMultiSheet')->name('requests.exportMulti');
@@ -210,3 +211,6 @@ Route::middleware(['admin.auth', 'admin.permission'])->group(function () {
 });
 
 Route::get('/referral/{code}', [ReferralController::class, 'landing'])->name('referral.landing');
+Route::get('/referral/invalid', function () {
+    return view('referral.invalid');
+})->name('referral.invalid');

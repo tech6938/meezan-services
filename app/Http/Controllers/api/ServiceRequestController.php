@@ -36,7 +36,7 @@ class ServiceRequestController extends Controller
                 ->where('user_id', $user_id)
                 ->orderBy('id', 'desc')
                 ->get()
-                ->map(function ($request) {
+                ->map(function ($request) use ($user_id) {
 
                     // Define status priority based on req_status (higher number = higher priority)
                     $statusPriority = [
@@ -71,6 +71,16 @@ class ServiceRequestController extends Controller
                     // Normalize status for API response (if needed)
                     $status = $this->normalizeStatus($status);
 
+                    $unreadCount = 0;
+                    foreach ($request->bookingRequests as $bookingItem) {
+                        $unreadCount += Chat::where('booking_id', $bookingItem->id)
+                            ->where('receiver_id', $user_id)
+                            ->where('receiver_type', 'App\Models\User')
+                            ->where('is_seen', false)
+                            ->whereNull('deleted_at')
+                            ->count();
+                    }
+
                     return [
                         'id' => $request->id,
                         'cat_name' => optional($request->category)->name,
@@ -83,6 +93,7 @@ class ServiceRequestController extends Controller
                         'provider_name' => optional(optional($booking)->provider)->full_name,
                         'shopkeeper_name' => optional(optional($booking)->shopkeeper)->name,
                         'total_bids' => $request->bookingRequests->count(),
+                        'unread_count' => $unreadCount,
                     ];
                 });
 
@@ -352,7 +363,15 @@ class ServiceRequestController extends Controller
                         'total_completed_bookings' => $totalCompletedBookings,
                         'average_rating' => $averageRating ? round($averageRating, 1) : 0,
                         'status' => $this->normalizeStatus($bookingRequest->req_status),
-                        'unread_count' => $providerUnreadCount,
+                        // The customer needs the unread messages sent by this
+                        // partner to the customer, not messages waiting for the
+                        // partner. The old value was the partner's inbox count,
+                        // which made the customer UI show the wrong conversation
+                        // count (and could make the same aggregate appear for
+                        // every accepted partner).
+                        // 'unread_count' => $providerUnreadCount,
+                        'unread_count' => $userUnreadCount,
+                        // 'partner_unread_count' => $providerUnreadCount,
                         'booking_id' => $bookingRequest->id,
                         'assigned' => $bookingRequest->assigned,
                         'price' => $bookingRequest->price,
@@ -399,7 +418,11 @@ class ServiceRequestController extends Controller
                         'total_completed_bookings' => $totalCompletedBookings,
                         'average_rating' => $averageRating ? round($averageRating, 1) : 0,
                         'status' => $this->normalizeStatus($bookingRequest->req_status),
-                        'unread_count' => $shopkeeperUnreadCount,
+                        // Keep the count scoped to this shopkeeper's booking
+                        // and addressed to the customer.
+                        // 'unread_count' => $shopkeeperUnreadCount,
+                        'unread_count' => $userUnreadCount ?? 0,
+                        'partner_unread_count' => $shopkeeperUnreadCount,
                         'booking_id' => $bookingRequest->id,
                         'assigned' => $bookingRequest->assigned,
                         'price' => $bookingRequest->price,

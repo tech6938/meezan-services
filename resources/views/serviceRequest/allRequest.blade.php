@@ -266,11 +266,11 @@
                                         <i data-feather="check-circle"></i> Accept Orders
                                         <span class="badge-count">{{ $statusCounts['accept_orders'] ?? 0 }}</span>
                                     </a>
-                                    <a href="{{ route('acceptedOrders', request()->except('type')) }}"
+                                    {{-- <a href="{{ route('acceptedOrders', request()->except('type')) }}"
                                         class="filter-tab {{ request()->routeIs('acceptedOrders') ? 'active' : '' }}">
                                         <i data-feather="check-circle"></i> Accepted Orders
                                         <span class="badge-count">{{ $statusCounts['accepted_orders'] ?? 0 }}</span>
-                                    </a>
+                                    </a> --}}
                                     <a href="{{ route('cancelledOrders', request()->except('type')) }}"
                                         class="filter-tab {{ request()->routeIs('cancelledOrders') ? 'active' : '' }}">
                                         <i data-feather="x-circle"></i> Cancelled Orders
@@ -337,8 +337,13 @@
                                                                 <i data-feather="eye"></i>
                                                             </button>
                                                             <a href="{{ route('service-request.accepted-providers', $provider['id']) }}"
-                                                                class="btn btn-info" target="_blank">
+                                                                class="btn btn-info">
                                                                 <i data-feather="users"></i> View Providers
+                                                            </a>
+                                                            <a href="{{ route('orders.chats', $provider['id']) }}"
+                                                                class="btn btn-outline-primary btn-sm"
+                                                                title="View Order Chats">
+                                                                <i data-feather="message-circle"></i>
                                                             </a>
                                                         </td>
                                                     </tr>

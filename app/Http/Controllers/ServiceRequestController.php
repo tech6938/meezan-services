@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Exports\RequestsExport;
 use App\Exports\RequestsMultiSheetExport;
+use App\Models\Chat;
 use App\Models\ServiceRequest;
 use App\Models\BookingRequest;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
@@ -644,6 +646,79 @@ class ServiceRequestController extends Controller
     }
 
     /**
+     * Show all chat threads that belong to a specific order/service request.
+     */
+    public function orderChats($id)
+    {
+        $serviceRequest = ServiceRequest::with([
+            'user',
+            'category',
+            'subCategory',
+            'bookingRequests.provider',
+            'bookingRequests.shopkeeper',
+        ])->findOrFail($id);
+
+        $bookingIds = $serviceRequest->bookingRequests->pluck('id')->filter()->values();
+        $groupedChats = collect();
+
+        if ($bookingIds->isNotEmpty()) {
+            $groupedChats = Chat::with(['sender', 'receiver', 'bookingRequest'])
+                ->whereIn('booking_id', $bookingIds)
+                ->whereNotNull('booking_id')
+                ->latest()
+                ->get()
+                ->groupBy('booking_id')
+                ->map(function ($chatGroup, $bookingId) use ($serviceRequest) {
+                    $firstChat = $chatGroup->first();
+                    $booking = $firstChat->bookingRequest;
+                    $senderType = $this->aliasParticipantType($firstChat->sender_type);
+                    $receiverType = $this->aliasParticipantType($firstChat->receiver_type);
+                    $orderStatus = $this->resolveDisplayStatus($serviceRequest->status, $booking);
+
+                    return (object) [
+                        'booking_id' => $bookingId,
+                        'sender' => $firstChat->sender,
+                        'receiver' => $firstChat->receiver,
+                        'sender_type' => $senderType,
+                        'receiver_type' => $receiverType,
+                        'sender_name' => $firstChat->sender->name ?? $firstChat->sender->full_name ?? 'Unknown',
+                        'receiver_name' => $firstChat->receiver->name ?? $firstChat->receiver->full_name ?? 'Unknown',
+                        'last_message' => $firstChat->message,
+                        'last_message_time' => $firstChat->created_at,
+                        'message_count' => $chatGroup->count(),
+                        'order_no' => $serviceRequest->id,
+                        'order_status' => $orderStatus,
+                        'chat_key' => $senderType && $receiverType
+                            ? $senderType . '_' . $firstChat->sender_id . '|' . $receiverType . '_' . $firstChat->receiver_id . '|' . $bookingId
+                            : null,
+                    ];
+                })
+                ->sortByDesc('last_message_time')
+                ->values();
+        }
+
+        $perPage = 100;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $data = new LengthAwarePaginator(
+            $groupedChats->slice(($page - 1) * $perPage, $perPage)->values(),
+            $groupedChats->count(),
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
+
+        $allChatKeys = $groupedChats
+            ->pluck('chat_key')
+            ->filter()
+            ->values();
+
+        return view('chat.orderChats', compact('serviceRequest', 'data', 'allChatKeys'));
+    }
+
+    /**
      * Picks the correct booking_requests row that governs this service
      * request's display status, when multiple providers have bid.
      *
@@ -718,6 +793,19 @@ class ServiceRequestController extends Controller
         }
 
         return 'Pending Order';
+    }
+
+    /**
+     * Convert a model class name into the short route-friendly alias used by chat URLs.
+     */
+    private function aliasParticipantType(?string $type): ?string
+    {
+        return match ($type) {
+            \App\Models\User::class => 'user',
+            \App\Models\Provider::class => 'provider',
+            \App\Models\ShopKeeper::class => 'shopkeeper',
+            default => null,
+        };
     }
 
     /**

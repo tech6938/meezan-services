@@ -14,15 +14,21 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h4>Chats List (Grouped by Booking)</h4>
-                                {{-- <div class="d-flex gap-2">
-                                    <input type="text" id="chatSearch" class="form-control border border-5 border-info"
-                                        placeholder="Search by name, phone or order #" style="width: 300px;">
-                                </div> --}}
+                            <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="gap: 10px;">
+                                <div>
+                                    <h4>Order Chats</h4>
+                                    <small class="text-muted">
+                                        MS-ORD-{{ $serviceRequest->id }} |
+                                        {{ $serviceRequest->user->name ?? 'N/A' }}
+                                    </small>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <a href="{{ route('allRequest') }}" class="btn btn-light">
+                                        <i class="fas fa-arrow-left"></i> Back to Orders
+                                    </a>
+                                </div>
                             </div>
 
-                            <!-- Export Controls -->
                             <div class="card-header bg-light">
                                 <div class="d-flex justify-content-between align-items-center w-100">
                                     <div class="d-flex align-items-center">
@@ -47,7 +53,6 @@
                                 </div>
                             </div>
 
-                            <!-- Chat List -->
                             @if ($data->isNotEmpty())
                                 <div class="card-body p-3">
                                     <div class="table-responsive">
@@ -66,32 +71,32 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach ($data as $index => $chatData)
+                                                @foreach ($data as $chatData)
                                                     @php
-                                                        $senderType = $chatData->sender_type === \App\Models\User::class ? 'user' : ($chatData->sender_type === \App\Models\Provider::class ? 'provider' : 'shopkeeper');
-                                                        $receiverType = $chatData->receiver_type === \App\Models\User::class ? 'user' : ($chatData->receiver_type === \App\Models\Provider::class ? 'provider' : 'shopkeeper');
+                                                        $senderType = $chatData->sender_type ?? 'user';
+                                                        $receiverType = $chatData->receiver_type ?? 'provider';
 
                                                         $senderImage = $chatData->sender->image_url ?? ($chatData->sender->profile_image_url ?? ($chatData->sender->profile_image ?? asset('assets/img/user.png')));
                                                         $receiverImage = $chatData->receiver->image_url ?? ($chatData->receiver->profile_image_url ?? ($chatData->receiver->profile_image ?? asset('assets/img/download.png')));
 
-                                                        $senderName = $chatData->sender->name ?? ($chatData->sender->full_name ?? 'Unknown');
-                                                        $receiverName = $chatData->receiver->name ?? ($chatData->receiver->full_name ?? 'Unknown');
+                                                        $senderName = $chatData->sender_name ?? ($chatData->sender->name ?? ($chatData->sender->full_name ?? 'Unknown'));
+                                                        $receiverName = $chatData->receiver_name ?? ($chatData->receiver->name ?? ($chatData->receiver->full_name ?? 'Unknown'));
 
-                                                        $chatKey = $senderType . '_' . $chatData->sender->id . '|' . $receiverType . '_' . $chatData->receiver->id;
+                                                        $chatKey = $chatData->chat_key ?? ($senderType . '_' . $chatData->sender->id . '|' . $receiverType . '_' . $chatData->receiver->id . '|' . $chatData->booking_id);
                                                         $bookingId = $chatData->booking_id;
                                                     @endphp
                                                     <tr class="chat-row" data-booking-id="{{ $bookingId }}">
                                                         <td>
                                                             <input type="checkbox" class="chat-checkbox"
-                                                                value="{{ $chatKey }}|{{ $bookingId }}"
+                                                                value="{{ $chatKey }}"
                                                                 data-booking-id="{{ $bookingId }}">
                                                         </td>
                                                         <td>
                                                             <span class="badge badge-info">
-                                                                MS-ORD-{{ $chatData->order_no ?? 'N/A' }}
+                                                                MS-ORD-{{ $chatData->order_no ?? $serviceRequest->id }}
                                                             </span>
                                                             <br>
-                                                            <small class="badge badge-info mt-1">MS-BKG- {{ $bookingId }}</small>
+                                                            {{-- <small class="text-muted">Booking ID: {{ $bookingId }}</small> --}}
                                                         </td>
                                                         <td>
                                                             <div class="d-flex align-items-center">
@@ -116,29 +121,42 @@
                                                             </div>
                                                         </td>
                                                         <td>
-                                                            <small>{{ Str::limit($chatData->last_message, 50) }}</small>
+                                                            <small>{{ \Illuminate\Support\Str::limit($chatData->last_message ?? '', 50) }}</small>
                                                         </td>
                                                         <td>
                                                             <span class="badge badge-primary">{{ $chatData->message_count }} messages</span>
                                                         </td>
                                                         <td>
-                                                            <span class="badge {{ $chatData->booking_status == 'completed' ? 'badge-success' : ($chatData->booking_status == 'pending' ? 'badge-warning' : 'badge-secondary') }}">
-                                                                {{ ucfirst($chatData->booking_status) }}
+                                                            @php
+                                                                $orderStatus = $chatData->order_status ?? 'Pending Order';
+                                                                $statusClass = match($orderStatus) {
+                                                                    'Pending Order' => 'badge-warning',
+                                                                    'Accept Order' => 'badge-success',
+                                                                    'Accepted' => 'badge-success',
+                                                                    'Assigned' => 'badge-info',
+                                                                    'Pending Booking' => 'badge-primary',
+                                                                    'Cancelled' => 'badge-danger',
+                                                                    'Completed' => 'badge-success',
+                                                                    default => 'badge-secondary',
+                                                                };
+                                                            @endphp
+                                                            <span class="badge {{ $statusClass }}">
+                                                                {{ $orderStatus }}
                                                             </span>
                                                         </td>
                                                         <td>
-                                                            <small>{{ $chatData->last_message_time->diffForHumans() }}</small>
+                                                            <small>{{ $chatData->last_message_time?->diffForHumans() }}</small>
                                                         </td>
                                                         <td>
                                                             <div class="d-flex gap-2">
                                                                 <a href="{{ route('chats.between', ['sender_type' => $senderType, 'sender_id' => $chatData->sender->id, 'receiver_type' => $receiverType, 'receiver_id' => $chatData->receiver->id, 'booking_id' => $bookingId]) }}"
-                                                                    class="btn btn-info btn-sm" title="View Chat">
+                                                                    class="btn btn-info btn-sm" title="View Chat" target="_blank">
                                                                     <i class="fas fa-comments"></i>
                                                                 </a>
                                                                 <button type="button"
                                                                     class="btn btn-danger btn-sm delete-chat-btn"
                                                                     data-booking-id="{{ $bookingId }}"
-                                                                    data-order-no="{{ $chatData->order_no ?? 'N/A' }}"
+                                                                    data-order-no="{{ $chatData->order_no ?? $serviceRequest->id }}"
                                                                     data-sender-type="{{ $senderType }}"
                                                                     data-sender-id="{{ $chatData->sender->id }}"
                                                                     data-receiver-type="{{ $receiverType }}"
@@ -155,14 +173,13 @@
                                         </table>
                                     </div>
 
-                                    <!-- Pagination -->
                                     <div class="d-flex justify-content-center mt-4">
                                         {{ $data->links('pagination::bootstrap-4') }}
                                     </div>
                                 </div>
                             @else
                                 <div class="card-body">
-                                    <p class="text-center mb-0">No chats available yet.</p>
+                                    <p class="text-center mb-0">No chats available for this order yet.</p>
                                 </div>
                             @endif
                         </div>
@@ -181,8 +198,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
+        window.orderChatKeys = @json($allChatKeys);
+
         $(document).ready(function() {
-            // Initialize DataTable only if the element exists
             if ($.fn.DataTable && $('#chatTable').length) {
                 $('#chatTable').DataTable({
                     "order": [[7, "desc"]],
@@ -192,12 +210,10 @@
                 });
             }
 
-            // Select All functionality
             $('#selectAllCheckbox').on('change', function() {
                 $('.chat-checkbox').prop('checked', $(this).prop('checked'));
             });
 
-            // Update select all checkbox when individual checkboxes change
             $(document).on('change', '.chat-checkbox', function() {
                 if ($('.chat-checkbox:checked').length === $('.chat-checkbox').length) {
                     $('#selectAllCheckbox').prop('checked', true);
@@ -206,14 +222,6 @@
                 }
             });
 
-            // Search functionality
-            $('#chatSearch').on('keyup', function() {
-                if ($.fn.DataTable && $('#chatTable').length) {
-                    $('#chatTable').DataTable().search($(this).val()).draw();
-                }
-            });
-
-            // Delete Chat with SweetAlert
             $(document).on('click', '.delete-chat-btn', function(e) {
                 e.preventDefault();
 
@@ -228,7 +236,7 @@
 
                 Swal.fire({
                     title: 'Are you sure?',
-                    html: `<strong>Order #${orderNo}</strong><br>
+                    html: `<strong>MS-ORD${orderNo}</strong><br>
                            Booking ID: ${bookingId}<br>
                            ${messageCount} message(s) will be deleted.<br><br>
                            This action cannot be undone!`,
@@ -282,12 +290,10 @@
                             timer: 2000,
                             showConfirmButton: false
                         }).then(() => {
-                            // Remove the row and redraw DataTable
                             const $row = $btn.closest('tr');
                             const table = $('#chatTable').DataTable();
                             table.row($row).remove().draw();
 
-                            // Reload if no rows left
                             if (table.rows().count() === 0) {
                                 window.location.reload();
                             }
@@ -304,7 +310,6 @@
             });
         });
 
-        // Export function
         function exportSelected(type) {
             let selectedChats = [];
 
@@ -317,10 +322,17 @@
                     Swal.fire('No Selection', 'Please select at least one chat to export.', 'warning');
                     return false;
                 }
+            } else {
+                selectedChats = window.orderChatKeys || [];
+
+                if (selectedChats.length === 0) {
+                    Swal.fire('No Chats', 'No chats are available to export for this order.', 'warning');
+                    return false;
+                }
             }
 
             document.getElementById('selectedChats').value = JSON.stringify(selectedChats);
-            document.getElementById('exportType').value = type;
+            document.getElementById('exportType').value = 'selected';
             document.getElementById('exportForm').submit();
         }
     </script>

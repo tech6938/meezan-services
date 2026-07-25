@@ -157,8 +157,8 @@ class ReferralController extends Controller
             'total_logs' => ReferralLog::count(),
             'total_payout' => (float) ReferralLog::sum('earned_amount'),
             'level_1' => (float) ReferralLog::where('level', 1)->sum('earned_amount'),
-            'level_2' => (float) ReferralLog::where('level', 2)->sum('earned_amount'),
-            'level_3' => (float) ReferralLog::where('level', 3)->sum('earned_amount'),
+            // 'level_2' => (float) ReferralLog::where('level', 2)->sum('earned_amount'),
+            // 'level_3' => (float) ReferralLog::where('level', 3)->sum('earned_amount'),
         ];
 
         return view('referrals.commission_logs', compact('logs', 'summary'));
@@ -217,7 +217,6 @@ class ReferralController extends Controller
 
 
 
-
     /**
      * Simple landing page for referral links
      */
@@ -231,30 +230,32 @@ class ReferralController extends Controller
         }
 
         // Log the click
-        Log::info('Referral link clicked', [
+        \Log::info('Referral link clicked', [
             'code' => $code,
             'referrer_id' => $referrer->id,
             'ip' => request()->ip()
         ]);
 
-        // Simple view with app deep link and fallback
+        // Package name
+        $packageName = 'com.example.meezan_services';
+
+        // Play Store URL with package name and referrer
+        $playstoreUrl = 'https://play.google.com/store/apps/details?id=' . $packageName . '&referrer=' . $code;
+
         return view('referral.landing', [
             'code' => $code,
             'referrer_name' => $referrer->name,
-            'app_scheme' => 'meezanservices://referral?code=' . $code,
-            'playstore_url' => 'https://play.google.com/store/apps/details?id=com.meezanservices.app&referrer=' . $code,
-            'appstore_url' => 'https://apps.apple.com/app/idYOUR_APP_ID?referrer=' . $code,
+            'playstore_url' => $playstoreUrl,
         ]);
     }
 
     /**
-     * Simple API endpoint for app to validate referral code
+     * Validate referral code via API
      */
     public function validateCode(Request $request)
     {
         $code = $request->input('code');
 
-        // Validate code exists
         $referrer = User::where('referral_code', $code)->first();
 
         if (!$referrer) {
@@ -272,7 +273,7 @@ class ReferralController extends Controller
     }
 
     /**
-     * Simple API endpoint for applying referral code
+     * Apply referral code via API
      */
     public function apply(Request $request)
     {
@@ -284,7 +285,6 @@ class ReferralController extends Controller
         $user = User::find($request->user_id);
         $referrer = User::where('referral_code', $request->referral_code)->first();
 
-        // Check if valid
         if (!$referrer) {
             return response()->json([
                 'success' => false,
@@ -292,7 +292,6 @@ class ReferralController extends Controller
             ]);
         }
 
-        // Check self-referral
         if ($referrer->id === $user->id) {
             return response()->json([
                 'success' => false,
@@ -300,7 +299,6 @@ class ReferralController extends Controller
             ]);
         }
 
-        // Check already referred
         if ($user->referred_by_user_id) {
             return response()->json([
                 'success' => false,
@@ -308,11 +306,9 @@ class ReferralController extends Controller
             ]);
         }
 
-        // Assign referrer
         $user->referred_by_user_id = $referrer->id;
         $user->save();
 
-        // Increment referral count
         $referrer->increment('referral_total_referrals');
 
         return response()->json([
@@ -322,7 +318,7 @@ class ReferralController extends Controller
     }
 
     /**
-     * Get user's referral info (for sharing)
+     * Get user's referral info
      */
     public function getInfo(Request $request)
     {
@@ -332,7 +328,6 @@ class ReferralController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        // Generate code if not exists
         if (!$user->referral_code) {
             $user->referral_code = $this->referralService->generateUniqueReferralCode();
             $user->save();

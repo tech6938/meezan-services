@@ -595,7 +595,13 @@ class BookingRequestController extends Controller
             ], 200);
         }
 
-        $data = $bookings->map(function ($booking) {
+        $data = $bookings->map(function ($booking) use ($user) {
+            $unreadCount = Chat::where('booking_id', $booking->id)
+                ->where('receiver_id', $user->id)
+                ->where('receiver_type', 'App\Models\User')
+                ->where('is_seen', false)
+                ->whereNull('deleted_at')
+                ->count();
 
             return [
                 'booking_id'    => $booking->id ?? null,
@@ -612,6 +618,7 @@ class BookingRequestController extends Controller
                 'price'         => $booking->price,
 
                 'starting_date' => $this->formatApiDateTime($booking->created_at),
+                'unread_count' => $unreadCount,
             ];
         });
 
@@ -654,7 +661,13 @@ class BookingRequestController extends Controller
             ], 200);
         }
 
-        $data = $bookings->map(function ($booking) {
+        $data = $bookings->map(function ($booking) use ($provider) {
+            $unreadCount = Chat::where('booking_id', $booking->id)
+                ->where('receiver_id', $provider->id)
+                ->where('receiver_type', 'App\Models\Provider')
+                ->where('is_seen', false)
+                ->whereNull('deleted_at')
+                ->count();
 
             return [
                 'booking_id'    => $booking->id ?? null,
@@ -670,6 +683,7 @@ class BookingRequestController extends Controller
                 'price'         => $booking->price,
 
                 'starting_date' => $this->formatApiDateTime($booking->serviceRequest->created_at),
+                'unread_count' => $unreadCount,
             ];
         });
 
@@ -1420,6 +1434,23 @@ class BookingRequestController extends Controller
                     ? $request->providerSeens->firstWhere('provider_id', $provider->id)
                     : null;
 
+                $unreadCount = 0;
+                if ($booking) {
+                    $unreadCount = Chat::where('booking_id', $booking->id)
+                        ->where(function ($query) use ($provider, $shopkeeper) {
+                            if ($provider) {
+                                $query->where('receiver_id', $provider->id)
+                                    ->where('receiver_type', 'App\Models\Provider');
+                            } elseif ($shopkeeper) {
+                                $query->where('receiver_id', $shopkeeper->id)
+                                    ->where('receiver_type', 'App\Models\ShopKeeper');
+                            }
+                        })
+                        ->where('is_seen', false)
+                        ->whereNull('deleted_at')
+                        ->count();
+                }
+
                 return [
                     'id' => $request->id,
                     'is_seen' => $providerSeen ? (int) $providerSeen->is_seen : 0,
@@ -1432,6 +1463,7 @@ class BookingRequestController extends Controller
                     'created_at' => $this->formatApiDateTime($request->created_at),
                     'provider_name' => optional(optional($booking)->provider)->full_name,
                     'shopkeeper_name' => optional(optional($booking)->shopkeeper)->name,
+                    'unread_count' => $unreadCount,
                 ];
             });
 

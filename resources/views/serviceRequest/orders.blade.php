@@ -320,6 +320,11 @@
                                                                     class="btn btn-info btn-sm" target="_blank">
                                                                     <i data-feather="users"></i> View Providers
                                                                 </a>
+                                                                <a href="{{ route('orders.chats', $provider['id']) }}"
+                                                                    class="btn btn-outline-primary btn-sm" target="_blank"
+                                                                    title="View Order Chats">
+                                                                    <i data-feather="message-circle"></i>
+                                                                </a>
                                                                 <button class="btn btn-primary openModalBtn btn-sm"
                                                                     data-provider-id="{{ $provider['id'] }}">
                                                                     <i data-feather="edit-2"></i>

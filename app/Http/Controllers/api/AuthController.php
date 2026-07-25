@@ -262,6 +262,33 @@ class AuthController extends Controller
         }
     }
 
+    public function userStatus()
+    {
+        try {
+            $user = Auth::guard('api')->user();
+
+            if (!$user instanceof User) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthorized',
+                ], 401);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'User type retrieved successfully!',
+                'data' => [
+                    'status' => $user->status,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     // fcm token
     public function fcm_token(Request $request)
     {
