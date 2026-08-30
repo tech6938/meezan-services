@@ -328,4 +328,136 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Delete customer account (soft delete or permanent delete)
+     */
+    // public function deleteAccount(Request $request)
+    // {
+    //     try {
+    //         $request->validate([
+    //             'password' => 'required|string',
+    //             'reason' => 'nullable|string|max:500',
+    //         ]);
+
+    //         $user = Auth::guard('api')->user();
+
+    //         if (!$user) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'User not authenticated',
+    //             ], 401);
+    //         }
+
+    //         if (!Hash::check($request->password, $user->password)) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Invalid password. Please try again.',
+    //             ], 403);
+    //         }
+
+    //         // Delete account
+    //         $user->forceDelete();
+    //         $user->tokens()->delete();
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Your account has been deleted successfully.',
+    //             'data' => [
+    //                 'deleted_at' => now()->toDateTimeString(),
+    //             ],
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Failed to delete account. Please try again later.',
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+    public function deleteAccount(Request $request)
+    {
+        try {
+            $request->validate([
+                'password' => 'required|string',
+            ]);
+
+            $user = Auth::guard('api')->user();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User not authenticated',
+                ], 401);
+            }
+
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid password. Please try again.',
+                ], 403);
+            }
+
+            // Check active bookings using join with table prefix
+            $hasActiveBookings = DB::table('booking_requests')
+                ->join('service_requests', 'service_requests.id', '=', 'booking_requests.request_id')
+                ->where('service_requests.user_id', $user->id)
+                ->whereIn('booking_requests.status', ['pending', 'in_progress'])
+                ->exists();
+
+            if ($hasActiveBookings) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'You have active bookings. Please complete or cancel them before deleting your account.',
+                ], 400);
+            }
+
+            // // Check pending service requests
+            // $hasPendingOrders = DB::table('service_requests')
+            //     ->where('user_id', $user->id)
+            //     ->whereIn('status', ['pending', 'processing'])
+            //     ->exists();
+
+            // if ($hasPendingOrders) {
+            //     return response()->json([
+            //         'status' => false,
+            //         'message' => 'You have pending orders. Please complete or cancel them before deleting your account.',
+            //     ], 400);
+            // }
+
+            // // Check wallet balance
+            // $walletBalance = $user->wallet_balance ?? $user->balance ?? 0;
+
+            // if ($walletBalance > 0) {
+            //     return response()->json([
+            //         'status' => false,
+            //         'message' => 'You have a remaining balance of PKR ' . number_format($walletBalance, 2) . '. Please withdraw it before deleting your account.',
+            //     ], 400);
+            // }
+
+            // Delete account
+            $user->forceDelete();
+            $user->tokens()->delete();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Your account has been deleted successfully.',
+                'data' => [
+                    'deleted_at' => now()->toDateTimeString(),
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to delete account. Please try again later.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

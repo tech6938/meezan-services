@@ -5,6 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta property="al:android:url" content="meezan_services://referral?code={{ $code }}">
+    <meta property="al:android:package" content="com.example.meezan_services">
+    <meta property="al:android:app_name" content="Meezan Services">
     <title>Join Meezan Services</title>
     <style>
         * {
@@ -106,15 +109,6 @@
             transform: none;
         }
 
-        .btn-secondary {
-            background: #edf2f7;
-            color: #4a5568
-        }
-
-        .btn-secondary:hover {
-            background: #e2e8f0
-        }
-
         .btn-playstore {
             background: #34a853;
             color: white;
@@ -136,14 +130,6 @@
         .btn-playstore:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(52, 168, 83, 0.4);
-        }
-
-        .stores {
-            margin-top: 12px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap
         }
 
         .footer {
@@ -175,7 +161,6 @@
             0% {
                 transform: rotate(0)
             }
-
             100% {
                 transform: rotate(360deg)
             }
@@ -212,6 +197,11 @@
             background: #fed7d7;
             color: #742a2a;
         }
+
+        .status-message.info {
+            background: #bee3f8;
+            color: #2a4365;
+        }
     </style>
 </head>
 
@@ -230,7 +220,11 @@
         <div id="loading" class="loading"></div>
         <div id="status" class="status-message"></div>
 
-        <a href="{{ $playstore_url }}" class="btn-playstore" target="_blank">
+        <button id="openAppBtn" class="btn btn-primary">
+            📱 Open App
+        </button>
+
+        <a href="{{ $playstore_url }}" class="btn-playstore" target="_blank" style="margin-top: 10px;">
             <span class="playstore-icon"></span>
             Download from Play Store
         </a>
@@ -241,33 +235,64 @@
     <script>
         const code = '{{ $code }}';
         const playUrl = '{{ $playstore_url }}';
+        const packageName = 'com.example.meezan_services';
+        const scheme = 'meezan_services';
 
-        // Check if user is on mobile device
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let appOpened = false;
+        let redirectTimeout = null;
+
+        function isAndroidDevice() {
+            return /Android/i.test(navigator.userAgent);
         }
 
-        // Show status message
         function showStatus(msg, type = 'info') {
             const status = document.getElementById('status');
             status.textContent = msg;
             status.className = 'status-message show ' + type;
         }
 
-        // On mobile, try to open app via deep link
-        document.addEventListener('DOMContentLoaded', function() {
-            if (isMobileDevice()) {
-                showStatus('Opening app...', 'info');
+        function openApp() {
+            const btn = document.getElementById('openAppBtn');
+            btn.disabled = true;
+            btn.textContent = 'Opening...';
+            showStatus('Opening app...', 'info');
+            appOpened = false;
 
-                // Try multiple methods to open the app
-                const deepLink = 'meezan_services://referral?code=' + code;
+            if (!isAndroidDevice()) {
+                showStatus('Please open this link from an Android device to launch the app.', 'error');
+                btn.disabled = false;
+                btn.textContent = '📱 Open App';
+                return;
+            }
 
-                // Method 1: Try with iframe
+            if (redirectTimeout) {
+                clearTimeout(redirectTimeout);
+            }
+
+            // ========== METHOD 1: Android Intent URL (MOST RELIABLE) ==========
+            // This is the most reliable way to open Android apps from Chrome
+            try {
+                const intentUrl = 'intent://referral?code=' + encodeURIComponent(code) +
+                    '#Intent;scheme=' + scheme +
+                    ';package=' + packageName +
+                    ';S.browser_fallback_url=' + encodeURIComponent(playUrl) +
+                    ';end';
+                
+                // Use window.location with intent URL - this works in Chrome
+                window.location.href = intentUrl;
+                console.log('Attempting Intent URL:', intentUrl);
+            } catch (e) {
+                console.error('Intent error:', e);
+            }
+
+            // ========== METHOD 2: Deep link via iframe (fallback) ==========
+            setTimeout(() => {
                 try {
                     const iframe = document.createElement('iframe');
                     iframe.style.display = 'none';
-                    iframe.src = deepLink;
+                    iframe.src = scheme + '://referral?code=' + encodeURIComponent(code);
                     document.body.appendChild(iframe);
+                    
                     setTimeout(() => {
                         if (document.body.contains(iframe)) {
                             document.body.removeChild(iframe);
@@ -276,39 +301,86 @@
                 } catch (e) {
                     console.error('Iframe error:', e);
                 }
+            }, 500);
 
-                // Method 2: Try with link click
-                setTimeout(() => {
-                    try {
-                        const link = document.createElement('a');
-                        link.href = deepLink;
-                        link.style.display = 'none';
-                        document.body.appendChild(link);
-                        link.click();
-                        setTimeout(() => {
-                            if (document.body.contains(link)) {
-                                document.body.removeChild(link);
-                            }
-                        }, 200);
-                    } catch (e) {
-                        console.error('Link click error:', e);
+            // ========== METHOD 3: Hidden link click (last resort) ==========
+            setTimeout(() => {
+                try {
+                    const link = document.createElement('a');
+                    link.href = scheme + '://referral?code=' + encodeURIComponent(code);
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    
+                    setTimeout(() => {
+                        if (document.body.contains(link)) {
+                            document.body.removeChild(link);
+                        }
+                    }, 500);
+                } catch (e) {
+                    console.error('Link click error:', e);
+                }
+            }, 1000);
+
+            // Redirect to Play Store if app doesn't open
+            redirectTimeout = setTimeout(() => {
+                if (!appOpened) {
+                    showStatus('Could not open the app. Redirecting to Play Store...', 'error');
+                    setTimeout(() => {
+                        window.location.href = playUrl;
+                    }, 1000);
+                }
+            }, 4000);
+        }
+
+        // Detect if app opened successfully
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                appOpened = true;
+                if (redirectTimeout) {
+                    clearTimeout(redirectTimeout);
+                }
+                showStatus('Opening app...', 'success');
+            }
+        });
+
+        document.addEventListener('webkitvisibilitychange', function() {
+            if (document.webkitHidden) {
+                appOpened = true;
+                if (redirectTimeout) {
+                    clearTimeout(redirectTimeout);
+                }
+                showStatus('Opening app...', 'success');
+            }
+        });
+
+        window.addEventListener('blur', function() {
+            setTimeout(function() {
+                if (!appOpened) {
+                    appOpened = true;
+                    if (redirectTimeout) {
+                        clearTimeout(redirectTimeout);
                     }
-                }, 500);
+                    showStatus('Opening app...', 'success');
+                }
+            }, 500);
+        });
 
-                // Method 3: Try window.location
-                setTimeout(() => {
-                    try {
-                        window.location.href = deepLink;
-                    } catch (e) {
-                        console.error('Window location error:', e);
-                    }
-                }, 1000);
+        // Manual open button
+        document.getElementById('openAppBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            openApp();
+        });
 
-                // If app doesn't open after 5 seconds, show download option
-                setTimeout(() => {
-                    document.getElementById('loading').classList.remove('show');
-                    showStatus('Could not open app. Please download from Play Store.', 'error');
-                }, 5000);
+        // Auto-open on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (isAndroidDevice()) {
+                setTimeout(function() {
+                    openApp();
+                }, 800);
+            } else {
+                document.getElementById('openAppBtn').style.display = 'none';
+                showStatus('Please open this link from an Android device.', 'error');
             }
         });
     </script>

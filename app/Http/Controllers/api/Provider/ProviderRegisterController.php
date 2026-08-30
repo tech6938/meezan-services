@@ -33,6 +33,7 @@ class ProviderRegisterController extends Controller
             'full_name' => 'required|string',
             'phone' => 'required|string|unique:providers,phone',
             'email' => 'required|email|unique:providers,email',
+            'address' => 'nullable|string',
             'fcm_token' => 'required',
             'profile_image' => 'nullable|image|mimes:jpg,jpeg,png',
             'id_front' => 'required|mimes:jpg,jpeg,png,pdf',
@@ -130,6 +131,7 @@ class ProviderRegisterController extends Controller
                 'full_name' => $request->full_name,
                 'phone' => $request->phone,
                 'email' => $request->email,
+                'address' => $request->address ?? null,
                 'profile_image' =>  $profileImageName,
                 'id_front' => $idFrontName,
                 'id_back' => $idBackName,
@@ -301,6 +303,7 @@ class ProviderRegisterController extends Controller
                 'full_name' => $provider->full_name,
                 'phone' => $provider->phone,
                 'email' => $provider->email,
+                'address' => $provider->address,
                 'profile_image_url' => $provider->profile_image_url,
                 'id_front_url' => $provider->id_front_url,
                 'id_back_url' => $provider->id_back_url,
@@ -348,6 +351,7 @@ class ProviderRegisterController extends Controller
             'full_name' => 'nullable|string',
             'phone' => 'nullable|string',
             'email' => 'nullable|email|unique:providers,email,' . $provider->id,
+            'address' => 'nullable|string',
 
             'profile_image' => 'nullable|image|mimes:jpg,jpeg,png',
             'id_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
@@ -421,6 +425,9 @@ class ProviderRegisterController extends Controller
         if ($request->filled('email')) {
             $provider->email = $request->email;
         }
+        if ($request->filled('address')) {
+            $provider->address = $request->address;
+        }
 
         // ---- SERVICES ----
         if ($request->has('services')) {
@@ -473,6 +480,7 @@ class ProviderRegisterController extends Controller
                 'profile_image_url' => $provider->profile_image_url,
                 'id_front_url' => $provider->id_front_url,
                 'id_back_url' => $provider->id_back_url,
+                'address' => $provider->address,
                 'services' => $provider->services,
             ]
         ], 200);
@@ -503,6 +511,116 @@ class ProviderRegisterController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete provider account
+     */
+    public function deleteAccount(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'password' => 'required|string',
+                'reason' => 'nullable|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                $errors = $validator->errors()->all();
+                return response()->json([
+                    'status' => false,
+                    'message' => $errors[0] ?? 'Validation error',
+                ], 422);
+            }
+
+            $provider = Auth::guard('provider-api')->user();
+
+            if (!$provider) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Provider not authenticated',
+                ], 401);
+            }
+
+            if (!Hash::check($request->password, $provider->password)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid password. Please try again.',
+                ], 403);
+            }
+
+            // Check if provider has any active bookings
+            $hasActiveBookings = DB::table('booking_requests')
+                ->where('provider_id', $provider->id)
+                ->whereIn('status', ['pending', 'accepted', 'in_progress'])
+                ->exists();
+
+            if ($hasActiveBookings) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'You have active bookings. Please complete or cancel them before deleting your account.',
+                ], 400);
+            }
+
+            // ========== DELETE RELATED RECORDS ==========
+            DB::beginTransaction();
+
+            try {
+                // 1. Delete FCM tokens
+                FCMToken::where('entity_type', 'provider')
+                    ->where('entity_id', $provider->id)
+                    ->delete();
+
+                // 2. Delete wallets (NEW - this was causing the error)
+                DB::table('wallets')
+                    ->where('provider_id', $provider->id)
+                    ->delete();
+
+                // 3. Delete deposits
+                DB::table('deposits')
+                    ->where('provider_id', $provider->id)
+                    ->delete();
+
+                // 4. Delete commission logs
+                DB::table('commission_logs')
+                    ->where('provider_id', $provider->id)
+                    ->delete();
+
+                // 5. Delete ratings/reviews
+                DB::table('ratings')
+                    ->where('provider_id', $provider->id)
+                    ->delete();
+
+                // 6. Delete booking requests
+                DB::table('booking_requests')
+                    ->where('provider_id', $provider->id)
+                    ->delete();
+
+                // 7. Delete provider tokens
+                $provider->tokens()->delete();
+
+                // 8. Finally, delete the provider
+                $provider->forceDelete();
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Your account has been deleted successfully.',
+                    'data' => [
+                        'deleted_at' => now()->toDateTimeString(),
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to delete account. Please try again later.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

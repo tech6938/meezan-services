@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class WalletController extends Controller
 {
@@ -107,10 +108,9 @@ class WalletController extends Controller
     {
         try {
             $auth_id = Auth::guard('provider-api')->id();
-            $data = Deposit::where('provider_id', $auth_id)->get();
 
-            // Map each deposit to a simple array
-            $allData = $data->map(function ($deposit) {
+            // Get deposits
+            $deposits = Deposit::where('provider_id', $auth_id)->get()->map(function ($deposit) {
                 $createdAt = $deposit->created_at
                     ? Carbon::parse($deposit->created_at)->setTimezone(config('app.timezone', 'Asia/Karachi'))
                     : null;
@@ -118,18 +118,44 @@ class WalletController extends Controller
                 return [
                     'gateway' => $deposit->gateway,
                     'transaction_id' => $deposit->transaction_id,
-                    'transaction_type' => $deposit->transaction_type,
-                    'amount' => $deposit->amount,
+                    'transaction_type' => $deposit->transaction_type ?? 'credit',
+                    'amount' => (float) $deposit->amount,
                     'date' => $createdAt ? $createdAt->format('d M Y') : null,
                     'time' => $createdAt ? $createdAt->format('h:i A') : null,
                 ];
             });
 
+            // Get commission logs using query builder
+            $commissions = DB::table('commission_logs')
+                ->where('provider_id', $auth_id)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($commission) {
+                    $createdAt = $commission->created_at
+                        ? Carbon::parse($commission->created_at)->setTimezone(config('app.timezone', 'Asia/Karachi'))
+                        : null;
+
+                    return [
+                        'gateway' => 'Commission',
+                        'transaction_id' => 'COM-' . $commission->id,
+                        'transaction_type' => 'debit',
+                        'amount' => (float) ($commission->commission_deducted ?? 0),
+                        'date' => $createdAt ? $createdAt->format('d M Y') : null,
+                        'time' => $createdAt ? $createdAt->format('h:i A') : null,
+                    ];
+                });
+
+            // Combine and sort
+            $allTransactions = $deposits->concat($commissions);
+            $sortedTransactions = $allTransactions->sortByDesc(function ($item) {
+                return $item['date'] . ' ' . $item['time'];
+            })->values();
+
             return response()->json([
                 'status' => true,
                 'message' => 'Your Transaction History',
                 'provider_id' => $auth_id,
-                'data' => $allData,
+                'data' => $sortedTransactions,
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -1,0 +1,13 @@
+[
+    {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "androidApp": {
+                "packageName": "com.example.meezan_services",
+                "certificate": {
+                    "sha256Fingerprint": "7C:77:7B:5E:06:7B:CF:48:90:D7:E6:00:BF:E6:8B:12:08:9F:36:D2:67:C3:BD:53:5C:81:3A:68:32:81:8D:4D"
+                }
+            }
+        }
+    }
+]

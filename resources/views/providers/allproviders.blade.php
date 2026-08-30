@@ -63,6 +63,7 @@
                                                     <tr>
                                                         <th class="text-center">#</th>
                                                         <th>Name</th>
+                                                        <th>Address</th>
                                                         <th>Status</th>
                                                         <th>Services</th>
                                                         <th>Action</th>
@@ -80,6 +81,9 @@
                                                                 <td>
                                                                     {{ $provider->full_name }}
                                                                 </td>
+                                                                    <td>
+                                                                        {{ $provider->address ?? 'N/A' }}
+                                                                    </td>
                                                                 <td>
                                                                     <span
                                                                         class="badge {{ $provider->status == 'approved' ? 'badge-success' : '' }} {{ $provider->status == 'blocked' ? 'badge-danger' : '' }}  {{ $provider->status == 'suspend' ? 'badge-warning' : '' }} {{ $provider->status == 'pending' ? 'badge-info' : '' }} ">{{ $provider->status }}</span>

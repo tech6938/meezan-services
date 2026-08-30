@@ -310,6 +310,11 @@
                                     </p>
 
                                     <p>
+                                        <strong><i class="fas fa-map-marker-alt mr-1"></i>Address:</strong>
+                                        {{ $provider->address ?? 'N/A' }}
+                                    </p>
+
+                                    <p>
                                         <strong><i class="fas fa-toggle-on mr-1"></i>Status:</strong>
                                         <span class="badge badge-info">{{ ucfirst($provider->status) }}</span>
                                     </p>

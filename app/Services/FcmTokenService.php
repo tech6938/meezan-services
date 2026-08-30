@@ -205,24 +205,24 @@ class FcmTokenService
 
             $result = $this->messaging->send($message);
 
-            // Log more details
-            Log::info('FCM Notification sent successfully', [
-                'token' => substr($deviceToken, 0, 30) . '...',
-                'title' => $title,
-                'message_id' => $result,
-                'full_response' => $result // This will help debug
-            ]);
+            // // Log more details
+            // Log::info('FCM Notification sent successfully', [
+            //     'token' => substr($deviceToken, 0, 30) . '...',
+            //     'title' => $title,
+            //     'message_id' => $result,
+            //     'full_response' => $result // This will help debug
+            // ]);
 
             return [
                 'success' => true,
                 'result' => $result
             ];
         } catch (MessagingException | FirebaseException $e) {
-            Log::error('FCM Send Error: ' . $e->getMessage());
+            // Log::error('FCM Send Error: ' . $e->getMessage());
 
             if (str_contains($e->getMessage(), 'Invalid registration token')) {
                 FCMToken::where('fcm_token', $deviceToken)->delete();
-                Log::info('Removed invalid FCM token from database');
+                // Log::info('Removed invalid FCM token from database');
             }
 
             return [

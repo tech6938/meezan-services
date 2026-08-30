@@ -606,6 +606,8 @@ class ServiceRequestController extends Controller
 
             $data = [
                 'type' => 'new_order',
+                // Use unified type expected by notification service
+                // 'type' => 'new_service_request',
                 'request_id' => (string)$serviceRequest->id,
                 'user_id' => (string)$serviceRequest->user_id,
                 'user_name' => $serviceRequest->user->name ?? 'Customer',

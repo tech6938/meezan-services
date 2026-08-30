@@ -12,9 +12,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ReferralController extends Controller
 {
-    public function __construct(protected ReferralService $referralService)
-    {
-    }
+    public function __construct(protected ReferralService $referralService) {}
 
     private function currentUser(): User
     {
@@ -127,6 +125,100 @@ class ReferralController extends Controller
                     ] : null,
                 ];
             })->values(),
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page' => $logs->lastPage(),
+                'per_page' => $logs->perPage(),
+                'total' => $logs->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Single API returning all referral metrics required by the UI
+     */
+    public function summary(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        if (!$user->referral_code) {
+            $user->referral_code = $this->referralService->generateUniqueReferralCode();
+            $user->save();
+        }
+
+        $lifetimeEarning = (float) ($user->referral_total_earned ?? 0);
+        $availableEarning = (float) ($user->referral_balance ?? 0);
+        $amountWithdrawn = round($lifetimeEarning - $availableEarning, 2);
+        $appSharedWith = (int) ($user->referral_total_referrals ?? 0);
+        $completedBookings = ReferralLog::where('referrer_user_id', $user->id)
+            ->distinct('booking_id')
+            ->count('booking_id');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Referral summary retrieved successfully',
+            'data' => [
+                // 'referral_code' => $user->referral_code,
+                // 'referral_link' => config('app.url') . '/referral/' . $user->referral_code,
+                'lifetime_earning' => $lifetimeEarning,
+                'available_earning' => $availableEarning,
+                'amount_withdrawn' => $amountWithdrawn,
+                'app_shared_with' => $appSharedWith,
+                'completed_bookings' => (int) $completedBookings,
+            ],
+        ]);
+    }
+
+    /**
+     * Transaction history for referral system using referral_logs table
+     */
+    public function refferalTrans(Request $request)
+    {
+        $user = $this->currentUser();
+
+        $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        $query = ReferralLog::with([
+            'referredUser:id,name,phone,image,referral_code',
+            'booking:id,order_no,price,status,created_at',
+        ])->where('referrer_user_id', $user->id)
+            ->orderByDesc('created_at');
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $perPage = (int) ($request->input('per_page', 15));
+        $logs = $query->paginate($perPage);
+
+        $data = $logs->getCollection()->map(function (ReferralLog $log) {
+            $amount = (float) $log->earned_amount;
+            // UI expects a formatted amount like: + PKR 500.0
+            $amountDisplay = '+ PKR ' . number_format($amount, 1);
+
+            return [
+                'id' => $log->id,
+                'title' => 'Referral Bonus',
+                'date' => $this->formatApiDateTime($log->created_at),
+                'amount' => $amount,
+                'amount_display' => $amountDisplay,
+            ];
+        })->values();
+
+        return response()->json([
+            'status' => true,
+            'data' => $data,
             'meta' => [
                 'current_page' => $logs->currentPage(),
                 'last_page' => $logs->lastPage(),

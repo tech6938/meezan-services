@@ -253,15 +253,6 @@ class ProviderDashController extends Controller
             /* ---------- Provider ---------- */
             if ($type === 'provider') {
 
-                $previousImages = Previous::where('provider_id', $id)->first();
-                if (!$previousImages) {
-                    return response()->json([
-                        // 'status' => false,
-                        // 'message' => 'No previous work found for this provider'
-                        'status' => true,
-                        'message' => []
-                    ], 404);
-                }
                 $provider = Provider::select('id', 'full_name', 'profile_image')
                     ->find($id);
 
@@ -288,7 +279,7 @@ class ProviderDashController extends Controller
                     'avg_rating' => $avg_rating
                         ? number_format($avg_rating, 2, '.', '')
                         : number_format(0, 2, '.', ''),
-                    'previous_work_images' => $previousImages
+                    'previous_work_images' => $previousImages ?? []
                 ];
             }
 

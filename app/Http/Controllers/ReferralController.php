@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -220,32 +221,79 @@ class ReferralController extends Controller
     /**
      * Simple landing page for referral links
      */
+    // public function landing($code)
+    // {
+    //     // Find the referrer
+    //     $referrer = User::where('referral_code', $code)->first();
+
+    //     if (!$referrer) {
+    //         return view('referral.invalid', ['code' => $code]);
+    //     }
+
+    //     // Log the click
+    //     Log::info('Referral link clicked', [
+    //         'code' => $code,
+    //         'referrer_id' => $referrer->id,
+    //         'ip' => request()->ip()
+    //     ]);
+
+    //     // Android app package and scheme. These can be changed in the environment if the real app values differ.
+    //     $packageName = env('REFERRAL_ANDROID_PACKAGE', 'com.example.meezan_services');
+    //     $scheme = env('REFERRAL_ANDROID_SCHEME', 'meezan_services');
+
+    //     // Play Store URL with package name and referrer
+    //     $playstoreUrl = 'https://play.google.com/store/apps/details?id=' . $packageName . '&referrer=' . $code;
+
+    //     // Deep link that the app can handle when it is installed.
+    //     $deepLink = $scheme . '://referral?code=' . urlencode($code);
+
+    //     // Android intent URL for better browser compatibility.
+    //     $androidIntentUrl = 'intent://referral?code=' . urlencode($code)
+    //         . '#Intent;scheme=' . $scheme
+    //         . ';package=' . $packageName
+    //         . ';S.browser_fallback_url=' . urlencode($playstoreUrl)
+    //         . ';end';
+
+    //     return view('referral.landing', [
+    //         'code' => $code,
+    //         'referrer_name' => $referrer->name,
+    //         'playstore_url' => $playstoreUrl,
+    //         'deep_link' => $deepLink,
+    //         'android_intent_url' => $androidIntentUrl,
+    //         'package_name' => $packageName,
+    //         'scheme' => $scheme,
+    //     ]);
+    // }
+
+    /**
+     * Simple landing page for referral links
+     */
     public function landing($code)
     {
-        // Find the referrer
         $referrer = User::where('referral_code', $code)->first();
 
         if (!$referrer) {
             return view('referral.invalid', ['code' => $code]);
         }
 
-        // Log the click
-        \Log::info('Referral link clicked', [
+        Log::info('Referral link clicked', [
             'code' => $code,
             'referrer_id' => $referrer->id,
-            'ip' => request()->ip()
+            'ip' => request()->ip(),
+            'user_agent' => request()->userAgent()
         ]);
 
-        // Package name
-        $packageName = 'com.example.meezan_services';
+        $packageName = env('REFERRAL_ANDROID_PACKAGE', 'com.example.meezan_services');
+        $scheme = env('REFERRAL_ANDROID_SCHEME', 'meezan_services');
 
-        // Play Store URL with package name and referrer
-        $playstoreUrl = 'https://play.google.com/store/apps/details?id=' . $packageName . '&referrer=' . $code;
+        $playstoreUrl = 'https://play.google.com/store/apps/details?id=' . $packageName . '&referrer=' . urlencode($code);
 
         return view('referral.landing', [
             'code' => $code,
             'referrer_name' => $referrer->name,
             'playstore_url' => $playstoreUrl,
+            'package_name' => $packageName,
+            'scheme' => $scheme,
         ]);
     }
 
@@ -338,6 +386,73 @@ class ReferralController extends Controller
             'referral_link' => config('app.url') . '/referral/' . $user->referral_code,
             'total_referrals' => $user->referral_total_referrals ?? 0,
             'total_earned' => $user->referral_total_earned ?? 0,
+        ]);
+    }
+
+    /**
+     * Combined API for dashboard metrics and referral transactions
+     */
+    public function overview(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        // Dashboard metrics
+        if (!$user->referral_code) {
+            $user->referral_code = $this->referralService->generateUniqueReferralCode();
+            $user->save();
+        }
+
+        $dashboard = [
+            'lifetime_earning' => (float) ($user->referral_total_earned ?? 0),
+            'available_earning' => (float) ($user->referral_balance ?? 0),
+            'amount_withdrawn' => round((float) ($user->referral_total_earned ?? 0) - (float) ($user->referral_balance ?? 0), 2),
+            'app_shared_with' => (int) ($user->referral_total_referrals ?? 0),
+            'completed_bookings' => (int) ReferralLog::where('referrer_user_id', $user->id)->distinct('booking_id')->count('booking_id'),
+        ];
+
+        // Transactions (paginated)
+        $query = ReferralLog::where('referrer_user_id', $user->id)->orderByDesc('created_at');
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $perPage = (int) ($request->input('per_page', 15));
+        $logs = $query->paginate($perPage);
+
+        $transactions = $logs->getCollection()->map(function (ReferralLog $log) {
+            $amount = (float) $log->earned_amount;
+            return [
+                'id' => $log->id,
+                'title' => 'Referral Bonus',
+                'date' => $this->formatApiDateTime($log->created_at),
+                'amount' => $amount,
+                'amount_display' => '+ PKR ' . number_format($amount, 1),
+            ];
+        })->values();
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'dashboard' => $dashboard,
+                'transactions' => $transactions,
+            ],
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page' => $logs->lastPage(),
+                'per_page' => $logs->perPage(),
+                'total' => $logs->total(),
+            ],
         ]);
     }
 }

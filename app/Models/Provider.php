@@ -17,6 +17,7 @@ class Provider extends Authenticatable
         'profile_image',
         'id_front',
         'id_back',
+        'address',
         'services',
         'status',
         'password',
