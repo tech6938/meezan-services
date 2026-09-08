@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JazzCash Direct Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 { color: #1e293b; font-size: 24px; margin-bottom: 8px; }
+        p { color: #64748b; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; color: #334155; margin-bottom: 5px; font-size: 14px; }
+        input, select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        input:focus { outline: none; border-color: #667eea; }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-secondary {
+            background: #64748b;
+            margin-top: 10px;
+        }
+        .info {
+            background: #eff6ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2563eb;
+            font-size: 14px;
+            color: #1e293b;
+        }
+        .info code {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 10px;
+            display: none;
+        }
+        .result.show { display: block; }
+        .result.success { border-left: 4px solid #22c55e; }
+        .result.error { border-left: 4px solid #ef4444; }
+        .result pre {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 15px;
+            border-radius: 8px;
+            overflow: auto;
+            font-size: 11px;
+            margin-top: 10px;
+            max-height: 300px;
+        }
+        .spinner {
+            display: none;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 10px auto;
+        }
+        .spinner.show { display: block; }
+        @keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>💳 JazzCash Direct Test</h1>
+        <p>Submit directly to JazzCash sandbox to test the connection</p>
+
+        <div class="info">
+            <strong>ℹ️ Test Credentials:</strong><br>
+            Card: <code>4111 1111 1111 1111</code><br>
+            Expiry: <code>12/26</code><br>
+            CVV: <code>123</code>
+        </div>
+
+        <form id="jazzcashForm">
+            <div class="form-group">
+                <label>Amount (PKR)</label>
+                <input type="number" id="amount" value="100" min="10" max="50000">
+            </div>
+
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="text" id="phone" value="03074848691">
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" value="tech6938505@gmail.com">
+            </div>
+
+            <div class="form-group">
+                <label>Return URL</label>
+                <select id="returnUrl">
+                    <option value="https://admin.meezanservices.com/test/jazzcash/return">Your Server</option>
+                    <option value="https://onlinepayments.jazzcash.com.pk/payment-orchestrator/payment/api/v1/merchant/callback/simulators/return-url-v2">JazzCash Simulator</option>
+                </select>
+            </div>
+
+            <button type="button" class="btn" onclick="generateAndSubmit()">🔐 Generate & Submit</button>
+        </form>
+
+        <div id="spinner" class="spinner"></div>
+
+        <div id="result" class="result">
+            <h3 id="resultTitle"></h3>
+            <p id="resultMessage"></p>
+            <pre id="resultData"></pre>
+        </div>
+
+        <button class="btn btn-secondary hidden" onclick="openInNewTab()" id="openNewTabBtn">📂 Open in New Tab</button>
+    </div>
+
+    <script>
+        let generatedFormData = null;
+
+        function generateAndSubmit() {
+            const amount = document.getElementById('amount').value;
+            const phone = document.getElementById('phone').value;
+            const email = document.getElementById('email').value;
+            const returnUrl = document.getElementById('returnUrl').value;
+            const ref = 'DIRECT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+
+            // Show spinner
+            document.getElementById('spinner').classList.add('show');
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('openNewTabBtn').classList.add('hidden');
+
+            // Build form data
+            const formData = {
+                pp_Version: '1.1',
+                pp_TxnType: 'MWALLET',
+                pp_MerchantID: 'MC990693',
+                pp_Amount: parseInt(amount) * 100,
+                pp_TxnRefNo: ref,
+                pp_CustomerEmail: email,
+                pp_CustomerMobile: phone,
+                pp_ReturnURL: returnUrl,
+                pp_AccountNum: 'MC990693',
+                pp_Language: 'EN'
+            };
+
+            // Calculate hash
+            const hashKey = '2pcs99f1n0';
+            const sortedKeys = Object.keys(formData).sort();
+            let hashString = '';
+            for (const key of sortedKeys) {
+                if (formData[key] !== null && formData[key] !== '') {
+                    hashString += formData[key];
+                }
+            }
+            hashString += hashKey;
+            formData.pp_SecureHash = CryptoJS.SHA256(hashString).toString();
+
+            // Show result
+            document.getElementById('spinner').classList.remove('show');
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result show success';
+            document.getElementById('resultTitle').textContent = '✅ Form Generated Successfully';
+            document.getElementById('resultMessage').textContent = 'Click "Submit to JazzCash" below to complete the payment.';
+            document.getElementById('resultData').textContent = JSON.stringify(formData, null, 2);
+
+            // Create submit button
+            const submitBtn = document.createElement('button');
+            submitBtn.className = 'btn';
+            submitBtn.textContent = '💳 Submit to JazzCash';
+            submitBtn.onclick = function() {
+                submitToJazzCash(formData);
+            };
+            
+            // Remove old button
+            const oldBtn = document.querySelector('.submit-btn');
+            if (oldBtn) oldBtn.remove();
+            
+            submitBtn.className += ' submit-btn';
+            resultDiv.appendChild(submitBtn);
+
+            // Store for new tab
+            generatedFormData = formData;
+            document.getElementById('openNewTabBtn').classList.remove('hidden');
+
+            // Also show in console
+            console.log('Form Data:', formData);
+        }
+
+        function submitToJazzCash(formData) {
+            // Create a hidden form and submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform';
+            form.target = '_blank';
+
+            for (const key in formData) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = formData[key];
+                form.appendChild(input);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+
+        function openInNewTab() {
+            if (generatedFormData) {
+                submitToJazzCash(generatedFormData);
+            }
+        }
+    </script>
+
+    <!-- Include CryptoJS for SHA256 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</body>
+</html>

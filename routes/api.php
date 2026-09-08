@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\api\{AddressController, AuthController, ChatController, NotificationController, ServiceRequestController, CategoryController, ProviderDashController, SMSController, UploadController};
 use App\Http\Controllers\api\{ShopKeeperAuthController, NearbyShopController, WalletController};
+use App\Http\Controllers\api\JazzCashController;
+use App\Http\Controllers\api\PaymentController;
 use App\Http\Controllers\api\Provider\BookingRequestController;
 use App\Http\Controllers\api\Provider\ProviderRegisterController;
 use App\Http\Controllers\api\RatingController;
 use App\Http\Controllers\api\ResetPassController;
 use App\Http\Controllers\api\SettingController;
 use App\Http\Controllers\api\ShopController;
+use App\Http\Controllers\JazzCashIPNController;
 use App\Http\Controllers\ReferralController;
 use Illuminate\Support\Facades\Route;
 
@@ -104,6 +107,9 @@ Route::middleware(['cors'])->group(function () {
 |--------------------------------------------------------------------------
 */
     Route::middleware('auth:sanctum')->group(function () {
+
+        Route::get('/wallet/balance', [JazzCashController::class, 'getWalletBalance']);
+        Route::post('/wallet/deposit/initiate', [JazzCashController::class, 'initiateDeposit']);
 
         // Nearby Shop
         Route::get('/shop/nearby', [NearbyShopController::class, 'nearbyShop']);
@@ -266,4 +272,13 @@ Route::middleware(['cors'])->group(function () {
             Route::get('/transactionHistory', 'transactionHistory');
         });
     });
+    Route::post('/jazzcash/callback', [JazzCashController::class, 'handleCallback'])->name('jazzcash.callback');
+    Route::post('/jazzcash/ipn', [JazzCashController::class, 'handleIPN'])->name('jazzcash.ipn');
+});
+Route::prefix('v1/jazzcash')->group(function () {
+    Route::post('/pay', [PaymentController::class, 'pay']);
+    Route::post('/status-inquiry', [PaymentController::class, 'checkStatus']);
+    Route::post('/refund', [PaymentController::class, 'refund']);
+    Route::get('/merchant-balance', [PaymentController::class, 'merchantBalance']);
+    Route::post('/ipn', [JazzCashIPNController::class, 'handleIPN'])->name('jazzcash.ipn');
 });

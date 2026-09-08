@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminAccessController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\api\JazzCashController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChatsController;
@@ -19,14 +20,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
-// Route::get('/clear', function () {
-//     \Artisan::call('cache:clear');
-//     \Artisan::call('config:clear');
-//     \Artisan::call('route:clear');
-//     \Artisan::call('view:clear');
+Route::get('/clear', function () {
+    \Artisan::call('cache:clear');
+    \Artisan::call('config:clear');
+    \Artisan::call('route:clear');
+    \Artisan::call('view:clear');
 
-//     return "Cleared!";
-// });
+    return "Cleared!";
+});
 
 Route::controller(AuthController::class)->group(function () {
 
@@ -214,3 +215,5 @@ Route::get('/referral/{code}', [ReferralController::class, 'landing'])->name('re
 Route::get('/referral/invalid', function () {
     return view('referral.invalid');
 })->name('referral.invalid');
+
+Route::get('/jazzcash/return', [JazzCashController::class, 'handleReturn'])->name('jazzcash.return');

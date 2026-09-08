@@ -283,7 +283,7 @@ class ReferralController extends Controller
             'user_agent' => request()->userAgent()
         ]);
 
-        $packageName = env('REFERRAL_ANDROID_PACKAGE', 'com.example.meezan_services');
+        $packageName = env('REFERRAL_ANDROID_PACKAGE', 'com.meezan.services.home');
         $scheme = env('REFERRAL_ANDROID_SCHEME', 'meezan_services');
 
         $playstoreUrl = 'https://play.google.com/store/apps/details?id=' . $packageName . '&referrer=' . urlencode($code);

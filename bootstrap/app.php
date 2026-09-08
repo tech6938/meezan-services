@@ -18,6 +18,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.permission' => \App\Http\Middleware\EnsureAdminPermission::class,
             'cors' => \App\Http\Middleware\CorsMiddleware::class,
         ]);
+
+        // ========== EXCLUDE JAZZCASH CALLBACK FROM CSRF ==========
+        $middleware->validateCsrfTokens(except: [
+            'jazzcash/callback',
+            'jazzcash/ipn',
+            'jazzcash/return',
+            'payment/jazzcash/callback', // Alternative if you use different route
+        ]);
+        // ========================================================
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
