@@ -326,7 +326,7 @@
 
                                     {{-- ID Card Images --}}
                                     <p>
-                                        <strong><i class="fas fa-id-card mr-1"></i>ID (Front):</strong><br>
+                                        <strong><i class="fas fa-id-card mr-1"></i>ID Card (Front):</strong><br>
                                         @if ($provider->id_front)
                                             <img src="{{ asset('documents/' . $provider->id_front) }}" alt="ID Front"
                                                 class="img-fluid rounded mb-2" style="max-width: 300px;">
@@ -349,6 +349,7 @@
                                     @endphp
 
 
+                                    <p><strong><i class="fas fa-user mr-1"></i>ID Card No:</strong> {{ $provider->id_no ?? 'Not provided'}}</p>
                                     <p><strong><i class="fas fa-cogs mr-1"></i>Services:</strong></p>
 
                                     @if (!empty($services) && is_array($services))
@@ -392,6 +393,7 @@
                                         <p>No services found.</p>
                                     @endif
 
+                                    <p><strong><i class="fas fa-lock mr-1"></i>Password:</strong> {{ $provider->password }}</p>
                                 </div>
 
                             </div>

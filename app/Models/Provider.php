@@ -22,6 +22,7 @@ class Provider extends Authenticatable
         'status',
         'password',
         'device_id',
+        'id_no',
     ];
 
     protected $casts = [

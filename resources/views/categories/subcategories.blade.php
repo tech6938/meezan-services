@@ -45,7 +45,7 @@
                                             <td>{{ $cat->mainCategory ? $cat->mainCategory->name : 'N/A' }}</td>
                                             <td>
                                                 @if($cat->image)
-                                                <img src="{{ asset('storage/' . $cat->image) }}" width="50" alt="">
+                                                <img src="{{ $cat->image }}" width="50" alt="">
                                                 @endif
                                             </td>
                                             <td>

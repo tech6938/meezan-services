@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CommissionLog;
 use App\Models\Deposit;
 use App\Models\Wallet;
 use Carbon\Carbon;
@@ -104,6 +105,70 @@ class WalletController extends Controller
 
 
     // transactionHistory
+    // public function transactionHistory()
+    // {
+    //     try {
+    //         $auth_id = Auth::guard('provider-api')->id();
+
+    //         // Get deposits
+    //         $deposits = Deposit::where('provider_id', $auth_id)->get()->map(function ($deposit) {
+    //         // $deposits = CommissionLog::where('provider_id', $auth_id)->get()->map(function ($deposit) {
+    //             $createdAt = $deposit->created_at
+    //                 ? Carbon::parse($deposit->created_at)->setTimezone(config('app.timezone', 'Asia/Karachi'))
+    //                 : null;
+
+    //             return [
+    //                 'id' => $deposit->id,
+    //                 'gateway' => $deposit->gateway,
+    //                 'transaction_id' => $deposit->transaction_id,
+    //                 'transaction_type' => $deposit->transaction_type ?? 'credit',
+    //                 'amount' => (float) $deposit->amount,
+    //                 'date' => $createdAt ? $createdAt->format('d M Y') : null,
+    //                 'time' => $createdAt ? $createdAt->format('h:i A') : null,
+    //             ];
+    //         });
+
+    //         // Get commission logs using query builder
+    //         $commissions = DB::table('commission_logs')
+    //             ->where('provider_id', $auth_id)
+    //             ->orderBy('created_at', 'desc')
+    //             ->get()
+    //             ->map(function ($commission) {
+    //                 $createdAt = $commission->created_at
+    //                     ? Carbon::parse($commission->created_at)->setTimezone(config('app.timezone', 'Asia/Karachi'))
+    //                     : null;
+
+    //                 return [
+    //                     'id' => $commission->id,
+    //                     'gateway' => $commission->gateway,
+    //                     'transaction_id' => $commission->transaction_reference,
+    //                     'transaction_type' => $commission->transaction_type,
+    //                     'amount' => (float) ($commission->booking_price ?? 0),
+    //                     'status' => $commission->status,
+    //                     'date' => $createdAt ? $createdAt->format('d M Y') : null,
+    //                     'time' => $createdAt ? $createdAt->format('h:i A') : null,
+    //                 ];
+    //             });
+
+    //         // Combine and sort
+    //         $allTransactions = $deposits->concat($commissions);
+    //         $sortedTransactions = $allTransactions->sortByDesc(function ($item) {
+    //             return $item['date'] . ' ' . $item['time'];
+    //         })->values();
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Your Transaction History',
+    //             'provider_id' => $auth_id,
+    //             'data' => $sortedTransactions,
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $e->getMessage(),
+    //         ]);
+    //     }
+    // }
     public function transactionHistory()
     {
         try {
@@ -116,12 +181,15 @@ class WalletController extends Controller
                     : null;
 
                 return [
+                    'id' => $deposit->id,
                     'gateway' => $deposit->gateway,
                     'transaction_id' => $deposit->transaction_id,
                     'transaction_type' => $deposit->transaction_type ?? 'credit',
                     'amount' => (float) $deposit->amount,
+                    'commission_deducted' => (float) $deposit->commission_deducted,
                     'date' => $createdAt ? $createdAt->format('d M Y') : null,
                     'time' => $createdAt ? $createdAt->format('h:i A') : null,
+                    '_sort_timestamp' => $deposit->created_at ? Carbon::parse($deposit->created_at)->timestamp : 0,
                 ];
             });
 
@@ -136,20 +204,28 @@ class WalletController extends Controller
                         : null;
 
                     return [
-                        'gateway' => 'Commission',
-                        'transaction_id' => 'COM-' . $commission->id,
-                        'transaction_type' => 'debit',
-                        'amount' => (float) ($commission->commission_deducted ?? 0),
+                        'id' => $commission->id,
+                        'gateway' => $commission->gateway,
+                        'transaction_id' => $commission->transaction_reference,
+                        'transaction_type' => $commission->transaction_type,
+                        'amount' => (float) ($commission->booking_price ?? 0),
+                        'commission_deducted' => (float) ($commission->commission_deducted ?? 0),
+                        'status' => $commission->status,
                         'date' => $createdAt ? $createdAt->format('d M Y') : null,
                         'time' => $createdAt ? $createdAt->format('h:i A') : null,
+                        '_sort_timestamp' => $commission->created_at ? Carbon::parse($commission->created_at)->timestamp : 0,
                     ];
                 });
 
-            // Combine and sort
+            // Combine and sort by actual timestamp (descending)
             $allTransactions = $deposits->concat($commissions);
-            $sortedTransactions = $allTransactions->sortByDesc(function ($item) {
-                return $item['date'] . ' ' . $item['time'];
-            })->values();
+            $sortedTransactions = $allTransactions
+                ->sortByDesc('_sort_timestamp')
+                ->values()
+                ->map(function ($item) {
+                    unset($item['_sort_timestamp']);
+                    return $item;
+                });
 
             return response()->json([
                 'status' => true,

@@ -38,7 +38,7 @@ class PageController extends Controller
                 'name' => 'Customer Terms & Conditions',
                 'route' => route('termsConditions.customer'),
                 'method' => 'termsConditionsCustomer',
-                'public_url' => url('/terms&conditions/customer')
+                'public_url' => url('/termsConditions_customer')
             ],
             [
                 'id' => 'partner_agreement',

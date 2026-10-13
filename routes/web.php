@@ -20,11 +20,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/clear', function () {
-    \Artisan::call('cache:clear');
-    \Artisan::call('config:clear');
-    \Artisan::call('route:clear');
-    \Artisan::call('view:clear');
+Route::get('/link', function () {
+    \Artisan::call('storage:link');
+    // \Artisan::call('cache:clear');
+    // \Artisan::call('config:clear');
+    // \Artisan::call('route:clear');
+    // \Artisan::call('view:clear');
 
     return "Cleared!";
 });
@@ -176,13 +177,13 @@ Route::middleware(['admin.auth', 'admin.permission'])->group(function () {
         Route::post('/settings/user-app-status', 'userAppIsOn')->name('settings.userAppIsOn');
         Route::post('/settings/provider-app-status', 'providerAppIsOn')->name('settings.providerAppIsOn');
         Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
-        Route::get('/privacyPolicy/partner', 'privacyPolicy')->name('privacyPolicy.provider');
-        Route::get('/terms&conditions/partner', 'termsConditions')->name('termsConditions.provider');
-        Route::get('/privacyPolicy/customer', 'privacyCustomer')->name('privacyPolicy.customer');
-        Route::get('/terms&conditions/customer', 'termsConditionsCustomer')->name('termsConditions.customer');
-        Route::get('/partner/agreement', 'partnerAgreement')->name('partnerAgreement');
-        Route::get('/about_us', 'aboutUs')->name('aboutUs');
-        Route::get('/contact_us', 'contactUs')->name('contactUs');
+        // Route::get('/privacyPolicy/partner', 'privacyPolicy')->name('privacyPolicy.provider');
+        // Route::get('/terms&conditions/partner', 'termsConditions')->name('termsConditions.provider');
+        // Route::get('/privacyPolicy/customer', 'privacyCustomer')->name('privacyPolicy.customer');
+        // Route::get('/terms&conditions/customer', 'termsConditionsCustomer')->name('termsConditions.customer');
+        // Route::get('/partner/agreement', 'partnerAgreement')->name('partnerAgreement');
+        // Route::get('/about_us', 'aboutUs')->name('aboutUs');
+        // Route::get('/contact_us', 'contactUs')->name('contactUs');
     });
 
     Route::prefix('referral')->name('referrals.')->controller(ReferralController::class)->group(function () {
@@ -215,5 +216,17 @@ Route::get('/referral/{code}', [ReferralController::class, 'landing'])->name('re
 Route::get('/referral/invalid', function () {
     return view('referral.invalid');
 })->name('referral.invalid');
-
-Route::get('/jazzcash/return', [JazzCashController::class, 'handleReturn'])->name('jazzcash.return');
+    Route::controller(SettingController::class)->group(function () {
+        // Route::get('/appUrl', 'appUrl')->name('appUrl.index');
+        // Route::post('/appUrl/store', 'appUrlStore')->name('appUrl.store');
+        // Route::post('/settings/user-app-status', 'userAppIsOn')->name('settings.userAppIsOn');
+        // Route::post('/settings/provider-app-status', 'providerAppIsOn')->name('settings.providerAppIsOn');
+        // Route::delete('/appUrl/destroy/{id}', 'appUrlDestroy')->name('appUrl.destroy');
+        Route::get('/privacyPolicy/partner', 'privacyPolicy')->name('privacyPolicy.provider');
+        Route::get('/termsConditions_partner', 'termsConditions')->name('termsConditions.provider');
+        Route::get('/privacyPolicy/customer', 'privacyCustomer')->name('privacyPolicy.customer');
+        Route::get('/termsConditions_customer', 'termsConditionsCustomer')->name('termsConditions.customer');
+        Route::get('/partner/agreement', 'partnerAgreement')->name('partnerAgreement');
+        Route::get('/about_us', 'aboutUs')->name('aboutUs');
+        Route::get('/contact_us', 'contactUs')->name('contactUs');
+    });

@@ -11,6 +11,7 @@ class CommissionLog extends Model
     protected $fillable = [
         'booking_id',
         'provider_id',
+        'user_id',
         'shopkeeper_id',
         'sub_category_id',
         'commission_type',
@@ -40,6 +41,11 @@ class CommissionLog extends Model
     public function provider()
     {
         return $this->belongsTo(Provider::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function booking()

@@ -81,7 +81,7 @@ class CommissionService
             $this->logCommissionDeduction([
                 'booking_id' => $booking->id,
                 'provider_id' => $booking->provider_id,
-                'shopkeeper_id' => $booking->shopkeeper_id,
+                // 'shopkeeper_id' => $booking->shopkeeper_id,
                 'sub_category_id' => $serviceRequest->subcat_id,
                 'commission_type' => $commission->type,
                 'commission_rate' => $commission->amount,
@@ -192,24 +192,19 @@ class CommissionService
      */
     private function logCommissionDeduction(array $data)
     {
-        // Create commission_logs table if not exists
-        try {
-            DB::table('commission_logs')->insert([
-                'booking_id' => $data['booking_id'],
-                'provider_id' => $data['provider_id'],
-                'shopkeeper_id' => $data['shopkeeper_id'],
-                'sub_category_id' => $data['sub_category_id'],
-                'commission_type' => $data['commission_type'],
-                'commission_rate' => $data['commission_rate'],
-                'booking_price' => $data['booking_price'],
-                'commission_deducted' => $data['commission_deducted'],
-                'old_balance' => $data['old_balance'],
-                'new_balance' => $data['new_balance'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Failed to log commission deduction: ' . $e->getMessage());
-        }
+        DB::table('commission_logs')->insert([
+            'booking_id' => $data['booking_id'],
+            'provider_id' => $data['provider_id'],
+            // 'shopkeeper_id' => $data['shopkeeper_id'],
+            'sub_category_id' => $data['sub_category_id'],
+            'commission_type' => $data['commission_type'],
+            'commission_rate' => $data['commission_rate'],
+            'booking_price' => $data['booking_price'],
+            'commission_deducted' => $data['commission_deducted'],
+            'old_balance' => $data['old_balance'],
+            'new_balance' => $data['new_balance'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

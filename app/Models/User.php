@@ -76,6 +76,11 @@ class User extends Authenticatable
         return $this->hasMany(Address::class);
     }
 
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
     // Messages the user sent
     public function sentMessages()
     {

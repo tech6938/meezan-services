@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Schema;
 
 class AuthServiceProvider extends ServiceProvider
 {
+    //ok
     protected $policies = [
         Admin::class => AdminPolicy::class,
         Role::class => RolePolicy::class,

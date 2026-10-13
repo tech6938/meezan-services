@@ -31,18 +31,6 @@ class UserProviderController extends Controller
         return view('user.user-list', compact('data'));
     }
 
-    // public function viewUserDetail($id)
-    // {
-    //     $user = User::with([
-    //         'serviceRequests',
-    //         'bookings.provider',
-    //         'referrer',
-    //         'referrals',
-    //         'referralLogs.booking',
-    //     ])->withCount('referrals')->findOrFail($id);
-    //     return view('user.viewUserDetail', compact('user'));
-    // }
-
     public function viewUserDetail($id)
     {
         $user = User::with([
@@ -376,7 +364,8 @@ class UserProviderController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('full_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('id_no', 'like', "%{$search}%");
                 });
             }
 
@@ -686,7 +675,8 @@ class UserProviderController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('full_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('id_no', 'like', "%{$search}%");
                 });
             }
 
@@ -751,6 +741,7 @@ class UserProviderController extends Controller
                     'Partner ID' => $provider->id,
                     'Partner Name' => $provider->full_name ?? $provider->name ?? 'N/A',
                     'Phone Number' => $provider->phone ?? 'N/A',
+                    'id_no' => $provider->id_no ?? 'N/A',
                     'Services' => $services,
                     'Total Orders' => $provider->total_orders_count ?? 0,
                     'Accepted Orders' => $provider->accepted_orders_count ?? 0,

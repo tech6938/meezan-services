@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Models\FCMToken;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\FcmTokenService;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
@@ -50,6 +51,11 @@ class AuthController extends Controller
                     'password'  => Hash::make($request->password),
                     'device_id' => $request->device_id ?? null,
                     'referral_code' => $this->referralService->generateUniqueReferralCode(),
+                ]);
+
+                Wallet::create([
+                    'user_id' => $user->id,
+                    'amount' => 0,
                 ]);
 
                 $this->referralService->assignReferrer($user, $request->input('referral_code'));

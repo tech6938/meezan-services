@@ -134,14 +134,50 @@ class JazzCashService
     /**
      * Validate incoming response or IPN callback hash against locally computed hash.
      */
+    public function classifyResponse(array $responsePayload): string
+    {
+        $paymentCode = trim((string) ($responsePayload['pp_PaymentResponseCode'] ?? ''));
+        $responseCode = trim((string) ($responsePayload['pp_ResponseCode'] ?? ''));
+        $status = strtolower(trim((string) ($responsePayload['pp_Status'] ?? '')));
+
+        $codes = array_values(array_filter([$paymentCode, $responseCode]));
+        foreach ($codes as $code) {
+            if (!in_array($code, ['000', '121', '124', '157'], true)) {
+                return 'failure';
+            }
+        }
+
+        if (in_array($status, ['failed', 'cancelled'], true)) {
+            return 'failure';
+        }
+
+        if (array_intersect($codes, ['124', '157'])) {
+            return 'pending';
+        }
+
+        if (in_array('121', $codes, true)) {
+            return 'success';
+        }
+
+        if (in_array('000', $codes, true)) {
+            return $status === 'pending' ? 'pending' : 'success';
+        }
+
+        return match ($status) {
+            'completed' => 'success',
+            'pending' => 'pending',
+            default => 'failure',
+        };
+    }
+
     public function validateResponseHash(array $responsePayload): bool
     {
         $incomingHash = $responsePayload['pp_SecureHash'] ?? '';
 
-        // Allow API error responses with empty hashes to pass through for code extraction
-        if (empty($incomingHash) && isset($responsePayload['pp_ResponseCode']) && $responsePayload['pp_ResponseCode'] !== '000') {
-            return true;
-        }
+        // // Allow API error responses with empty hashes to pass through for code extraction
+        // if (empty($incomingHash) && isset($responsePayload['pp_ResponseCode']) && $responsePayload['pp_ResponseCode'] !== '000') {
+        //     return true;
+        // }
 
         if (empty($incomingHash)) {
             return false;
@@ -178,7 +214,7 @@ class JazzCashService
     public function refundTransaction(string $txnRefNo, float $amount): array
     {
         $endpoint = config("jazzcash.endpoints.{$this->env}.refund");
-        
+
         $payload = [
             'pp_MerchantID'   => $this->merchantId,
             'pp_Password'     => $this->password,
@@ -187,11 +223,11 @@ class JazzCashService
             'pp_TxnCurrency'  => 'PKR',
             'pp_MerchantMPIN' => $this->merchantMpin,
             ];
-            
+
             // Generate SHA256 Secure Hash
             $payload['pp_SecureHash'] = $this->generateHash($payload);
             // dd($payload['pp_SecureHash']);
-            
+
             $response = Http::withHeaders([
             'Accept'       => 'application/json',
             'Content-Type' => 'application/json',

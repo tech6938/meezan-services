@@ -11,14 +11,16 @@ use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Color;
 
-class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithMapping, WithColumnFormatting, WithEvents
+class ProvidersExport extends StringValueBinder implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithMapping, WithColumnFormatting, WithEvents, WithCustomValueBinder
 {
     protected $providers;
     protected $startDate;
@@ -58,7 +60,8 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
             $query->where(function ($q) use ($search) {
                 $q->where('full_name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('id_no', 'like', "%{$search}%");
             });
         }
 
@@ -251,6 +254,7 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
             'Partner ID',
             'Partner Name',
             'Phone Number',
+            'ID Card No',
             'Services',
             'Total Orders',
             'Accepted Orders',
@@ -297,6 +301,7 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
             $provider->id,
             $provider->full_name ?? $provider->name ?? 'N/A',
             (string) ($provider->phone ?? 'N/A'),
+            (string) ($provider->id_no ?? 'N/A'),
             $services,
             $totalOrders,
             $acceptedOrders,
@@ -316,8 +321,9 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
     {
         return [
             'D' => NumberFormat::FORMAT_TEXT,  // Phone Number
-            'O' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Total Earnings
-            'P' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Wallet Balance
+            'E' => NumberFormat::FORMAT_TEXT,  // ID number
+            'P' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Total Earnings
+            'Q' => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE, // Wallet Balance
         ];
     }
 
@@ -342,11 +348,11 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         ]);
 
         // Style earnings and wallet columns as PKR currency
-        $sheet->getStyle('O:O')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
         $sheet->getStyle('P:P')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
+        $sheet->getStyle('Q:Q')->getNumberFormat()->setFormatCode('"PKR"#,##0.00');
 
         // Set services column to wrap text
-        $sheet->getStyle('E:E')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('F:F')->getAlignment()->setWrapText(true);
 
         // Center align serial number column
         $sheet->getStyle('A:A')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -354,62 +360,62 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         // Add color coding for numeric columns
         $lastRow = $sheet->getHighestRow();
         for ($row = 2; $row <= $lastRow; $row++) {
-            // Color for Total Orders (Column F)
-            $value = $sheet->getCell('F' . $row)->getValue();
+            // Color for Total Orders (Column G)
+            $value = $sheet->getCell('G' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('F' . $row)->getFont()->getColor()->setRGB('2196F3');
             }
 
-            // Color for Accepted Orders (Column G)
-            $value = $sheet->getCell('G' . $row)->getValue();
+            // Color for Accepted Orders (Column H)
+            $value = $sheet->getCell('H' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('G' . $row)->getFont()->getColor()->setRGB('4CAF50');
             }
 
-            // Color for Pending Orders (Column H)
-            $value = $sheet->getCell('H' . $row)->getValue();
+            // Color for Pending Orders (Column I)
+            $value = $sheet->getCell('I' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('H' . $row)->getFont()->getColor()->setRGB('FFC107');
             }
 
-            // Color for Cancel Orders (Column I)
-            $value = $sheet->getCell('I' . $row)->getValue();
+            // Color for Cancel Orders (Column J)
+            $value = $sheet->getCell('J' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('I' . $row)->getFont()->getColor()->setRGB('F44336');
             }
 
-            // Color for Total Bookings (Column J)
-            $value = $sheet->getCell('J' . $row)->getValue();
+            // Color for Total Bookings (Column K)
+            $value = $sheet->getCell('K' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('J' . $row)->getFont()->getColor()->setRGB('9C27B0');
             }
 
-            // Color for Pending Bookings (Column K)
-            $value = $sheet->getCell('K' . $row)->getValue();
+            // Color for Pending Bookings (Column L)
+            $value = $sheet->getCell('L' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('K' . $row)->getFont()->getColor()->setRGB('FF9800');
             }
 
-            // Color for In Progress Bookings (Column L)
-            $value = $sheet->getCell('L' . $row)->getValue();
+            // Color for In Progress Bookings (Column M)
+            $value = $sheet->getCell('M' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('L' . $row)->getFont()->getColor()->setRGB('2196F3');
             }
 
-            // Color for Completed Bookings (Column M)
-            $value = $sheet->getCell('M' . $row)->getValue();
+            // Color for Completed Bookings (Column N)
+            $value = $sheet->getCell('N' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('M' . $row)->getFont()->getColor()->setRGB('8BC34A');
             }
 
-            // Color for Cancel Bookings (Column N)
-            $value = $sheet->getCell('N' . $row)->getValue();
+            // Color for Cancel Bookings (Column O)
+            $value = $sheet->getCell('O' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('N' . $row)->getFont()->getColor()->setRGB('F44336');
             }
 
-            // Color for Total Earnings (Column O)
-            $value = $sheet->getCell('O' . $row)->getValue();
+            // Color for Total Earnings (Column P)
+            $value = $sheet->getCell('P' . $row)->getValue();
             if ($value > 0) {
                 $sheet->getStyle('O' . $row)->getFont()->getColor()->setRGB('4CAF50');
             }
@@ -425,18 +431,19 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
             'B' => 12,  // Partner ID
             'C' => 25,  // Partner Name
             'D' => 18,  // Phone Number
-            'E' => 40,  // Services
-            'F' => 15,  // Total Orders
-            'G' => 18,  // Accepted Orders
-            'H' => 18,  // Pending Orders
-            'I' => 15,  // Cancel Orders
-            'J' => 15,  // Total Bookings (NEW)
-            'K' => 18,  // Pending Bookings
-            'L' => 20,  // In Progress Bookings
-            'M' => 18,  // Completed Bookings
-            'N' => 18,  // Cancel Bookings
-            'O' => 22,  // Total Earnings
-            'P' => 22,  // Wallet Balance
+            'E' => 18,  // ID Card No
+            'F' => 40,  // Services
+            'G' => 15,  // Total Orders
+            'H' => 18,  // Accepted Orders
+            'I' => 18,  // Pending Orders
+            'J' => 15,  // Cancel Orders
+            'K' => 15,  // Total Bookings (NEW)
+            'L' => 18,  // Pending Bookings
+            'M' => 20,  // In Progress Bookings
+            'N' => 18,  // Completed Bookings
+            'O' => 18,  // Cancel Bookings
+            'P' => 22,  // Total Earnings
+            'Q' => 22,  // Wallet Balance
         ];
     }
 
@@ -445,7 +452,7 @@ class ProvidersExport implements FromCollection, WithHeadings, WithStyles, WithC
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $lastColumn = 'P';
+                $lastColumn = 'Q';
                 $lastRow = $sheet->getHighestRow();
 
                 // Auto-filter

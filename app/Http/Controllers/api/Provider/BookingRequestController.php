@@ -1393,7 +1393,7 @@ class BookingRequestController extends Controller
                 'bookingRequests.provider:id,full_name',
                 'shop:id,shop_name,category,shopkeeper_id',
                 'bookingRequests.shopkeeper:id,name'
-            ])->whereIn('status', ['pending', 'accept', 'cancel'])->orderBy('id', 'desc');
+            ])->whereIn('status', ['pending', 'accept', 'cancel', 'complete'])->orderBy('id', 'desc');
 
             // Provider Filter
             if ($provider) {

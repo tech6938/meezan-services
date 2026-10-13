@@ -31,11 +31,11 @@ class SettingController extends Controller
         // Legal Pages - Partner
         'partner_agreement',
         'privacy_policy_partner',
-        'terms&Conditions_partner',
+        'termsConditions_partner',
 
         // Legal Pages - Customer
         'privacy_policy_customer',
-        'terms&Conditions_customer',
+        'termsConditions_customer',
 
         // Information Pages
         'about_us',
@@ -74,6 +74,7 @@ class SettingController extends Controller
     public function getApiSettings()
     {
         $settings = Setting::first();
+        // dd($settings);
 
         $response = [];
         foreach ($this->settingKeys as $key) {

@@ -464,6 +464,7 @@ class ChatController extends Controller
                 'sender_name' => $sender['name'] ?? null,
                 'sender_image' => $sender['image'] ?? null,
                 'is_unread' => in_array($chat->id, $unreadMessageIds), // WhatsApp style: mark which messages are unread
+                'is_seen' => $chat->is_seen, // WhatsApp style: mark which messages are seen
             ];
         });
 

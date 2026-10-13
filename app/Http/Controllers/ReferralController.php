@@ -211,13 +211,6 @@ class ReferralController extends Controller
     }
 
 
-
-
-
-
-
-
-
     /**
      * Simple landing page for referral links
      */

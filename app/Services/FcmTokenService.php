@@ -19,6 +19,7 @@ class FcmTokenService
 
     public function __construct()
     {
+        // dd(env('FIREBASE_CREDENTIALS'));
         $this->credentialsPath = env('FIREBASE_CREDENTIALS');
 
         if (!$this->credentialsPath || !file_exists($this->credentialsPath)) {

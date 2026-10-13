@@ -38,6 +38,7 @@ class ProviderRegisterController extends Controller
             'profile_image' => 'nullable|image|mimes:jpg,jpeg,png',
             'id_front' => 'required|mimes:jpg,jpeg,png,pdf',
             'id_back' => 'required|mimes:jpg,jpeg,png,pdf',
+            'id_no' => 'required|integer|unique:providers,id_no',
 
             'services' => 'required|array',
             'services.*.service_id' => 'required|integer',
@@ -136,6 +137,7 @@ class ProviderRegisterController extends Controller
                 'id_front' => $idFrontName,
                 'id_back' => $idBackName,
                 'services' => $servicesData,  // store only JSON
+                'id_no' => $request->id_no,
                 'device_id' => $request->device_id ?? null,
                 'password' => Hash::make($request->password),
             ]);
@@ -302,6 +304,7 @@ class ProviderRegisterController extends Controller
                 'id' => $provider->id,
                 'full_name' => $provider->full_name,
                 'phone' => $provider->phone,
+                'id_no' => $provider->id_no,
                 'email' => $provider->email,
                 'address' => $provider->address,
                 'profile_image_url' => $provider->profile_image_url,

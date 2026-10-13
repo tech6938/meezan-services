@@ -236,7 +236,7 @@
                                     The export will include the following columns in order:
                                     <br>
                                     <small class="text-muted">
-                                        Sr. No | Partner ID | Partner Name | Phone Number | Services | Total Orders |
+                                        Sr. No | Partner ID | Partner Name | Phone Number | id_no | Services | Total Orders |
                                         Accepted Orders | Pending Orders | Cancel Orders | Total Bookings |
                                         Pending Bookings | In Progress Bookings | Completed Bookings | Cancel Bookings |
                                         Total Earnings (PKR) | Wallet Balance (PKR)
@@ -251,6 +251,7 @@
                                                 <th>Partner ID</th>
                                                 <th>Partner Name</th>
                                                 <th>Phone Number</th>
+                                                <th>ID Card No</th>
                                                 <th>Services</th>
                                                 <th>Total Orders</th>
                                                 <th>Accepted Orders</th>
@@ -275,6 +276,7 @@
                                                             <strong>{{ $provider['Partner Name'] }}</strong>
                                                         </td>
                                                         <td>{{ $provider['Phone Number'] }}</td>
+                                                        <td>{{ $provider['id_no'] }}</td>
                                                         <td>
                                                             <div class="service-badge-wrapper">
                                                                 @php
@@ -326,7 +328,7 @@
                                                 @endforeach
                                             @else
                                                 <tr>
-                                                    <td colspan="16" class="text-center">
+                                                    <td colspan="17" class="text-center">
                                                         <div class="alert alert-warning mb-0">
                                                             No providers found matching the applied filters.
                                                         </div>
